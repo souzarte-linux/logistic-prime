@@ -3,10 +3,10 @@ package com.fernando.centraldomotorista.ui.screens.home
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Profile
-import com.fernando.centraldomotorista.data.remote.RetrofitClient
-import com.fernando.centraldomotorista.data.remote.api.ProfileApi
-import com.fernando.centraldomotorista.data.remote.dto.toDomain
+import com.fernando.centraldomotorista.data.model.Route
+import com.fernando.centraldomotorista.data.repository.HomeRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,74 +14,142 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.math.BigDecimal
 
-sealed class NeonTestState {
-    object Idle : NeonTestState()
-    object Loading : NeonTestState()
-    data class Success(val profile: Profile?, val rawJsonCount: Int) : NeonTestState()
-    data class Error(val message: String) : NeonTestState()
-}
+data class HomeUiState(
+    val profile: Profile? = null,
+    val lucroHoje: BigDecimal = BigDecimal.ZERO,
+    val metaDiaria: BigDecimal = BigDecimal("200"),
+    val faltamParaMeta: BigDecimal = BigDecimal("200"),
+    val sessaoAtiva: Boolean = false,
+    val alertaManutencao: PartMaintenance? = null,
+    val kmUltrapassado: BigDecimal = BigDecimal.ZERO,
+    val contasAReceber: BigDecimal = BigDecimal.ZERO,
+    val rotasRecentes: List<Route> = emptyList(),
+    val notificacoesNaoLidas: Int = 0,
+    val loading: Boolean = false,
+    val error: String? = null,
+    val actionMessage: String? = null
+)
 
 class HomeViewModel(
-    private val profileApi: ProfileApi = RetrofitClient.profileApi,
+    private val homeRepository: HomeRepository = HomeRepository(),
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
 ) : ViewModel() {
 
-    private val _testState = MutableStateFlow<NeonTestState>(NeonTestState.Idle)
-    val testState: StateFlow<NeonTestState> = _testState.asStateFlow()
+    private val _uiState = MutableStateFlow(HomeUiState(loading = true))
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        testFetchProfile()
+        loadData()
     }
 
-    fun testFetchProfile() {
+    fun refresh() {
+        loadData()
+    }
+
+    fun clearActionMessage() {
+        _uiState.value = _uiState.value.copy(actionMessage = null)
+    }
+
+    private fun loadData() {
         val user = firebaseAuth.currentUser
         if (user == null) {
-            Log.w("NeonDataApi", "Nenhum usuário logado no Firebase para testar o Neon Data API.")
-            _testState.value = NeonTestState.Error("Usuário não autenticado no Firebase.")
+            _uiState.value = _uiState.value.copy(
+                loading = false,
+                error = "Usuário não autenticado."
+            )
             return
         }
 
-        _testState.value = NeonTestState.Loading
+        _uiState.value = _uiState.value.copy(loading = true, error = null)
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                Log.d("NeonDataApi", "=== INICIANDO TESTE DE SANIDADE NO NEON DATA API ===")
-                val dtoList = profileApi.getProfile("eq.${user.uid}")
-                var profile = dtoList.firstOrNull()?.toDomain()
-                if (profile != null) {
-                    Log.d("NeonDataApi", ">>> DADOS DO PERFIL ENCONTRADO: $profile")
-                } else {
-                    Log.d("NeonDataApi", ">>> Perfil não encontrado. Criando perfil inicial no Neon Data API...")
-                    val initialDto = com.fernando.centraldomotorista.data.remote.dto.ProfileDto(
-                        id = user.uid,
-                        email = user.email,
-                        fullName = user.displayName,
-                        avatarUrl = user.photoUrl?.toString(),
-                        dailyGoal = java.math.BigDecimal("200"),
-                        weeklyGoal = java.math.BigDecimal("1000"),
-                        monthlyGoal = java.math.BigDecimal("3450"),
-                        vehicle = "moto",
-                        hasBag = false
-                    )
-                    val createdList = profileApi.createProfile(initialDto)
-                    profile = createdList.firstOrNull()?.toDomain() ?: initialDto.toDomain()
-                    Log.d("NeonDataApi", ">>> PERFIL CRIADO COM SUCESSO NO BANCO NEON: $profile")
-                }
-                Log.d("NeonDataApi", "=== TESTE DE SANIDADE CONCLUÍDO COM SUCESSO ===")
+                Log.d("HomeViewModel", "Carregando dados da tela Início para UID: ${user.uid}")
+                val data = homeRepository.loadHomeData(
+                    userId = user.uid,
+                    email = user.email,
+                    fullName = user.displayName,
+                    avatarUrl = user.photoUrl?.toString()
+                )
 
                 withContext(Dispatchers.Main) {
-                    _testState.value = NeonTestState.Success(profile, if (dtoList.isEmpty()) 1 else dtoList.size)
-                }
-            } catch (e: retrofit2.HttpException) {
-                val errorBody = try { e.response()?.errorBody()?.string() } catch (_: Exception) { null }
-                Log.e("NeonDataApi", "!!! ERRO HTTP ${e.code()}: $errorBody", e)
-                withContext(Dispatchers.Main) {
-                    _testState.value = NeonTestState.Error("HTTP ${e.code()}: ${errorBody ?: e.message()}")
+                    _uiState.value = HomeUiState(
+                        profile = data.profile,
+                        lucroHoje = data.lucroHoje,
+                        metaDiaria = data.metaDiaria,
+                        faltamParaMeta = data.faltamParaMeta,
+                        sessaoAtiva = data.sessaoAtiva,
+                        alertaManutencao = data.alertaManutencao,
+                        kmUltrapassado = data.kmUltrapassado,
+                        contasAReceber = data.contasAReceber,
+                        rotasRecentes = data.rotasRecentes,
+                        notificacoesNaoLidas = data.notificacoesNaoLidas,
+                        loading = false,
+                        error = null
+                    )
                 }
             } catch (e: Exception) {
-                Log.e("NeonDataApi", "!!! ERRO AO CONSULTAR NEON DATA API: ${e.message}", e)
+                Log.e("HomeViewModel", "Erro ao carregar dados: ${e.message}", e)
                 withContext(Dispatchers.Main) {
-                    _testState.value = NeonTestState.Error("Erro: ${e.localizedMessage ?: e.message}")
+                    _uiState.value = _uiState.value.copy(
+                        loading = false,
+                        error = "Erro ao carregar dados: ${e.localizedMessage ?: e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun createQuickExpense(
+        category: String,
+        amount: BigDecimal,
+        onSuccess: () -> Unit
+    ) {
+        val user = firebaseAuth.currentUser ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _uiState.value = _uiState.value.copy(loading = true)
+                val expense = homeRepository.createQuickExpense(
+                    userId = user.uid,
+                    category = category,
+                    amount = amount
+                )
+                Log.d("HomeViewModel", "Despesa rápida criada com sucesso: $expense")
+                
+                // Recarregar dados após inclusão
+                val updatedData = homeRepository.loadHomeData(
+                    userId = user.uid,
+                    email = user.email,
+                    fullName = user.displayName,
+                    avatarUrl = user.photoUrl?.toString()
+                )
+
+                withContext(Dispatchers.Main) {
+                    _uiState.value = HomeUiState(
+                        profile = updatedData.profile,
+                        lucroHoje = updatedData.lucroHoje,
+                        metaDiaria = updatedData.metaDiaria,
+                        faltamParaMeta = updatedData.faltamParaMeta,
+                        sessaoAtiva = updatedData.sessaoAtiva,
+                        alertaManutencao = updatedData.alertaManutencao,
+                        kmUltrapassado = updatedData.kmUltrapassado,
+                        contasAReceber = updatedData.contasAReceber,
+                        rotasRecentes = updatedData.rotasRecentes,
+                        notificacoesNaoLidas = updatedData.notificacoesNaoLidas,
+                        loading = false,
+                        actionMessage = "Despesa de R$ $amount registrada!"
+                    )
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Erro ao lançar despesa: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(
+                        loading = false,
+                        error = "Erro ao salvar despesa: ${e.localizedMessage ?: e.message}"
+                    )
                 }
             }
         }

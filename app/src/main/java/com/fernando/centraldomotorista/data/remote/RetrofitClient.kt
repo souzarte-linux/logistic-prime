@@ -1,7 +1,6 @@
 package com.fernando.centraldomotorista.data.remote
 
-import com.fernando.centraldomotorista.data.remote.api.ProfileApi
-import com.fernando.centraldomotorista.data.remote.api.RouteApi
+import com.fernando.centraldomotorista.data.remote.api.*
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -33,11 +32,11 @@ object RetrofitClient {
             .build()
     }
 
-    val profileApi: ProfileApi by lazy {
-        retrofit.create(ProfileApi::class.java)
-    }
-
-    val routeApi: RouteApi by lazy {
-        retrofit.create(RouteApi::class.java)
-    }
+    val profileApi: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
+    val routeApi: RouteApi by lazy { retrofit.create(RouteApi::class.java) }
+    val expenseApi: ExpenseApi by lazy { retrofit.create(ExpenseApi::class.java) }
+    val dailyTotalApi: DailyTotalApi by lazy { retrofit.create(DailyTotalApi::class.java) }
+    val partMaintenanceApi: PartMaintenanceApi by lazy { retrofit.create(PartMaintenanceApi::class.java) }
+    val billingCycleApi: BillingCycleApi by lazy { retrofit.create(BillingCycleApi::class.java) }
+    val notificationApi: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
 }

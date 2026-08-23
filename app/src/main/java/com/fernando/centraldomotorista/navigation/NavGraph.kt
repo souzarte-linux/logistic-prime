@@ -2,11 +2,9 @@ package com.fernando.centraldomotorista.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,7 +16,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -27,13 +24,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.fernando.centraldomotorista.auth.AuthViewModel
 import com.fernando.centraldomotorista.auth.GoogleAuthClient
+import com.fernando.centraldomotorista.ui.screens.home.HomeScreen
 import com.fernando.centraldomotorista.ui.screens.home.HomeViewModel
-import com.fernando.centraldomotorista.ui.screens.home.NeonTestState
 import com.fernando.centraldomotorista.ui.screens.login.LoginScreen
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
-import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
-import com.fernando.centraldomotorista.ui.theme.RedAlert
 import com.fernando.centraldomotorista.ui.theme.SurfaceDark
 import com.google.firebase.auth.FirebaseAuth
 
@@ -44,6 +39,10 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Relatorios : Screen("relatorios", "Relatórios", Icons.Default.Assessment)
     object Apps : Screen("apps", "Apps", Icons.Default.Apps)
     object Historico : Screen("historico", "Histórico", Icons.Default.History)
+    
+    // Placeholder actions
+    object LancarRota : Screen("lancar_rota", "Lançar Rota", Icons.Default.Navigation)
+    object LancarTotalDia : Screen("lancar_total_dia", "Total do Dia", Icons.Default.CalendarToday)
 }
 
 val bottomNavItems = listOf(
@@ -54,7 +53,6 @@ val bottomNavItems = listOf(
     Screen.Historico,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CentralDoMotoristaApp(
     authViewModel: AuthViewModel = viewModel()
@@ -62,6 +60,8 @@ fun CentralDoMotoristaApp(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val context = LocalContext.current
+    val googleAuthClient = remember { GoogleAuthClient(context) }
 
     val isUserLoggedIn = FirebaseAuth.getInstance().currentUser != null
 
@@ -69,7 +69,10 @@ fun CentralDoMotoristaApp(
         if (isUserLoggedIn) Screen.Inicio.route else Screen.Login.route
     }
 
-    val showBottomBar = currentRoute != null && currentRoute != Screen.Login.route
+    val showBottomBar = currentRoute != null &&
+            currentRoute != Screen.Login.route &&
+            currentRoute != Screen.LancarRota.route &&
+            currentRoute != Screen.LancarTotalDia.route
 
     Scaffold(
         bottomBar = {
@@ -136,14 +139,40 @@ fun CentralDoMotoristaApp(
             }
 
             composable(Screen.Inicio.route) {
-                HomeScreenContent(
-                    authViewModel = authViewModel,
+                val homeViewModel: HomeViewModel = viewModel()
+                HomeScreen(
+                    viewModel = homeViewModel,
+                    onNavigateToCreateRoute = {
+                        navController.navigate(Screen.LancarRota.route)
+                    },
+                    onNavigateToCreateDailyTotal = {
+                        navController.navigate(Screen.LancarTotalDia.route)
+                    },
+                    onNavigateToReports = {
+                        navController.navigate(Screen.Relatorios.route)
+                    },
                     onSignOut = {
-                        authViewModel.signOut()
+                        authViewModel.signOut(googleAuthClient)
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                )
+            }
+
+            composable(Screen.LancarRota.route) {
+                PlaceholderActionScreen(
+                    title = "Lançar Ganhos por Rota",
+                    description = "Formulário detalhado de corrida com cálculo automático de km e comissões.",
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.LancarTotalDia.route) {
+                PlaceholderActionScreen(
+                    title = "Lançar Total do Dia",
+                    description = "Registro consolidado de faturamento diário por aplicativo parceiro.",
+                    onBack = { navController.popBackStack() }
                 )
             }
 
@@ -168,196 +197,66 @@ fun CentralDoMotoristaApp(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreenContent(
-    authViewModel: AuthViewModel,
-    homeViewModel: HomeViewModel = viewModel(),
-    onSignOut: () -> Unit
+fun PlaceholderActionScreen(
+    title: String,
+    description: String,
+    onBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    val googleAuthClient = remember { GoogleAuthClient(context) }
-    val user = FirebaseAuth.getInstance().currentUser
-    val testState by homeViewModel.testState.collectAsStateWithLifecycle()
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Central do Motorista",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                },
-                actions = {
-                    IconButton(onClick = {
-                        authViewModel.signOut(googleAuthClient)
-                        onSignOut()
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Sair",
-                            tint = OrangeNeon
-                        )
+                title = { Text(title, fontWeight = FontWeight.Bold, color = Color.White) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
             )
         },
         containerColor = BackgroundDark
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Card Usuário Autenticado
             Card(
-                modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "👤 Usuário Autenticado",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = OrangeNeon
-                    )
-                    Text(
-                        text = "Nome: " + (user?.displayName ?: "Motorista"),
-                        color = Color.White,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = "Email: " + (user?.email ?: "Não informado"),
-                        color = Color.LightGray,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = "UID: " + (user?.uid ?: "-"),
-                        color = Color.Gray,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-
-            // Card Neon Data API - Teste de Sanidade
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = SurfaceDark
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "⚡ Neon Data API (PostgREST)",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = GreenNeon
-                        )
-                    }
-
-                    when (val state = testState) {
-                        is NeonTestState.Loading -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = OrangeNeon,
-                                    strokeWidth = 2.dp
-                                )
-                                Text(
-                                    text = "Consultando /profiles no Neon...",
-                                    color = Color.LightGray,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-                        is NeonTestState.Success -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = "✅ Conexão e Autenticação OK!",
-                                    color = GreenNeon,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
-                                if (state.profile != null) {
-                                    Text(
-                                        text = "Perfil retornado: " + (state.profile.fullName ?: state.profile.email ?: state.profile.id),
-                                        color = Color.White,
-                                        fontSize = 14.sp
-                                    )
-                                    Text(
-                                        text = "Meta Diária: R$ " + state.profile.dailyGoal + " | Meta Semanal: R$ " + state.profile.weeklyGoal,
-                                        color = Color.LightGray,
-                                        fontSize = 13.sp
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Nenhum profile retornado na busca (eq." + (user?.uid ?: "") + "). Registros retornados: " + state.rawJsonCount,
-                                        color = Color.Yellow,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                            }
-                        }
-                        is NeonTestState.Error -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = "❌ Erro na Chamada da API",
-                                    color = RedAlert,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Text(
-                                    text = state.message,
-                                    color = Color.LightGray,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                        NeonTestState.Idle -> {
-                            Text(
-                                text = "Pronto para testar.",
-                                color = Color.Gray,
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
-
+                    Icon(
+                        imageVector = Icons.Default.Construction,
+                        contentDescription = null,
+                        tint = OrangeNeon,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Text(
+                        text = "Em breve!",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.LightGray
+                    )
                     Button(
-                        onClick = { homeViewModel.testFetchProfile() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = OrangeNeon,
-                            contentColor = Color.Black
-                        ),
+                        onClick = onBack,
+                        colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Testar Consulta Novamente (Logcat)",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Voltar para o Início", fontWeight = FontWeight.Bold)
                     }
                 }
             }
