@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services)
 }
@@ -36,29 +37,31 @@ android {
     }
 }
 
-// =========================================================================================
-// ATENÇÃO / FIREBASE CONFIGURATION:
-// O arquivo 'google-services.json' (baixado diretamente do Firebase Console) DEVE SER COLOCADO
-// na raiz deste módulo: 'app/google-services.json' (ex: D:\Dev\logistic-prime\logistic-prime\app\google-services.json)
-// =========================================================================================
+kotlin {
+    jvmToolchain(17)
+}
 
 dependencies {
-    // Jetpack Compose BOM + Material 3
+    // Jetpack Compose BOM + Material 3 + Extended Icons
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.core.ktx)
     
     // Navigation Compose
     implementation(libs.androidx.navigation.compose)
 
-    // Firebase Authentication & Google Sign-In
+    // Firebase Authentication & Google Sign-In (Credential Manager API)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.play.services.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.googleid)
 
     // Cliente HTTP (Retrofit + Converter Gson + OkHttp Logging)
     implementation(libs.retrofit)
@@ -67,6 +70,7 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     // ViewModel & Lifecycle Runtime Compose
     implementation(libs.androidx.lifecycle.runtime.ktx)

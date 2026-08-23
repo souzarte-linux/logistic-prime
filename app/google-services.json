@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789012",
-    "project_id": "central-do-motorista",
-    "storage_bucket": "central-do-motorista.appspot.com"
+    "project_number": "578056018121",
+    "project_id": "central-do-motorista-plus",
+    "storage_bucket": "central-do-motorista-plus.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:abcdef1234567890",
+        "mobilesdk_app_id": "1:578056018121:android:6524dd6f0c63ab1e075518",
         "android_client_info": {
           "package_name": "com.fernando.centraldomotorista"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyPlaceholderKeyForBuildVerificationOnly"
+          "current_key": "AIzaSyCE-qGvT22XAtrc6Gi61KcaZBCWQQVAplw"
         }
       ],
       "services": {
