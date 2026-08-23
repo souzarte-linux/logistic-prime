@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "578056018121-u818gtq17gg0ljl27d3eolp7rhqpi60d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fernando.centraldomotorista",
+            "certificate_hash": "46abbf53bf1c13c611c16fc0039278fe538aa0d7"
+          }
+        },
+        {
           "client_id": "578056018121-1rumesf467p899cr29du1d1sblhhe04n.apps.googleusercontent.com",
           "client_type": 3
         }
