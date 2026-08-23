@@ -12,7 +12,12 @@
           "package_name": "com.fernando.centraldomotorista"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "578056018121-1rumesf467p899cr29du1d1sblhhe04n.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCE-qGvT22XAtrc6Gi61KcaZBCWQQVAplw"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "578056018121-1rumesf467p899cr29du1d1sblhhe04n.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

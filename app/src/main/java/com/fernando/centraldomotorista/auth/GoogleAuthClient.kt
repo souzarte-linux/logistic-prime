@@ -30,7 +30,7 @@ class GoogleAuthClient(
          * IMPORTANTE: Copie este valor no Firebase Console:
          * Authentication > Sign-in method > Google > Web SDK configuration > Web client ID
          */
-        const val WEB_CLIENT_ID = "SEU_WEB_CLIENT_ID_AQUI.apps.googleusercontent.com"
+        const val WEB_CLIENT_ID = "578056018121-1rumesf467p899cr29du1d1sblhhe04n.apps.googleusercontent.com"
     }
 
     suspend fun signIn(): SignInResult {
