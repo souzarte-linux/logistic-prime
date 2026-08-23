@@ -52,6 +52,10 @@ data class ExpenseDto(
     val installmentTotal: Int? = null,
     @SerializedName("card_due_day")
     val cardDueDay: Int? = null,
+    @SerializedName("gas_station_id")
+    val gasStationId: String? = null,
+    @SerializedName("card_id")
+    val cardId: String? = null,
     @SerializedName("occurred_at")
     val occurredAt: String? = null,
     @SerializedName("created_at")
@@ -74,14 +78,22 @@ fun ExpenseDto.toDomain(): Expense {
         fuelType = fuelType,
         pricePerLiter = pricePerLiter,
         odometerKm = odometerKm,
+        description = description,
         paymentMethod = paymentMethod ?: "pix",
         isFullTank = isFullTank,
+        receiptNumber = receiptNumber,
+        invoiceNumber = invoiceNumber,
         occurredAt = parsedOccurredAt,
         partBrand = partBrand,
         partModel = partModel,
+        cardBrand = cardBrand,
+        cardOperator = cardOperator,
         installmentGroupId = installmentGroupId,
         installmentNumber = installmentNumber,
-        installmentTotal = installmentTotal
+        installmentTotal = installmentTotal,
+        cardDueDay = cardDueDay,
+        gasStationId = gasStationId,
+        cardId = cardId
     )
 }
 
@@ -97,13 +109,21 @@ fun Expense.toDto(): ExpenseDto {
         fuelType = fuelType,
         pricePerLiter = pricePerLiter,
         odometerKm = odometerKm,
+        description = description,
         paymentMethod = paymentMethod,
         isFullTank = isFullTank,
+        receiptNumber = receiptNumber,
+        invoiceNumber = invoiceNumber,
         partBrand = partBrand,
         partModel = partModel,
+        cardBrand = cardBrand,
+        cardOperator = cardOperator,
         installmentGroupId = installmentGroupId,
         installmentNumber = installmentNumber,
         installmentTotal = installmentTotal,
+        cardDueDay = cardDueDay,
+        gasStationId = gasStationId,
+        cardId = cardId,
         occurredAt = occurredAt.toString()
     )
 }

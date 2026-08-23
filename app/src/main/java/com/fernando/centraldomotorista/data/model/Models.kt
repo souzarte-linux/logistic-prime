@@ -83,20 +83,28 @@ data class Expense(
     val userId: String,
     val category: String,   // "combustivel" | "manutencao" | "alimentacao" | ...
     val title: String,
-    val vendor: String?,
+    val vendor: String? = null,
     val amount: BigDecimal,
-    val liters: BigDecimal?,
-    val fuelType: String?,
-    val pricePerLiter: BigDecimal?,
-    val odometerKm: BigDecimal?,
+    val liters: BigDecimal? = null,
+    val fuelType: String? = null,
+    val pricePerLiter: BigDecimal? = null,
+    val odometerKm: BigDecimal? = null,
+    val description: String? = null,
     val paymentMethod: String = "pix",
     val isFullTank: Boolean = true,
+    val receiptNumber: String? = null,
+    val invoiceNumber: String? = null,
     val occurredAt: OffsetDateTime,
-    val partBrand: String?,
-    val partModel: String?,
-    val installmentGroupId: String?,
-    val installmentNumber: Int?,
-    val installmentTotal: Int?,
+    val partBrand: String? = null,
+    val partModel: String? = null,
+    val cardBrand: String? = null,
+    val cardOperator: String? = null,
+    val installmentGroupId: String? = null,
+    val installmentNumber: Int? = null,
+    val installmentTotal: Int? = null,
+    val cardDueDay: Int? = null,
+    val gasStationId: String? = null,
+    val cardId: String? = null,
 )
 
 data class OilChange(
@@ -155,14 +163,43 @@ data class GasStation(
     val id: String,
     val userId: String,
     val name: String,
-    val address: String?,
+    val nickname: String? = null,
     val brand: String,
+    val address: String? = null,
+    val cep: String? = null,
+    val street: String? = null,
+    val number: String? = null,
+    val neighborhood: String? = null,
+    val city: String? = null,
+    val state: String? = null,
+    val latitude: BigDecimal? = null,
+    val longitude: BigDecimal? = null,
     val fuelTypes: List<String> = emptyList(),
+)
+
+data class CardBrand(
+    val id: String,
+    val userId: String,
+    val name: String,
 )
 
 data class CardOperator(
     val id: String,
     val userId: String,
     val name: String,
-    val cardDueDay: Int?,
+)
+
+data class CreditCard(
+    val id: String,
+    val userId: String,
+    val holderName: String,
+    val nickname: String,
+    val firstFour: String? = null,
+    val lastFour: String,
+    val brandId: String? = null,
+    val issuerId: String? = null,
+    val dueDay: Int,
+    val closingDay: Int,
+    val cardType: String = "credito", // "credito" | "debito" | "multiplo" | "voucher"
+    val active: Boolean = true,
 )

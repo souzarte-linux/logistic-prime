@@ -40,9 +40,12 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Apps : Screen("apps", "Apps", Icons.Default.Apps)
     object Historico : Screen("historico", "Histórico", Icons.Default.History)
     
-    // Placeholder actions
+    // Actions & Forms
     object LancarRota : Screen("lancar_rota", "Lançar Rota", Icons.Default.Navigation)
     object LancarTotalDia : Screen("lancar_total_dia", "Total do Dia", Icons.Default.CalendarToday)
+    object FuelExpense : Screen("fuel_expense", "Novo Abastecimento", Icons.Default.LocalGasStation)
+    object GasStations : Screen("gas_stations", "Postos de Gasolina", Icons.Default.EvStation)
+    object CreditCards : Screen("credit_cards", "Cartões de Crédito", Icons.Default.CreditCard)
 }
 
 val bottomNavItems = listOf(
@@ -72,7 +75,10 @@ fun CentralDoMotoristaApp(
     val showBottomBar = currentRoute != null &&
             currentRoute != Screen.Login.route &&
             currentRoute != Screen.LancarRota.route &&
-            currentRoute != Screen.LancarTotalDia.route
+            currentRoute != Screen.LancarTotalDia.route &&
+            currentRoute != Screen.FuelExpense.route &&
+            currentRoute != Screen.GasStations.route &&
+            currentRoute != Screen.CreditCards.route
 
     Scaffold(
         bottomBar = {
@@ -151,12 +157,47 @@ fun CentralDoMotoristaApp(
                     onNavigateToReports = {
                         navController.navigate(Screen.Relatorios.route)
                     },
+                    onNavigateToFuelExpense = {
+                        navController.navigate(Screen.FuelExpense.route)
+                    },
+                    onNavigateToGasStations = {
+                        navController.navigate(Screen.GasStations.route)
+                    },
+                    onNavigateToCreditCards = {
+                        navController.navigate(Screen.CreditCards.route)
+                    },
                     onSignOut = {
                         authViewModel.signOut(googleAuthClient)
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                )
+            }
+
+            composable(Screen.FuelExpense.route) {
+                val fuelViewModel: com.fernando.centraldomotorista.ui.screens.expenses.FuelExpenseViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.expenses.FuelExpenseScreen(
+                    viewModel = fuelViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToGasStations = { navController.navigate(Screen.GasStations.route) },
+                    onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) }
+                )
+            }
+
+            composable(Screen.GasStations.route) {
+                val gasStationViewModel: com.fernando.centraldomotorista.ui.screens.gasstations.GasStationViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.gasstations.GasStationScreen(
+                    viewModel = gasStationViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.CreditCards.route) {
+                val creditCardsViewModel: com.fernando.centraldomotorista.ui.screens.cards.CreditCardsViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.cards.CreditCardsScreen(
+                    viewModel = creditCardsViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

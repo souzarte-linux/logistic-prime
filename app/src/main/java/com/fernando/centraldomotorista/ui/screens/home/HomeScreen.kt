@@ -35,6 +35,7 @@ import java.math.BigDecimal
 import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 fun BigDecimal.formatCurrency(): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
@@ -48,10 +49,15 @@ fun HomeScreen(
     onNavigateToCreateRoute: () -> Unit,
     onNavigateToCreateDailyTotal: () -> Unit,
     onNavigateToReports: () -> Unit,
+    onNavigateToFuelExpense: () -> Unit,
+    onNavigateToGasStations: () -> Unit,
+    onNavigateToCreditCards: () -> Unit,
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val coroutineScope = rememberCoroutineScope()
 
     var selectedQuickExpenseCategory by remember { mutableStateOf<String?>(null) }
     var showExpenseBottomSheet by remember { mutableStateOf(false) }
@@ -63,93 +69,201 @@ fun HomeScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = SurfaceDark,
+                drawerContentColor = Color.White
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceDarkAlt)
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DirectionsCar,
+                        contentDescription = null,
+                        tint = OrangeNeon,
+                        modifier = Modifier.size(36.dp)
+                    )
                     Text(
-                        text = "CENTRAL DO MOTORISTA",
+                        text = uiState.profile?.fullName ?: "Central do Motorista",
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
-                        letterSpacing = 1.sp,
                         color = Color.White
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        Toast.makeText(context, "Menu em desenvolvimento", Toast.LENGTH_SHORT).show()
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu",
-                            tint = Color.White
-                        )
+                    Text(
+                        text = uiState.profile?.email ?: "Logística & Entregas",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Home, contentDescription = null, tint = OrangeNeon) },
+                    label = { Text("Início", fontWeight = FontWeight.Bold, color = Color.White) },
+                    selected = true,
+                    onClick = {
+                        kotlinx.coroutines.runBlocking { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = OrangeNeon.copy(alpha = 0.15f))
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp), color = Color.DarkGray)
+
+                Text(
+                    text = "CADASTRO",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = OrangeNeon) },
+                    label = { Text("Postos de Gasolina", color = Color.White) },
+                    selected = false,
+                    onClick = {
+                        coroutineScope.launch {
+                            drawerState.close()
+                            onNavigateToGasStations()
+                        }
                     }
-                },
-                actions = {
-                    // Sino com badge de notificações não lidas
-                    Box(modifier = Modifier.padding(end = 4.dp)) {
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.CreditCard, contentDescription = null, tint = OrangeNeon) },
+                    label = { Text("Cartões de Crédito", color = Color.White) },
+                    selected = false,
+                    onClick = {
+                        coroutineScope.launch {
+                            drawerState.close()
+                            onNavigateToCreditCards()
+                        }
+                    }
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp), color = Color.DarkGray)
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Assessment, contentDescription = null, tint = Color.LightGray) },
+                    label = { Text("Relatórios & Extrato", color = Color.White) },
+                    selected = false,
+                    onClick = {
+                        coroutineScope.launch {
+                            drawerState.close()
+                            onNavigateToReports()
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = RedAlert) },
+                    label = { Text("Sair da Conta", color = RedAlert, fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        coroutineScope.launch {
+                            drawerState.close()
+                            onSignOut()
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "CENTRAL DO MOTORISTA",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp,
+                            letterSpacing = 1.sp,
+                            color = Color.White
+                        )
+                    },
+                    navigationIcon = {
                         IconButton(onClick = {
-                            Toast.makeText(
-                                context,
-                                "Você tem ${uiState.notificacoesNaoLidas} notificações não lidas",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            coroutineScope.launch { drawerState.open() }
                         }) {
                             Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notificações",
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu",
                                 tint = Color.White
                             )
                         }
-                        if (uiState.notificacoesNaoLidas > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(top = 8.dp, end = 8.dp)
-                                    .size(16.dp)
-                                    .background(RedAlert, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = uiState.notificacoesNaoLidas.toString(),
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
+                    },
+                    actions = {
+                        // Sino com badge de notificações não lidas
+                        Box(modifier = Modifier.padding(end = 4.dp)) {
+                            IconButton(onClick = {
+                                Toast.makeText(
+                                    context,
+                                    "Você tem ${uiState.notificacoesNaoLidas} notificações não lidas",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = "Notificações",
+                                    tint = Color.White
                                 )
                             }
+                            if (uiState.notificacoesNaoLidas > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(top = 8.dp, end = 8.dp)
+                                        .size(16.dp)
+                                        .background(RedAlert, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = uiState.notificacoesNaoLidas.toString(),
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
-                    }
 
-                    // Botão Sair
-                    IconButton(onClick = onSignOut) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Sair",
-                            tint = OrangeNeon
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                        // Botão Sair
+                        IconButton(onClick = onSignOut) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = "Sair",
+                                tint = OrangeNeon
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = SurfaceDark
+                    )
                 )
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    selectedQuickExpenseCategory = "combustivel"
-                    showExpenseBottomSheet = true
-                },
-                containerColor = OrangeNeon,
-                contentColor = Color.Black,
-                shape = CircleShape
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Lançar Despesa Rápida")
-            }
-        },
-        containerColor = BackgroundDark
-    ) { innerPadding ->
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { onNavigateToFuelExpense() },
+                    containerColor = OrangeNeon,
+                    contentColor = Color.Black,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Default.LocalGasStation, contentDescription = "Novo Abastecimento")
+                }
+            },
+            containerColor = BackgroundDark
+        ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -488,8 +602,7 @@ fun HomeScreen(
                             icon = Icons.Default.LocalGasStation,
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                selectedQuickExpenseCategory = "combustivel"
-                                showExpenseBottomSheet = true
+                                onNavigateToFuelExpense()
                             }
                         )
                         QuickExpenseButton(
@@ -583,6 +696,7 @@ fun HomeScreen(
             }
         }
     }
+}
 
     // Modal Bottom Sheet de Despesa Rápida
     if (showExpenseBottomSheet && selectedQuickExpenseCategory != null) {
