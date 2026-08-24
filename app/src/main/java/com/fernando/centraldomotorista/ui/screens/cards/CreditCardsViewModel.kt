@@ -21,8 +21,9 @@ data class CreditCardsUiState(
     val isSaving: Boolean = false,
     val message: String? = null,
     val error: String? = null,
-    // Add Dialog
+    // Add / Edit Dialog
     val isAddDialogOpen: Boolean = false,
+    val editingCardId: String? = null,
     val holderName: String = "",
     val nickname: String = "",
     val firstFour: String = "",
@@ -69,6 +70,7 @@ class CreditCardsViewModel(
         _uiState.update {
             it.copy(
                 isAddDialogOpen = true,
+                editingCardId = null,
                 holderName = "",
                 nickname = "",
                 firstFour = "",
@@ -82,7 +84,25 @@ class CreditCardsViewModel(
         }
     }
 
-    fun closeAddDialog() = _uiState.update { it.copy(isAddDialogOpen = false) }
+    fun openEditDialog(card: CreditCard) {
+        _uiState.update {
+            it.copy(
+                isAddDialogOpen = true,
+                editingCardId = card.id,
+                holderName = card.holderName,
+                nickname = card.nickname,
+                firstFour = card.firstFour ?: "",
+                lastFour = card.lastFour,
+                selectedBrandId = card.brandId,
+                selectedIssuerId = card.issuerId,
+                dueDay = card.dueDay.toString(),
+                closingDay = card.closingDay.toString(),
+                cardType = card.cardType
+            )
+        }
+    }
+
+    fun closeAddDialog() = _uiState.update { it.copy(isAddDialogOpen = false, editingCardId = null) }
 
     fun onHolderNameChanged(v: String) = _uiState.update { it.copy(holderName = v) }
     fun onNicknameChanged(v: String) = _uiState.update { it.copy(nickname = v) }
@@ -106,8 +126,9 @@ class CreditCardsViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
+            val isEditing = state.editingCardId != null
             val card = CreditCard(
-                id = "",
+                id = state.editingCardId ?: "",
                 userId = currentUserId,
                 holderName = state.holderName.trim(),
                 nickname = state.nickname.trim(),
@@ -118,15 +139,22 @@ class CreditCardsViewModel(
                 dueDay = due.coerceIn(1, 31),
                 closingDay = closing.coerceIn(1, 31),
                 cardType = state.cardType,
-                active = true
+                active = state.cards.firstOrNull { it.id == state.editingCardId }?.active ?: true
             )
 
             try {
                 repository.saveCreditCard(card)
-                _uiState.update { it.copy(isSaving = false, isAddDialogOpen = false, message = "Cartão cadastrado com sucesso!") }
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        isAddDialogOpen = false,
+                        editingCardId = null,
+                        message = if (isEditing) "Cartão atualizado com sucesso!" else "Cartão cadastrado com sucesso!"
+                    )
+                }
                 loadData()
             } catch (e: Exception) {
-                _uiState.update { it.copy(isSaving = false, error = "Erro ao cadastrar cartão: ${e.message}") }
+                _uiState.update { it.copy(isSaving = false, error = "Erro ao salvar cartão: ${e.message}") }
             }
         }
     }

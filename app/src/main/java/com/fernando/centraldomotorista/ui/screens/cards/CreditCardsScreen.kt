@@ -2,6 +2,7 @@ package com.fernando.centraldomotorista.ui.screens.cards
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -172,6 +173,7 @@ fun CreditCardsScreen(
                         card = card,
                         brandName = brand,
                         operatorName = operator,
+                        onEdit = { viewModel.openEditDialog(card) },
                         onToggleActive = { active -> viewModel.toggleCardActive(card, active) },
                         onDelete = { viewModel.deleteCard(card.id) }
                     )
@@ -195,13 +197,16 @@ fun CreditCardItem(
     card: CreditCard,
     brandName: String,
     operatorName: String,
+    onEdit: () -> Unit,
     onToggleActive: (Boolean) -> Unit,
     onDelete: () -> Unit
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEdit() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = if (card.active) SurfaceDark else SurfaceDark.copy(alpha = 0.5f)),
         border = if (card.active) androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.3f)) else null
@@ -226,12 +231,21 @@ fun CreditCardItem(
                         modifier = Modifier.size(28.dp)
                     )
                     Column {
-                        Text(
-                            text = card.nickname,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = if (card.active) Color.White else Color.Gray
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = card.nickname,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = if (card.active) Color.White else Color.Gray
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Editar",
+                                tint = OrangeNeon.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                         Text(
                             text = "$brandName • $operatorName",
                             fontSize = 12.sp,
@@ -364,7 +378,13 @@ fun AddCreditCardDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Novo Cartão", color = Color.White, fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                text = if (uiState.editingCardId != null) "Editar Cartão de Crédito" else "Novo Cartão de Crédito",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
@@ -639,7 +659,10 @@ fun AddCreditCardDialog(
                 if (uiState.isSaving) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black)
                 } else {
-                    Text("Salvar Cartão", fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (uiState.editingCardId != null) "Salvar Alterações" else "Salvar Cartão",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         },
