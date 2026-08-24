@@ -23,6 +23,7 @@ import com.fernando.centraldomotorista.data.model.CardOperator
 import com.fernando.centraldomotorista.data.model.CreditCard
 import com.fernando.centraldomotorista.ui.theme.*
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -44,6 +45,7 @@ fun CardPaymentModal(
     availableBrands: List<CardBrand>,
     availableOperators: List<CardOperator>,
     initialData: CardPaymentData?,
+    purchaseDate: LocalDateTime = LocalDateTime.now(),
     onAddBrand: (String) -> Unit,
     onAddOperator: (String) -> Unit,
     onNavigateToManageCards: () -> Unit,
@@ -80,21 +82,21 @@ fun CardPaymentModal(
         mutableStateOf(initialData?.installmentTotal?.toString() ?: "2")
     }
 
-    val currentMonthYear = remember {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("MM/yyyy"))
-    }
-    var firstInstallmentMonthText by remember {
-        mutableStateOf(initialData?.firstInstallmentMonth ?: currentMonthYear)
+    // Cálculo automático da 1ª Parcela com base na data da compra e dia de fechamento do cartão
+    val computedFirstInstallmentMonth = remember(selectedCard, purchaseDate) {
+        if (selectedCard != null) {
+            val purchaseDay = purchaseDate.dayOfMonth
+            val closingDay = selectedCard.closingDay
+            val targetMonth = if (purchaseDay < closingDay) purchaseDate else purchaseDate.plusMonths(1)
+            targetMonth.format(DateTimeFormatter.ofPattern("MM/yyyy"))
+        } else {
+            purchaseDate.format(DateTimeFormatter.ofPattern("MM/yyyy"))
+        }
     }
 
-    var dueDayText by remember {
-        mutableStateOf(initialData?.cardDueDay?.toString() ?: selectedCard?.dueDay?.toString() ?: "10")
-    }
-
-    // Update due day when selected card changes
+    // Update due day and brand/issuer when selected card changes
     LaunchedEffect(selectedCardId) {
         selectedCard?.let { card ->
-            dueDayText = card.dueDay.toString()
             if (card.brandId != null) selectedBrandId = card.brandId
             if (card.issuerId != null) selectedIssuerId = card.issuerId
         }
@@ -300,7 +302,7 @@ fun CardPaymentModal(
                                     text = {
                                         Column {
                                             Text("${card.nickname} •••• ${card.lastFour}", color = Color.White, fontWeight = FontWeight.Bold)
-                                            Text("Vencimento: Dia ${card.dueDay}", color = Color.Gray, fontSize = 11.sp)
+                                            Text("Fechamento: Dia ${card.closingDay} • Vencimento: Dia ${card.dueDay}", color = Color.Gray, fontSize = 11.sp)
                                         }
                                     },
                                     onClick = {
@@ -346,7 +348,7 @@ fun CardPaymentModal(
                 }
             }
 
-            // 5. Se "A Prazo": Parcelas e 1ª Parcela
+            // 5. Se "A Prazo": Parcelas (editável) e 1ª Parcela (somente leitura / calculado)
             if (isInstallment) {
                 item {
                     Row(
@@ -370,36 +372,44 @@ fun CardPaymentModal(
                         )
 
                         OutlinedTextField(
-                            value = firstInstallmentMonthText,
-                            onValueChange = { firstInstallmentMonthText = it.take(7) },
+                            value = computedFirstInstallmentMonth,
+                            onValueChange = {},
+                            readOnly = true,
                             label = { Text("1ª Parcela (Mês/Ano)") },
-                            placeholder = { Text("MM/AAAA") },
                             singleLine = true,
+                            supportingText = {
+                                val closing = selectedCard?.closingDay
+                                Text(
+                                    text = if (closing != null) "Fechamento: Dia $closing" else "Automático",
+                                    color = Color.Gray,
+                                    fontSize = 10.sp
+                                )
+                            },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
+                                focusedTextColor = GreenNeon,
+                                unfocusedTextColor = GreenNeon,
                                 unfocusedBorderColor = Color.DarkGray
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1.2f)
                         )
                     }
                 }
             }
 
-            // 6. Vencimento Fatura Cartão
+            // 6. Vencimento Fatura Cartão (Somente Visualização / Não editável)
             item {
+                val dueDayDisplay = selectedCard?.let { "Todo dia ${it.dueDay} de cada mês" } ?: "Selecione um cartão acima"
                 OutlinedTextField(
-                    value = dueDayText,
-                    onValueChange = { dueDayText = it.filter { c -> c.isDigit() }.take(2) },
-                    label = { Text("Venc. Fatura Cartão (Dia do mês)") },
-                    placeholder = { Text("ex: 10") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    value = dueDayDisplay,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Venc. Fatura Cartão") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = OrangeNeon,
+                        unfocusedTextColor = Color.LightGray,
                         unfocusedBorderColor = Color.DarkGray
                     ),
                     modifier = Modifier.fillMaxWidth()
@@ -412,7 +422,7 @@ fun CardPaymentModal(
                     onClick = {
                         val brandName = availableBrands.firstOrNull { it.id == selectedBrandId }?.name
                         val operatorName = availableOperators.firstOrNull { it.id == selectedIssuerId }?.name
-                        val dueDay = dueDayText.toIntOrNull() ?: selectedCard?.dueDay ?: 10
+                        val dueDay = selectedCard?.dueDay ?: 10
                         val totalInst = if (isInstallment) (installmentsCountText.toIntOrNull() ?: 1) else 1
                         val groupId = if (isInstallment) UUID.randomUUID().toString() else null
 
@@ -423,7 +433,7 @@ fun CardPaymentModal(
                             cardDueDay = dueDay,
                             isInstallment = isInstallment,
                             installmentTotal = if (isInstallment) totalInst else null,
-                            firstInstallmentMonth = if (isInstallment) firstInstallmentMonthText else null,
+                            firstInstallmentMonth = if (isInstallment) computedFirstInstallmentMonth else null,
                             installmentGroupId = groupId
                         )
                         onConfirm(result)

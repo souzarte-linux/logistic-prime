@@ -16,6 +16,7 @@ data class GasStationUiState(
     val searchQuery: String = "",
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val isSearchingCep: Boolean = false,
     val message: String? = null,
     val error: String? = null,
     // Form state
@@ -33,7 +34,8 @@ data class GasStationUiState(
 )
 
 class GasStationViewModel(
-    private val repository: GasStationRepository = GasStationRepository()
+    private val repository: GasStationRepository = GasStationRepository(),
+    private val viaCepApi: com.fernando.centraldomotorista.data.remote.api.ViaCepApi = com.fernando.centraldomotorista.data.remote.api.ViaCepApi.instance
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GasStationUiState())
@@ -61,7 +63,42 @@ class GasStationViewModel(
     fun onNameChanged(name: String) = _uiState.update { it.copy(name = name) }
     fun onNicknameChanged(nickname: String) = _uiState.update { it.copy(nickname = nickname) }
     fun onBrandChanged(brand: String) = _uiState.update { it.copy(brand = brand) }
-    fun onCepChanged(cep: String) = _uiState.update { it.copy(cep = cep) }
+
+    fun onCepChanged(cep: String) {
+        val digits = cep.filter { it.isDigit() }.take(8)
+        val formatted = if (digits.length > 5) "${digits.take(5)}-${digits.substring(5)}" else digits
+        _uiState.update { it.copy(cep = formatted) }
+
+        if (digits.length == 8) {
+            searchCep(digits)
+        }
+    }
+
+    fun searchCep(cepDigits: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSearchingCep = true) }
+            try {
+                val result = viaCepApi.getAddressByCep(cepDigits)
+                if (result.erro != true) {
+                    _uiState.update { state ->
+                        state.copy(
+                            isSearchingCep = false,
+                            street = result.logradouro ?: state.street,
+                            neighborhood = result.bairro ?: state.neighborhood,
+                            city = result.localidade ?: state.city,
+                            state = result.uf ?: state.state,
+                            message = "Endereço preenchido pelo CEP! Digite o número."
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isSearchingCep = false) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSearchingCep = false) }
+            }
+        }
+    }
+
     fun onStreetChanged(street: String) = _uiState.update { it.copy(street = street) }
     fun onNumberChanged(number: String) = _uiState.update { it.copy(number = number) }
     fun onNeighborhoodChanged(neighborhood: String) = _uiState.update { it.copy(neighborhood = neighborhood) }

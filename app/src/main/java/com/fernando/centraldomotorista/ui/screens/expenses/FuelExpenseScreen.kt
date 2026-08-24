@@ -296,7 +296,7 @@ fun FuelExpenseScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Button(
                                 onClick = { viewModel.onFullTankChanged(true) },
@@ -305,9 +305,12 @@ fun FuelExpenseScreen(
                                     contentColor = if (uiState.isFullTank) Color.Black else Color.White
                                 ),
                                 shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text("Sim, tanque cheio", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("Sim, tanque cheio", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
                             }
 
                             Button(
@@ -317,9 +320,12 @@ fun FuelExpenseScreen(
                                     contentColor = if (!uiState.isFullTank) Color.Black else Color.White
                                 ),
                                 shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
-                                Text("Não, parcial", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("Não, parcial", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
                             }
                         }
 
@@ -523,6 +529,7 @@ fun FuelExpenseScreen(
             availableBrands = uiState.cardBrands,
             availableOperators = uiState.cardOperators,
             initialData = uiState.cardPaymentData,
+            purchaseDate = uiState.dateTime,
             onAddBrand = { viewModel.addBrand(it) },
             onAddOperator = { viewModel.addOperator(it) },
             onNavigateToManageCards = {

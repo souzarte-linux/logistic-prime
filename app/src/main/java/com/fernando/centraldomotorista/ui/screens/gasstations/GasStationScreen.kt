@@ -111,9 +111,22 @@ fun GasStationScreen(
                                 fontSize = 14.sp,
                                 letterSpacing = 1.sp
                             )
-                            if (uiState.editingStationId != null) {
-                                TextButton(onClick = { viewModel.cancelEditing() }) {
-                                    Text("Cancelar", color = Color.Gray, fontSize = 12.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        Toast.makeText(context, "Selecionar no Mapa (em breve via Overpass API)", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = "Selecionar no Mapa",
+                                        tint = OrangeNeon
+                                    )
+                                }
+                                if (uiState.editingStationId != null) {
+                                    TextButton(onClick = { viewModel.cancelEditing() }) {
+                                        Text("Cancelar", color = Color.Gray, fontSize = 12.sp)
+                                    }
                                 }
                             }
                         }
@@ -203,13 +216,20 @@ fun GasStationScreen(
                             modifier = Modifier.padding(top = 4.dp)
                         )
 
-                        // CEP
+                        // CEP com busca automática
                         OutlinedTextField(
                             value = uiState.cep,
                             onValueChange = { viewModel.onCepChanged(it) },
-                            label = { Text("CEP") },
+                            label = { Text("CEP (Busca automática)") },
                             placeholder = { Text("00000-000") },
                             singleLine = true,
+                            trailingIcon = {
+                                if (uiState.isSearchingCep) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = OrangeNeon, strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.Search, contentDescription = "Buscar CEP", tint = OrangeNeon)
+                                }
+                            },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
@@ -244,7 +264,8 @@ fun GasStationScreen(
                             OutlinedTextField(
                                 value = uiState.number,
                                 onValueChange = { viewModel.onNumberChanged(it) },
-                                label = { Text("Nº") },
+                                label = { Text("Nº *") },
+                                placeholder = { Text("123") },
                                 singleLine = true,
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
@@ -349,21 +370,6 @@ fun GasStationScreen(
                                     )
                                 }
                             }
-                        }
-
-                        // Botão Selecionar no Mapa (Placeholder conforme instrução do usuário)
-                        OutlinedButton(
-                            onClick = {
-                                Toast.makeText(context, "Busca de postos no Mapa via Overpass API em breve!", Toast.LENGTH_SHORT).show()
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.LightGray),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Selecionar no Mapa (em breve)", fontSize = 13.sp)
                         }
 
                         // Botão Salvar Posto
