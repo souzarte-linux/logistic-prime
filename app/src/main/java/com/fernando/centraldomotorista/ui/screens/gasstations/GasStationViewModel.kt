@@ -3,6 +3,7 @@ package com.fernando.centraldomotorista.ui.screens.gasstations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.GasStation
+import com.fernando.centraldomotorista.data.model.GasStationBrand
 import com.fernando.centraldomotorista.data.repository.GasStationRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,12 +12,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+val DEFAULT_GAS_STATION_BRANDS = listOf("Shell", "Ipiranga", "Petrobras / Vibra", "Ale", "Texaco", "Repsol", "Boxter", "Bandeira Branca", "Outro")
+
 data class GasStationUiState(
     val stations: List<GasStation> = emptyList(),
+    val customBrands: List<GasStationBrand> = emptyList(),
+    val allBrands: List<String> = DEFAULT_GAS_STATION_BRANDS,
     val searchQuery: String = "",
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isSearchingCep: Boolean = false,
+    val isAddBrandDialogOpen: Boolean = false,
     val message: String? = null,
     val error: String? = null,
     // Form state
@@ -52,7 +58,41 @@ class GasStationViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val list = repository.getGasStations(currentUserId)
-            _uiState.update { it.copy(stations = list, isLoading = false) }
+            val brands = repository.getGasStationBrands(currentUserId)
+            val combinedBrands = (DEFAULT_GAS_STATION_BRANDS + brands.map { it.name }).distinct()
+            _uiState.update {
+                it.copy(
+                    stations = list,
+                    customBrands = brands,
+                    allBrands = combinedBrands,
+                    isLoading = false
+                )
+            }
+        }
+    }
+
+    fun openAddBrandDialog() = _uiState.update { it.copy(isAddBrandDialogOpen = true) }
+    fun closeAddBrandDialog() = _uiState.update { it.copy(isAddBrandDialogOpen = false) }
+
+    fun addBrand(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                val created = repository.createGasStationBrand(currentUserId, name.trim())
+                _uiState.update { state ->
+                    val updatedCustom = state.customBrands + created
+                    val updatedAll = (state.allBrands + created.name).distinct()
+                    state.copy(
+                        customBrands = updatedCustom,
+                        allBrands = updatedAll,
+                        brand = created.name,
+                        isAddBrandDialogOpen = false,
+                        message = "Bandeira '${created.name}' adicionada com sucesso!"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Erro ao adicionar bandeira: ${e.message}") }
+            }
         }
     }
 

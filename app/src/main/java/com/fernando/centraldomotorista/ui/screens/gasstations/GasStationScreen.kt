@@ -167,42 +167,60 @@ fun GasStationScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // Bandeira (Dropdown)
-                        ExposedDropdownMenuBox(
-                            expanded = brandMenuExpanded,
-                            onExpandedChange = { brandMenuExpanded = !brandMenuExpanded }
+                        // Bandeira (Dropdown + Botão "+")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            OutlinedTextField(
-                                value = uiState.brand,
-                                onValueChange = { viewModel.onBrandChanged(it) },
-                                label = { Text("Bandeira") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandMenuExpanded) },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = OrangeNeon,
-                                    focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    unfocusedLabelColor = Color.Gray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
-                                ),
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth()
-                            )
-                            ExposedDropdownMenu(
+                            ExposedDropdownMenuBox(
                                 expanded = brandMenuExpanded,
-                                onDismissRequest = { brandMenuExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
+                                onExpandedChange = { brandMenuExpanded = !brandMenuExpanded },
+                                modifier = Modifier.weight(1f)
                             ) {
-                                AVAILABLE_BRANDS.forEach { brandOption ->
-                                    DropdownMenuItem(
-                                        text = { Text(brandOption, color = Color.White) },
-                                        onClick = {
-                                            viewModel.onBrandChanged(brandOption)
-                                            brandMenuExpanded = false
-                                        }
-                                    )
+                                OutlinedTextField(
+                                    value = uiState.brand,
+                                    onValueChange = { viewModel.onBrandChanged(it) },
+                                    label = { Text("Bandeira") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandMenuExpanded) },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = OrangeNeon,
+                                        focusedLabelColor = OrangeNeon,
+                                        unfocusedBorderColor = Color.DarkGray,
+                                        unfocusedLabelColor = Color.Gray,
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    ),
+                                    modifier = Modifier
+                                        .menuAnchor()
+                                        .fillMaxWidth()
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = brandMenuExpanded,
+                                    onDismissRequest = { brandMenuExpanded = false },
+                                    modifier = Modifier.background(SurfaceDark)
+                                ) {
+                                    uiState.allBrands.forEach { brandOption ->
+                                        DropdownMenuItem(
+                                            text = { Text(brandOption, color = Color.White) },
+                                            onClick = {
+                                                viewModel.onBrandChanged(brandOption)
+                                                brandMenuExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
+                            }
+
+                            IconButton(
+                                onClick = { viewModel.openAddBrandDialog() },
+                                modifier = Modifier.padding(top = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AddCircle,
+                                    contentDescription = "Nova Bandeira",
+                                    tint = OrangeNeon
+                                )
                             }
                         }
 
@@ -468,6 +486,47 @@ fun GasStationScreen(
                 }
             }
         }
+    }
+
+    if (uiState.isAddBrandDialogOpen) {
+        var brandNameInput by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { viewModel.closeAddBrandDialog() },
+            title = { Text("Nova Bandeira de Posto", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = brandNameInput,
+                    onValueChange = { brandNameInput = it },
+                    label = { Text("Nome da Bandeira / Distribuidora") },
+                    placeholder = { Text("Ex: Ipiranga, Petrobras...") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        unfocusedBorderColor = Color.DarkGray
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.addBrand(brandNameInput)
+                    },
+                    enabled = brandNameInput.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
+                ) {
+                    Text("Salvar Bandeira")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.closeAddBrandDialog() }) {
+                    Text("Cancelar", color = Color.Gray)
+                }
+            },
+            containerColor = SurfaceDark
+        )
     }
 }
 

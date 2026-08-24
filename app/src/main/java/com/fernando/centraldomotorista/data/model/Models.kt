@@ -177,6 +177,12 @@ data class GasStation(
     val fuelTypes: List<String> = emptyList(),
 )
 
+data class GasStationBrand(
+    val id: String,
+    val userId: String,
+    val name: String,
+)
+
 data class CardBrand(
     val id: String,
     val userId: String,

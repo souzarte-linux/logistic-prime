@@ -2,15 +2,18 @@ package com.fernando.centraldomotorista.data.repository
 
 import android.util.Log
 import com.fernando.centraldomotorista.data.model.GasStation
+import com.fernando.centraldomotorista.data.model.GasStationBrand
 import com.fernando.centraldomotorista.data.remote.RetrofitClient
 import com.fernando.centraldomotorista.data.remote.api.GasStationApi
+import com.fernando.centraldomotorista.data.remote.api.GasStationBrandApi
 import com.fernando.centraldomotorista.data.remote.dto.toDomain
 import com.fernando.centraldomotorista.data.remote.dto.toDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class GasStationRepository(
-    private val gasStationApi: GasStationApi = RetrofitClient.gasStationApi
+    private val gasStationApi: GasStationApi = RetrofitClient.gasStationApi,
+    private val gasStationBrandApi: GasStationBrandApi = RetrofitClient.gasStationBrandApi
 ) {
     suspend fun getGasStations(userId: String): List<GasStation> = withContext(Dispatchers.IO) {
         try {
@@ -41,5 +44,21 @@ class GasStationRepository(
             Log.e("GasStationRepo", "Erro ao excluir posto $stationId: ${e.message}", e)
             false
         }
+    }
+
+    suspend fun getGasStationBrands(userId: String): List<GasStationBrand> = withContext(Dispatchers.IO) {
+        try {
+            val userFilter = "eq.$userId"
+            gasStationBrandApi.getGasStationBrands(userFilter, "name.asc").map { it.toDomain() }
+        } catch (e: Exception) {
+            Log.e("GasStationRepo", "Erro ao buscar bandeiras de posto: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    suspend fun createGasStationBrand(userId: String, name: String): GasStationBrand = withContext(Dispatchers.IO) {
+        val brand = GasStationBrand(id = "", userId = userId, name = name)
+        val created = gasStationBrandApi.createGasStationBrand(brand.toDto())
+        created.firstOrNull()?.toDomain() ?: brand
     }
 }
