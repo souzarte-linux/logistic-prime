@@ -72,8 +72,21 @@ class CreditCardRepository(
 
     suspend fun createCardBrand(userId: String, name: String): CardBrand = withContext(Dispatchers.IO) {
         val brand = CardBrand(id = "", userId = userId, name = name)
-        val created = cardBrandApi.createCardBrand(brand.toDto())
-        created.firstOrNull()?.toDomain() ?: brand
+        val dto = brand.toDto()
+        Log.d("DiagnosticoBandeira", ">> [POST card_brands] userId='$userId', name='$name', payload: $dto")
+        try {
+            val created = cardBrandApi.createCardBrand(dto)
+            Log.d("DiagnosticoBandeira", "<< [POST card_brands SUCESSO]: $created")
+            created.firstOrNull()?.toDomain() ?: brand
+        } catch (e: retrofit2.HttpException) {
+            val code = e.code()
+            val errorBody = e.response()?.errorBody()?.string()
+            Log.e("DiagnosticoBandeira", "!! [POST card_brands ERRO HTTP $code]: $errorBody", e)
+            throw Exception("HTTP $code: $errorBody", e)
+        } catch (e: Exception) {
+            Log.e("DiagnosticoBandeira", "!! [POST card_brands ERRO GERAL]: ${e.message}", e)
+            throw e
+        }
     }
 
     suspend fun getCardOperators(userId: String): List<CardOperator> = withContext(Dispatchers.IO) {
@@ -88,7 +101,20 @@ class CreditCardRepository(
 
     suspend fun createCardOperator(userId: String, name: String): CardOperator = withContext(Dispatchers.IO) {
         val operator = CardOperator(id = "", userId = userId, name = name)
-        val created = cardOperatorApi.createCardOperator(operator.toDto())
-        created.firstOrNull()?.toDomain() ?: operator
+        val dto = operator.toDto()
+        Log.d("DiagnosticoBandeira", ">> [POST card_operators] userId='$userId', name='$name', payload: $dto")
+        try {
+            val created = cardOperatorApi.createCardOperator(dto)
+            Log.d("DiagnosticoBandeira", "<< [POST card_operators SUCESSO]: $created")
+            created.firstOrNull()?.toDomain() ?: operator
+        } catch (e: retrofit2.HttpException) {
+            val code = e.code()
+            val errorBody = e.response()?.errorBody()?.string()
+            Log.e("DiagnosticoBandeira", "!! [POST card_operators ERRO HTTP $code]: $errorBody", e)
+            throw Exception("HTTP $code: $errorBody", e)
+        } catch (e: Exception) {
+            Log.e("DiagnosticoBandeira", "!! [POST card_operators ERRO GERAL]: ${e.message}", e)
+            throw e
+        }
     }
 }

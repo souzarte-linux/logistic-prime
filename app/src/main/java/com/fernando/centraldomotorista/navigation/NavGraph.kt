@@ -24,6 +24,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.fernando.centraldomotorista.auth.AuthViewModel
 import com.fernando.centraldomotorista.auth.GoogleAuthClient
+import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.ui.screens.home.HomeScreen
 import com.fernando.centraldomotorista.ui.screens.home.HomeViewModel
 import com.fernando.centraldomotorista.ui.screens.login.LoginScreen
@@ -31,6 +32,7 @@ import com.fernando.centraldomotorista.ui.theme.BackgroundDark
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.SurfaceDark
 import com.google.firebase.auth.FirebaseAuth
+import io.github.jan.supabase.auth.auth
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Login : Screen("login", "Login", Icons.Default.Lock)
@@ -66,7 +68,7 @@ fun CentralDoMotoristaApp(
     val context = LocalContext.current
     val googleAuthClient = remember { GoogleAuthClient(context) }
 
-    val isUserLoggedIn = FirebaseAuth.getInstance().currentUser != null
+    val isUserLoggedIn = supabase.auth.currentUserOrNull() != null || FirebaseAuth.getInstance().currentUser != null
 
     val startDestination = remember {
         if (isUserLoggedIn) Screen.Inicio.route else Screen.Login.route

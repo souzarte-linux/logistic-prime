@@ -63,6 +63,11 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.google.googleid)
 
+    // Supabase Kotlin & Ktor Engine
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.ktor.client.android)
+
     // Cliente HTTP (Retrofit + Converter Gson + OkHttp Logging)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)

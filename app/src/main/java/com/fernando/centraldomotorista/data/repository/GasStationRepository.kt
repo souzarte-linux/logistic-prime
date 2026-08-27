@@ -58,7 +58,20 @@ class GasStationRepository(
 
     suspend fun createGasStationBrand(userId: String, name: String): GasStationBrand = withContext(Dispatchers.IO) {
         val brand = GasStationBrand(id = "", userId = userId, name = name)
-        val created = gasStationBrandApi.createGasStationBrand(brand.toDto())
-        created.firstOrNull()?.toDomain() ?: brand
+        val dto = brand.toDto()
+        Log.d("DiagnosticoBandeira", ">> [POST gas_station_brands] userId='$userId', name='$name', payload: $dto")
+        try {
+            val created = gasStationBrandApi.createGasStationBrand(dto)
+            Log.d("DiagnosticoBandeira", "<< [POST gas_station_brands SUCESSO]: $created")
+            created.firstOrNull()?.toDomain() ?: brand
+        } catch (e: retrofit2.HttpException) {
+            val code = e.code()
+            val errorBody = e.response()?.errorBody()?.string()
+            Log.e("DiagnosticoBandeira", "!! [POST gas_station_brands ERRO HTTP $code]: $errorBody", e)
+            throw Exception("HTTP $code: $errorBody", e)
+        } catch (e: Exception) {
+            Log.e("DiagnosticoBandeira", "!! [POST gas_station_brands ERRO GERAL]: ${e.message}", e)
+            throw e
+        }
     }
 }

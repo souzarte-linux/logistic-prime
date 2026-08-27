@@ -21,7 +21,7 @@ class AuthInterceptor : Interceptor {
                 val token = tokenResult.token
                 if (!token.isNullOrEmpty()) {
                     requestBuilder.header("Authorization", "Bearer $token")
-                    Log.d("AuthInterceptor", "Token JWT adicionado à requisição para usuário: ${user.uid}")
+                    Log.d("JWT_DIAGNOSTICO", token)
                 }
             } catch (e: Exception) {
                 Log.e("AuthInterceptor", "Erro ao obter token JWT do Firebase: ${e.message}", e)

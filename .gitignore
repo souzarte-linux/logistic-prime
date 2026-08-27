@@ -13,4 +13,5 @@ app/build/
 .cxx
 *.apk
 *.aab
+.vscode/
 
