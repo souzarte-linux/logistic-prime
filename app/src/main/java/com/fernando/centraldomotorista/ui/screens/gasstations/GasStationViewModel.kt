@@ -4,8 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.GasStation
 import com.fernando.centraldomotorista.data.model.GasStationBrand
+import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.GasStationRepository
-import com.google.firebase.auth.FirebaseAuth
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,7 +49,7 @@ class GasStationViewModel(
     val uiState: StateFlow<GasStationUiState> = _uiState.asStateFlow()
 
     private val currentUserId: String
-        get() = FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous"
+        get() = supabase.auth.currentUserOrNull()?.id ?: "anonymous"
 
     init {
         loadStations()

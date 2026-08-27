@@ -9,29 +9,25 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.GoogleAuthProvider
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.user.UserInfo
 
 sealed class SignInResult {
-    data class Success(val user: FirebaseUser? = null, val supabaseUser: UserInfo? = null) : SignInResult()
+    data class Success(val supabaseUser: UserInfo) : SignInResult()
     data class Error(val message: String) : SignInResult()
     object Cancelled : SignInResult()
 }
 
 class GoogleAuthClient(
-    private val context: Context,
-    private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val context: Context
 ) {
     private val credentialManager = CredentialManager.create(context)
 
     companion object {
         /**
-         * Web Client ID do Firebase / Google Cloud Console.
+         * Web Client ID do Google Cloud Console.
          */
         const val WEB_CLIENT_ID = "578056018121-1rumesf467p899cr29du1d1sblhhe04n.apps.googleusercontent.com"
     }
@@ -70,13 +66,8 @@ class GoogleAuthClient(
                 Log.d("SupabaseAuth", "Email: ${supabaseUser?.email}")
                 Log.d("SupabaseAuth", "==================================================")
 
-                // Código antigo do Firebase (mantido coexistindo/comentado)
-                // val authCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
-                // val authResult = firebaseAuth.signInWithCredential(authCredential).await()
-                // val user = authResult.user
-
                 if (supabaseUser != null) {
-                    SignInResult.Success(user = null, supabaseUser = supabaseUser)
+                    SignInResult.Success(supabaseUser = supabaseUser)
                 } else {
                     SignInResult.Error("Não foi possível obter dados do usuário autenticado no Supabase.")
                 }
@@ -97,8 +88,7 @@ class GoogleAuthClient(
         } catch (e: Exception) {
             Log.e("SupabaseAuth", "Erro ao deslogar do Supabase: ${e.message}")
         }
-        firebaseAuth.signOut()
     }
 
-    fun getSignedInUser(): FirebaseUser? = firebaseAuth.currentUser
+    fun getSignedInUser(): UserInfo? = supabase.auth.currentUserOrNull()
 }

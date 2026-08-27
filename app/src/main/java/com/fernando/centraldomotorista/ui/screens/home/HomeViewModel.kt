@@ -6,14 +6,17 @@ import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Profile
 import com.fernando.centraldomotorista.data.model.Route
+import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.HomeRepository
-import com.google.firebase.auth.FirebaseAuth
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import java.math.BigDecimal
 
 data class HomeUiState(
@@ -33,8 +36,7 @@ data class HomeUiState(
 )
 
 class HomeViewModel(
-    private val homeRepository: HomeRepository = HomeRepository(),
-    private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val homeRepository: HomeRepository = HomeRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState(loading = true))
@@ -53,7 +55,7 @@ class HomeViewModel(
     }
 
     private fun loadData() {
-        val user = firebaseAuth.currentUser
+        val user = supabase.auth.currentUserOrNull()
         if (user == null) {
             _uiState.value = _uiState.value.copy(
                 loading = false,
@@ -62,16 +64,22 @@ class HomeViewModel(
             return
         }
 
+        val fullName = user.userMetadata?.get("full_name")?.jsonPrimitive?.contentOrNull
+            ?: user.userMetadata?.get("name")?.jsonPrimitive?.contentOrNull
+            ?: user.email
+        val avatarUrl = user.userMetadata?.get("avatar_url")?.jsonPrimitive?.contentOrNull
+            ?: user.userMetadata?.get("picture")?.jsonPrimitive?.contentOrNull
+
         _uiState.value = _uiState.value.copy(loading = true, error = null)
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                Log.d("HomeViewModel", "Carregando dados da tela Início para UID: ${user.uid}")
+                Log.d("HomeViewModel", "Carregando dados da tela Início para Supabase UID: ${user.id}")
                 val data = homeRepository.loadHomeData(
-                    userId = user.uid,
+                    userId = user.id,
                     email = user.email,
-                    fullName = user.displayName,
-                    avatarUrl = user.photoUrl?.toString()
+                    fullName = fullName,
+                    avatarUrl = avatarUrl
                 )
 
                 withContext(Dispatchers.Main) {
@@ -107,12 +115,18 @@ class HomeViewModel(
         amount: BigDecimal,
         onSuccess: () -> Unit
     ) {
-        val user = firebaseAuth.currentUser ?: return
+        val user = supabase.auth.currentUserOrNull() ?: return
+        val fullName = user.userMetadata?.get("full_name")?.jsonPrimitive?.contentOrNull
+            ?: user.userMetadata?.get("name")?.jsonPrimitive?.contentOrNull
+            ?: user.email
+        val avatarUrl = user.userMetadata?.get("avatar_url")?.jsonPrimitive?.contentOrNull
+            ?: user.userMetadata?.get("picture")?.jsonPrimitive?.contentOrNull
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _uiState.value = _uiState.value.copy(loading = true)
                 val expense = homeRepository.createQuickExpense(
-                    userId = user.uid,
+                    userId = user.id,
                     category = category,
                     amount = amount
                 )
@@ -120,10 +134,10 @@ class HomeViewModel(
                 
                 // Recarregar dados após inclusão
                 val updatedData = homeRepository.loadHomeData(
-                    userId = user.uid,
+                    userId = user.id,
                     email = user.email,
-                    fullName = user.displayName,
-                    avatarUrl = user.photoUrl?.toString()
+                    fullName = fullName,
+                    avatarUrl = avatarUrl
                 )
 
                 withContext(Dispatchers.Main) {

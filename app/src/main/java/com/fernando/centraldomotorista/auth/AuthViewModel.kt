@@ -6,25 +6,24 @@ import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.Profile
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.ProfileRepository
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 sealed class AuthState {
     object Loading : AuthState()
     object LoggedOut : AuthState()
-    data class LoggedIn(val user: FirebaseUser? = null, val profile: Profile? = null, val supabaseUser: UserInfo? = null) : AuthState()
+    data class LoggedIn(val profile: Profile? = null, val supabaseUser: UserInfo? = null) : AuthState()
     data class Error(val message: String) : AuthState()
 }
 
 class AuthViewModel(
-    private val profileRepository: ProfileRepository = ProfileRepository(),
-    private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val profileRepository: ProfileRepository = ProfileRepository()
 ) : ViewModel() {
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
@@ -39,19 +38,17 @@ class AuthViewModel(
 
         if (supabaseUser != null) {
             Log.d("SupabaseAuth", "Sessão ativa encontrada no Supabase: UUID=${supabaseUser.id}")
-            _authState.value = AuthState.LoggedIn(supabaseUser = supabaseUser)
+            loadProfile(supabaseUser)
         } else {
             _authState.value = AuthState.LoggedOut
         }
     }
 
-    fun handleSignInSuccess(supabaseUser: UserInfo?, user: FirebaseUser? = null) {
+    fun handleSignInSuccess(supabaseUser: UserInfo?) {
         val sUser = supabaseUser ?: supabase.auth.currentUserOrNull()
         Log.d("SupabaseAuth", "handleSignInSuccess: UUID=${sUser?.id} | Email=${sUser?.email}")
         if (sUser != null) {
-            _authState.value = AuthState.LoggedIn(user = user, profile = null, supabaseUser = sUser)
-        } else if (user != null) {
-            loadProfile(user)
+            loadProfile(sUser)
         }
     }
 
@@ -65,17 +62,23 @@ class AuthViewModel(
         }
     }
 
-    private fun loadProfile(user: FirebaseUser) {
+    private fun loadProfile(user: UserInfo) {
         _authState.value = AuthState.Loading
         viewModelScope.launch {
             try {
+                val fullName = user.userMetadata?.get("full_name")?.jsonPrimitive?.contentOrNull
+                    ?: user.userMetadata?.get("name")?.jsonPrimitive?.contentOrNull
+                    ?: user.email
+                val avatarUrl = user.userMetadata?.get("avatar_url")?.jsonPrimitive?.contentOrNull
+                    ?: user.userMetadata?.get("picture")?.jsonPrimitive?.contentOrNull
+
                 val profile = profileRepository.createOrFetchProfile(
-                    userId = user.uid,
+                    userId = user.id,
                     email = user.email,
-                    fullName = user.displayName,
-                    avatarUrl = user.photoUrl?.toString()
+                    fullName = fullName,
+                    avatarUrl = avatarUrl
                 )
-                _authState.value = AuthState.LoggedIn(user, profile)
+                _authState.value = AuthState.LoggedIn(profile = profile, supabaseUser = user)
             } catch (e: Exception) {
                 _authState.value = AuthState.Error("Erro ao recuperar perfil: ${e.localizedMessage}")
             }
@@ -89,10 +92,8 @@ class AuthViewModel(
             } catch (e: Exception) {
                 Log.e("SupabaseAuth", "Erro ao deslogar do Supabase: ${e.message}")
             }
+            googleAuthClient?.signOut()
+            _authState.value = AuthState.LoggedOut
         }
-        googleAuthClient?.let {
-            viewModelScope.launch { it.signOut() }
-        } ?: firebaseAuth.signOut()
-        _authState.value = AuthState.LoggedOut
     }
 }

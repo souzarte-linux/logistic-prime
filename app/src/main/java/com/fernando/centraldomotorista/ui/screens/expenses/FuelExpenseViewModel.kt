@@ -7,10 +7,11 @@ import com.fernando.centraldomotorista.data.model.CardOperator
 import com.fernando.centraldomotorista.data.model.CreditCard
 import com.fernando.centraldomotorista.data.model.Expense
 import com.fernando.centraldomotorista.data.model.GasStation
+import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.CreditCardRepository
 import com.fernando.centraldomotorista.data.repository.ExpenseRepository
 import com.fernando.centraldomotorista.data.repository.GasStationRepository
-import com.google.firebase.auth.FirebaseAuth
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,7 +58,7 @@ class FuelExpenseViewModel(
     val uiState: StateFlow<FuelExpenseUiState> = _uiState.asStateFlow()
 
     private val currentUserId: String
-        get() = FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous"
+        get() = supabase.auth.currentUserOrNull()?.id ?: "anonymous"
 
     init {
         loadInitialData()

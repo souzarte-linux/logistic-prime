@@ -15,7 +15,7 @@ class ProfileRepository(
     private val profileApi: ProfileApi = RetrofitClient.profileApi
 ) {
     /**
-     * Busca o perfil no Neon Data API. Se ainda não existir, cria o registro inicial.
+     * Busca o perfil no Supabase Data API. Se ainda não existir, cria o registro inicial.
      */
     suspend fun createOrFetchProfile(
         userId: String,
@@ -24,16 +24,16 @@ class ProfileRepository(
         avatarUrl: String?
     ): Profile = withContext(Dispatchers.IO) {
         try {
-            Log.d("ProfileRepository", "Consultando profile para UID: $userId no Neon Data API...")
+            Log.d("ProfileRepository", "Consultando profile para UID: $userId no Supabase Data API...")
             val existingProfiles = profileApi.getProfile("eq.$userId")
             
             if (existingProfiles.isNotEmpty()) {
                 val profile = existingProfiles.first().toDomain()
-                Log.d("ProfileRepository", "Profile existente encontrado no Neon: $profile")
+                Log.d("ProfileRepository", "Profile existente encontrado no Supabase: $profile")
                 return@withContext profile
             }
 
-            Log.d("ProfileRepository", "Profile não encontrado. Criando novo profile no Neon...")
+            Log.d("ProfileRepository", "Profile não encontrado. Criando novo profile no Supabase...")
             val newDto = ProfileDto(
                 id = userId,
                 email = email,
@@ -48,10 +48,10 @@ class ProfileRepository(
 
             val createdList = profileApi.createProfile(newDto)
             val created = createdList.firstOrNull()?.toDomain() ?: newDto.toDomain()
-            Log.d("ProfileRepository", "Novo profile criado com sucesso no Neon: $created")
+            Log.d("ProfileRepository", "Novo profile criado com sucesso no Supabase: $created")
             created
         } catch (e: Exception) {
-            Log.e("ProfileRepository", "Erro na chamada do Neon Data API: ${e.message}", e)
+            Log.e("ProfileRepository", "Erro na chamada do Supabase Data API: ${e.message}", e)
             // Fallback gracioso para garantir inicialização caso a rede oscile
             Profile(
                 id = userId,

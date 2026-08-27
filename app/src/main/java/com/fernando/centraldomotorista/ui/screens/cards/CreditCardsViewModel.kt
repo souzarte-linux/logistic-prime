@@ -5,8 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.CardBrand
 import com.fernando.centraldomotorista.data.model.CardOperator
 import com.fernando.centraldomotorista.data.model.CreditCard
+import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.CreditCardRepository
-import com.google.firebase.auth.FirebaseAuth
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +44,7 @@ class CreditCardsViewModel(
     val uiState: StateFlow<CreditCardsUiState> = _uiState.asStateFlow()
 
     private val currentUserId: String
-        get() = FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous"
+        get() = supabase.auth.currentUserOrNull()?.id ?: "anonymous"
 
     init {
         loadData()

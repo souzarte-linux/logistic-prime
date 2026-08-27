@@ -26,7 +26,7 @@ object RetrofitClient {
 
     private val retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(NeonApiConfig.NEON_DATA_API_BASE_URL)
+            .baseUrl(SUPABASE_REST_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

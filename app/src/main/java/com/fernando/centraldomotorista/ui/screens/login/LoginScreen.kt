@@ -143,7 +143,7 @@ fun LoginScreen(
                             scope.launch {
                                 when (val result = googleAuthClient.signIn()) {
                                     is SignInResult.Success -> {
-                                        authViewModel.handleSignInSuccess(result.supabaseUser, result.user)
+                                        authViewModel.handleSignInSuccess(result.supabaseUser)
                                     }
                                     is SignInResult.Error -> {
                                         authViewModel.handleSignInError(result.message)

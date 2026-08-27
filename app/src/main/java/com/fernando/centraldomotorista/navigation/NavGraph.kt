@@ -31,7 +31,6 @@ import com.fernando.centraldomotorista.ui.screens.login.LoginScreen
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.SurfaceDark
-import com.google.firebase.auth.FirebaseAuth
 import io.github.jan.supabase.auth.auth
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
