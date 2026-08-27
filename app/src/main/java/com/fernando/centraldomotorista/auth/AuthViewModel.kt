@@ -36,13 +36,10 @@ class AuthViewModel(
 
     fun checkCurrentUser() {
         val supabaseUser = supabase.auth.currentUserOrNull()
-        val currentUser = firebaseAuth.currentUser
 
         if (supabaseUser != null) {
             Log.d("SupabaseAuth", "Sessão ativa encontrada no Supabase: UUID=${supabaseUser.id}")
             _authState.value = AuthState.LoggedIn(supabaseUser = supabaseUser)
-        } else if (currentUser != null) {
-            loadProfile(currentUser)
         } else {
             _authState.value = AuthState.LoggedOut
         }

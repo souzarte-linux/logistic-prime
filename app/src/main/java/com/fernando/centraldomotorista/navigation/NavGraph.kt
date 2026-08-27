@@ -68,7 +68,7 @@ fun CentralDoMotoristaApp(
     val context = LocalContext.current
     val googleAuthClient = remember { GoogleAuthClient(context) }
 
-    val isUserLoggedIn = supabase.auth.currentUserOrNull() != null || FirebaseAuth.getInstance().currentUser != null
+    val isUserLoggedIn = supabase.auth.currentUserOrNull() != null
 
     val startDestination = remember {
         if (isUserLoggedIn) Screen.Inicio.route else Screen.Login.route
