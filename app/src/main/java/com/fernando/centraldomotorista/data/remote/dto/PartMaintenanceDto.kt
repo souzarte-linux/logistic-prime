@@ -22,6 +22,8 @@ data class PartMaintenanceDto(
     val companyId: String? = null,
     @SerializedName("part_product_id")
     val partProductId: String? = null,
+    @SerializedName("expense_id")
+    val expenseId: String? = null,
     @SerializedName("created_at")
     val createdAt: String? = null
 )
@@ -39,7 +41,8 @@ fun PartMaintenanceDto.toDomain(): PartMaintenance {
         lastChangeKm = lastChangeKm,
         lastChangeAt = parsedDate,
         companyId = companyId,
-        partProductId = partProductId
+        partProductId = partProductId,
+        expenseId = expenseId
     )
 }
 
@@ -52,6 +55,7 @@ fun PartMaintenance.toDto(): PartMaintenanceDto {
         lastChangeKm = lastChangeKm,
         lastChangeAt = lastChangeAt.toString(),
         companyId = companyId?.takeIf { it.isNotBlank() },
-        partProductId = partProductId?.takeIf { it.isNotBlank() }
+        partProductId = partProductId?.takeIf { it.isNotBlank() },
+        expenseId = expenseId?.takeIf { it.isNotBlank() }
     )
 }

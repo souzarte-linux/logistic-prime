@@ -56,6 +56,8 @@ data class ExpenseDto(
     val gasStationId: String? = null,
     @SerializedName("card_id")
     val cardId: String? = null,
+    @SerializedName("company_id")
+    val companyId: String? = null,
     @SerializedName("occurred_at")
     val occurredAt: String? = null,
     @SerializedName("created_at")
@@ -93,7 +95,8 @@ fun ExpenseDto.toDomain(): Expense {
         installmentTotal = installmentTotal,
         cardDueDay = cardDueDay,
         gasStationId = gasStationId,
-        cardId = cardId
+        cardId = cardId,
+        companyId = companyId
     )
 }
 
@@ -124,6 +127,7 @@ fun Expense.toDto(): ExpenseDto {
         cardDueDay = cardDueDay,
         gasStationId = gasStationId,
         cardId = cardId,
+        companyId = companyId?.takeIf { it.isNotBlank() },
         occurredAt = occurredAt.toString()
     )
 }

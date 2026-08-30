@@ -108,6 +108,7 @@ data class Expense(
     val cardDueDay: Int? = null,
     val gasStationId: String? = null,
     val cardId: String? = null,
+    val companyId: String? = null,
 )
 
 data class OilChange(
@@ -142,6 +143,7 @@ data class PartMaintenance(
     val lastChangeAt: OffsetDateTime,
     val companyId: String? = null,
     val partProductId: String? = null,
+    val expenseId: String? = null,
 ) {
     /** Quantos km restam até vencer (negativo = atrasado). Requer o odômetro atual do veículo. */
     fun kmRemaining(currentOdometerKm: BigDecimal): BigDecimal {

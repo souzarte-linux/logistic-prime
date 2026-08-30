@@ -1,12 +1,7 @@
 package com.fernando.centraldomotorista.data.remote.api
 
 import com.fernando.centraldomotorista.data.remote.dto.ExpenseDto
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.Headers
-import retrofit2.http.POST
-import retrofit2.http.Query
-import retrofit2.http.QueryMap
+import retrofit2.http.*
 
 interface ExpenseApi {
     @GET("expenses")
@@ -21,4 +16,16 @@ interface ExpenseApi {
     suspend fun createExpense(
         @Body expense: ExpenseDto
     ): List<ExpenseDto>
+
+    @Headers("Prefer: return=representation")
+    @PATCH("expenses")
+    suspend fun updateExpense(
+        @Query("id") idFilter: String,
+        @Body expense: ExpenseDto
+    ): List<ExpenseDto>
+
+    @DELETE("expenses")
+    suspend fun deleteExpense(
+        @Query("id") idFilter: String
+    )
 }

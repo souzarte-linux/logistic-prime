@@ -1,5 +1,7 @@
 package com.fernando.centraldomotorista.ui.screens.pecas
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -25,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,10 +40,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.data.model.Company
 import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.PartProduct
+import com.fernando.centraldomotorista.ui.screens.expenses.CardPaymentModal
 import com.fernando.centraldomotorista.ui.theme.*
+import com.fernando.centraldomotorista.ui.utils.CurrencyVisualTransformation
 import java.math.BigDecimal
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 private val WhatsAppGreen = Color(0xFF25D366)
+private val GreenNeon = Color(0xFF00E676)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +59,7 @@ fun PartMaintenanceScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showCardModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -241,7 +250,7 @@ fun PartMaintenanceScreen(
                             )
                             Text(
                                 text = if (uiState.parts.isEmpty())
-                                    "Cadastre peças e componentes do seu veículo para acompanhar a vida útil e receber alertas de manutenção."
+                                    "Cadastre peças e componentes do seu veículo para acompanhar a vida útil, receber alertas e controlar o custo financeiro."
                                 else "Tente buscar por outro termo.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.Gray,
@@ -337,14 +346,14 @@ fun PartMaintenanceScreen(
                 ) {
                     Column {
                         Text(
-                            text = if (isEditing) "EDITAR PEÇA" else "LANÇAR MANUTENÇÃO",
+                            text = if (isEditing) "EDITAR PEÇA / MANUTENÇÃO" else "LANÇAR MANUTENÇÃO",
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.5.sp,
                             color = OrangeNeon
                         )
                         Text(
-                            text = "Controle de trocas e durabilidade estimada",
+                            text = "Controle de durabilidade e despesa financeira",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -358,15 +367,16 @@ fun PartMaintenanceScreen(
 
                 HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f))
 
-                // 1. Seletor de Produto Cadastrado (Tipo — Marca Modelo) com botão "+"
+                // SEÇÃO 1: DADOS DA PEÇA & CATÁLOGO
                 Text(
-                    text = "SELECIONAR PRODUTO DO CATÁLOGO",
+                    text = "DADOS DA PEÇA & CATÁLOGO",
                     color = OrangeNeon,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp,
                     letterSpacing = 0.8.sp
                 )
 
+                // 1. Seletor de Produto Cadastrado (Tipo — Marca Modelo) com botão "+"
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -417,7 +427,6 @@ fun PartMaintenanceScreen(
                                 .background(SurfaceDark)
                                 .heightIn(max = 300.dp)
                         ) {
-                            // Opção de desvincular produto (manual puro)
                             DropdownMenuItem(
                                 text = { Text("(Preenchimento manual / Sem catálogo)", color = Color.Gray) },
                                 onClick = {
@@ -507,7 +516,49 @@ fun PartMaintenanceScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 3. Vida Útil em KM * e KM da Última Troca *
+                // 3. Marca e Modelo lado a lado (opcionais, auto-preenchidos ou editáveis)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = uiState.partBrand,
+                        onValueChange = { viewModel.onPartBrandChanged(it) },
+                        label = { Text("Marca da Peça") },
+                        placeholder = { Text("Ex: Mobil, Cobreq") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedLabelColor = OrangeNeon,
+                            unfocusedBorderColor = Color.DarkGray,
+                            unfocusedLabelColor = Color.Gray,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedTextField(
+                        value = uiState.partModel,
+                        onValueChange = { viewModel.onPartModelChanged(it) },
+                        label = { Text("Modelo da Peça") },
+                        placeholder = { Text("Ex: Super 20W50") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedLabelColor = OrangeNeon,
+                            unfocusedBorderColor = Color.DarkGray,
+                            unfocusedLabelColor = Color.Gray,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // 4. Vida Útil em KM * e KM da Última Troca *
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -557,9 +608,9 @@ fun PartMaintenanceScreen(
                     )
                 }
 
-                // 4. Empresa / Oficina (opcional) — Dropdown + Botão "+"
+                // 5. Empresa / Oficina (opcional) — Dropdown + Botão "+"
                 Text(
-                    text = "LOCAL ONDE FOI COMPRADA / TROCADA",
+                    text = "EMPRESA / OFICINA ONDE FOI REALIZADA",
                     color = Color.LightGray,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp,
@@ -653,6 +704,205 @@ fun PartMaintenanceScreen(
                     }
                 }
 
+                HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+
+                // SEÇÃO 2: IMPACTO FINANCEIRO & PAGAMENTO (EXPENSES)
+                Text(
+                    text = "IMPACTO FINANCEIRO & PAGAMENTO",
+                    color = GreenNeon,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.8.sp
+                )
+
+                // 6. Valor Total Pago (R$)
+                OutlinedTextField(
+                    value = uiState.totalAmountText,
+                    onValueChange = { viewModel.onTotalAmountChanged(it) },
+                    label = { Text("Valor Total Pago (R$)") },
+                    placeholder = { Text("0,00") },
+                    singleLine = true,
+                    visualTransformation = CurrencyVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    leadingIcon = {
+                        Icon(Icons.Default.AttachMoney, contentDescription = null, tint = GreenNeon)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenNeon,
+                        focusedLabelColor = GreenNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = GreenNeon,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // 7. Data e Hora da Troca
+                val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                OutlinedTextField(
+                    value = uiState.lastChangeDateTime.format(dateFormatter),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Data e Hora da Troca") },
+                    leadingIcon = {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = OrangeNeon)
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            showDateTimePicker(context, uiState.lastChangeDateTime) {
+                                viewModel.onLastChangeDateTimeChanged(it)
+                            }
+                        }) {
+                            Icon(Icons.Default.EditCalendar, contentDescription = "Alterar Data", tint = OrangeNeon)
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showDateTimePicker(context, uiState.lastChangeDateTime) {
+                                viewModel.onLastChangeDateTimeChanged(it)
+                            }
+                        }
+                )
+
+                // 8. Nota Fiscal / Cupom / Recibo (opcional)
+                OutlinedTextField(
+                    value = uiState.receiptNumber,
+                    onValueChange = { viewModel.onReceiptNumberChanged(it) },
+                    label = { Text("Nº Nota Fiscal / Cupom / Recibo (opcional)") },
+                    placeholder = { Text("Ex: NF-e 123456") },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(Icons.Default.Receipt, contentDescription = null, tint = OrangeNeon)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // 9. Observação (opcional, multilinha)
+                OutlinedTextField(
+                    value = uiState.notes,
+                    onValueChange = { viewModel.onNotesChanged(it) },
+                    label = { Text("Observação / Detalhes do Serviço (opcional)") },
+                    placeholder = { Text("Ex: Mão de obra inclusa, garantia de 3 meses, etc.") },
+                    minLines = 2,
+                    maxLines = 4,
+                    leadingIcon = {
+                        Icon(Icons.Default.Description, contentDescription = null, tint = OrangeNeon)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // 10. Forma de Pagamento (Segmented Buttons: PIX / Cartão / Dinheiro)
+                Text(
+                    text = "FORMA DE PAGAMENTO",
+                    color = Color.LightGray,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.8.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // PIX
+                    PaymentOptionButton(
+                        title = "PIX",
+                        icon = Icons.Default.QrCode,
+                        isSelected = uiState.paymentMethod == "pix",
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.onPaymentMethodSelected("pix") }
+                    )
+
+                    // Cartão (Abre Modal de Cartão)
+                    PaymentOptionButton(
+                        title = "Cartão",
+                        icon = Icons.Default.CreditCard,
+                        isSelected = uiState.paymentMethod == "cartao",
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            viewModel.onPaymentMethodSelected("cartao")
+                            showCardModal = true
+                        }
+                    )
+
+                    // Dinheiro
+                    PaymentOptionButton(
+                        title = "Dinheiro",
+                        icon = Icons.Default.AttachMoney,
+                        isSelected = uiState.paymentMethod == "dinheiro",
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.onPaymentMethodSelected("dinheiro") }
+                    )
+                }
+
+                // Resumo do Cartão se selecionado
+                if (uiState.paymentMethod == "cartao" && uiState.cardPaymentData != null) {
+                    val cardData = uiState.cardPaymentData!!
+                    Surface(
+                        color = SurfaceDarkAlt,
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showCardModal = true }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = if (cardData.isInstallment) "Parcelado: ${cardData.installmentTotal}x" else "Crédito / Débito à Vista",
+                                    color = OrangeNeon,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = "${cardData.cardBrand ?: "Cartão"} • ${cardData.cardOperator ?: ""}",
+                                    color = Color.White,
+                                    fontSize = 13.sp
+                                )
+                            }
+                            TextButton(onClick = { showCardModal = true }) {
+                                Text("Alterar", color = OrangeNeon, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Botão Salvar
@@ -685,12 +935,31 @@ fun PartMaintenanceScreen(
             }
         }
 
+        // Modal de Pagamento com Cartão
+        if (showCardModal) {
+            CardPaymentModal(
+                availableCards = uiState.availableCards,
+                availableBrands = uiState.availableBrands,
+                availableOperators = uiState.availableOperators,
+                initialData = uiState.cardPaymentData,
+                purchaseDate = uiState.lastChangeDateTime,
+                onAddBrand = { viewModel.addCardBrand(it) },
+                onAddOperator = { viewModel.addCardOperator(it) },
+                onNavigateToManageCards = {},
+                onConfirm = { cardData ->
+                    viewModel.onCardPaymentConfirmed(cardData)
+                    showCardModal = false
+                },
+                onDismiss = { showCardModal = false }
+            )
+        }
+
         // Confirmação de exclusão
         if (showDeleteConfirmDialog && uiState.editingPartId != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = false },
                 title = { Text("Excluir Peça?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Tem certeza que deseja excluir o monitoramento de '${uiState.partName}'?", color = Color.LightGray) },
+                text = { Text("Tem certeza que deseja excluir o monitoramento de '${uiState.partName}' e a despesa associada?", color = Color.LightGray) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -1300,6 +1569,73 @@ fun PartMaintenanceCard(
             }
         }
     }
+}
+
+@Composable
+private fun PaymentOptionButton(
+    title: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { onClick() },
+        color = if (isSelected) OrangeNeon.copy(alpha = 0.2f) else SurfaceDarkAlt,
+        shape = RoundedCornerShape(10.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isSelected) OrangeNeon else Color.DarkGray
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = if (isSelected) OrangeNeon else Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = title,
+                color = if (isSelected) OrangeNeon else Color.White,
+                fontSize = 12.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+        }
+    }
+}
+
+fun showDateTimePicker(
+    context: Context,
+    currentDateTime: LocalDateTime,
+    onDateTimeSelected: (LocalDateTime) -> Unit
+) {
+    DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            TimePickerDialog(
+                context,
+                { _, hourOfDay, minute ->
+                    val selected = LocalDateTime.of(year, month + 1, dayOfMonth, hourOfDay, minute)
+                    onDateTimeSelected(selected)
+                },
+                currentDateTime.hour,
+                currentDateTime.minute,
+                true
+            ).show()
+        },
+        currentDateTime.year,
+        currentDateTime.monthValue - 1,
+        currentDateTime.dayOfMonth
+    ).show()
 }
 
 private fun openCompanyContact(context: Context, phone: String, isWhatsapp: Boolean) {
