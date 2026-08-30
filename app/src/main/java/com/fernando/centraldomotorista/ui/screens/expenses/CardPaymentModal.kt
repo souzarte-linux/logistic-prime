@@ -49,7 +49,14 @@ fun CardPaymentModal(
     val activeCards = remember(availableCards) { availableCards.filter { it.active } }
 
     var selectedCardId by remember {
-        mutableStateOf(initialData?.cardId ?: activeCards.firstOrNull()?.id ?: "")
+        mutableStateOf(initialData?.cardId ?: activeCards.lastOrNull()?.id ?: "")
+    }
+
+    LaunchedEffect(activeCards) {
+        if (selectedCardId.isBlank() || activeCards.none { it.id == selectedCardId }) {
+            selectedCardId = initialData?.cardId?.takeIf { id -> activeCards.any { it.id == id } }
+                ?: activeCards.lastOrNull()?.id ?: ""
+        }
     }
 
     val selectedCard = remember(selectedCardId, activeCards) {

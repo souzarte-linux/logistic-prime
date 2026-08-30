@@ -43,14 +43,22 @@ fun FuelExpenseScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var stationMenuExpanded by remember { mutableStateOf(false) }
     var fuelMenuExpanded by remember { mutableStateOf(false) }
     var showCardModal by remember { mutableStateOf(false) }
 
-    // Re-fetch data on screen display / return from child screens
-    LaunchedEffect(Unit) {
-        viewModel.loadInitialData()
+    // Re-fetch data on screen display / return from child screens (ON_RESUME)
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.loadInitialData()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     LaunchedEffect(uiState.message) {
