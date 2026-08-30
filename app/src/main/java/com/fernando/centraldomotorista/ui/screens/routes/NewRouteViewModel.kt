@@ -131,10 +131,22 @@ class NewRouteViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val platforms = platformRepository.getActivePlatforms(user.id)
+                val lastOdometerKm = routeRepository.getLastOdometerKm(user.id)
                 withContext(Dispatchers.Main) {
+                    val initialStartKm = if (_uiState.value.startKmText.isEmpty() && lastOdometerKm != null && lastOdometerKm > BigDecimal.ZERO) {
+                        if (lastOdometerKm.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) == 0) {
+                            lastOdometerKm.toBigInteger().toString()
+                        } else {
+                            lastOdometerKm.setScale(1, RoundingMode.HALF_UP).toPlainString().replace('.', ',')
+                        }
+                    } else {
+                        _uiState.value.startKmText
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         platforms = platforms,
                         selectedPlatformId = _uiState.value.selectedPlatformId ?: platforms.firstOrNull()?.id,
+                        startKmText = initialStartKm,
                         isLoading = false
                     )
                 }

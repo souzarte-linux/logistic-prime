@@ -19,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -53,6 +55,7 @@ fun NewRouteScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val endKmFocusRequester = remember { FocusRequester() }
 
     var platformMenuExpanded by remember { mutableStateOf(false) }
     var productTypeMenuExpanded by remember { mutableStateOf(false) }
@@ -320,7 +323,7 @@ fun NewRouteScreen(
                                         value = uiState.smallPackagesCountText,
                                         onValueChange = { viewModel.onSmallPackagesCountChanged(it) },
                                         label = { Text("Qtd. Pacotinhos") },
-                                        placeholder = { Text("0") },
+                                        placeholder = { Text("Quant.") },
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                                         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
@@ -338,7 +341,7 @@ fun NewRouteScreen(
                                         value = uiState.smallPackagesUnitPriceText,
                                         onValueChange = { viewModel.onSmallPackagesUnitPriceChanged(it) },
                                         label = { Text("Valor Unitário") },
-                                        placeholder = { Text("0,00") },
+                                        placeholder = { Text("Valor") },
                                         singleLine = true,
                                         visualTransformation = CurrencyVisualTransformation(),
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
@@ -767,7 +770,7 @@ fun NewRouteScreen(
                                 VisualTransformation.None
                             },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            keyboardActions = KeyboardActions(onNext = { endKmFocusRequester.requestFocus() }),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
@@ -820,7 +823,7 @@ fun NewRouteScreen(
                                 singleLine = true,
                                 visualTransformation = KmVisualTransformation(" KM"),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                                keyboardActions = KeyboardActions(onNext = { endKmFocusRequester.requestFocus() }),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
@@ -847,7 +850,9 @@ fun NewRouteScreen(
                                     focusedTextColor = Color.White,
                                     unfocusedTextColor = Color.White
                                 ),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(endKmFocusRequester)
                             )
                         }
 
