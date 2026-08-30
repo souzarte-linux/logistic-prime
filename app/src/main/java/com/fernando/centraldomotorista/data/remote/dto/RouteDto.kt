@@ -34,6 +34,8 @@ data class RouteDto(
     val smallPackagesCount: Int? = 0,
     @SerializedName("large_packages_count")
     val largePackagesCount: Int? = 0,
+    @SerializedName("large_packages_prices")
+    val largePackagesPrices: List<BigDecimal>? = null,
     @SerializedName("started_at")
     val startedAt: String? = null,
     @SerializedName("ended_at")
@@ -67,10 +69,12 @@ fun RouteDto.toDomain(): Route {
         amount = amount,
         tip = tip,
         productType = productType,
+        notes = notes,
         packageCount = packageCount,
         packageUnitPrice = packageUnitPrice,
         smallPackagesCount = smallPackagesCount ?: 0,
         largePackagesCount = largePackagesCount ?: 0,
+        largePackagesPrices = largePackagesPrices ?: emptyList(),
         startedAt = startedAt?.let { try { OffsetDateTime.parse(it) } catch (e: Exception) { null } },
         endedAt = endedAt?.let { try { OffsetDateTime.parse(it) } catch (e: Exception) { null } },
         breakMinutes = breakMinutes,
@@ -92,11 +96,12 @@ fun Route.toDto(): RouteDto {
         amount = amount,
         tip = tip,
         productType = productType,
-        notes = null,
+        notes = notes,
         packageCount = packageCount,
         packageUnitPrice = packageUnitPrice,
         smallPackagesCount = smallPackagesCount,
         largePackagesCount = largePackagesCount,
+        largePackagesPrices = if (largePackagesPrices.isNotEmpty()) largePackagesPrices else null,
         startedAt = startedAt?.toString(),
         endedAt = endedAt?.toString(),
         breakMinutes = breakMinutes,

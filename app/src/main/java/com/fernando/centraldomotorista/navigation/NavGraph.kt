@@ -68,6 +68,7 @@ fun CentralDoMotoristaApp(
     val googleAuthClient = remember { GoogleAuthClient(context) }
 
     val isUserLoggedIn = supabase.auth.currentUserOrNull() != null
+    val homeViewModel: HomeViewModel = viewModel()
 
     val startDestination = remember {
         if (isUserLoggedIn) Screen.Inicio.route else Screen.Login.route
@@ -138,6 +139,7 @@ fun CentralDoMotoristaApp(
                 LoginScreen(
                     authViewModel = authViewModel,
                     onLoginSuccess = {
+                        homeViewModel.refresh()
                         navController.navigate(Screen.Inicio.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                         }
@@ -146,7 +148,6 @@ fun CentralDoMotoristaApp(
             }
 
             composable(Screen.Inicio.route) {
-                val homeViewModel: HomeViewModel = viewModel()
                 HomeScreen(
                     viewModel = homeViewModel,
                     onNavigateToCreateRoute = {
@@ -180,7 +181,10 @@ fun CentralDoMotoristaApp(
                 val fuelViewModel: com.fernando.centraldomotorista.ui.screens.expenses.FuelExpenseViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.expenses.FuelExpenseScreen(
                     viewModel = fuelViewModel,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    },
                     onNavigateToGasStations = { navController.navigate(Screen.GasStations.route) },
                     onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) }
                 )
@@ -203,10 +207,14 @@ fun CentralDoMotoristaApp(
             }
 
             composable(Screen.LancarRota.route) {
-                PlaceholderActionScreen(
-                    title = "Lançar Ganhos por Rota",
-                    description = "Formulário detalhado de corrida com cálculo automático de km e comissões.",
-                    onBack = { navController.popBackStack() }
+                val routeViewModel: com.fernando.centraldomotorista.ui.screens.routes.NewRouteViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.routes.NewRouteScreen(
+                    viewModel = routeViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onRouteSaved = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
                 )
             }
 
