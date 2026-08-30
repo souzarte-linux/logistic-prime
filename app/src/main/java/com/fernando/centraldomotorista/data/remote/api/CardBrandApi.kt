@@ -15,4 +15,17 @@ interface CardBrandApi {
     suspend fun createCardBrand(
         @Body brand: CardBrandDto
     ): List<CardBrandDto>
+
+    @Headers("Prefer: return=representation")
+    @PATCH("card_brands")
+    suspend fun updateCardBrand(
+        @Query("id") idFilter: String,
+        @Body brand: CardBrandDto
+    ): List<CardBrandDto>
+
+    @DELETE("card_brands")
+    suspend fun deleteCardBrand(
+        @Query("id") idFilter: String
+    )
 }
+

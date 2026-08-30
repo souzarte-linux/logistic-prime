@@ -241,10 +241,10 @@ fun CentralDoMotoristaApp(
 
             // Cadastro - Bandeiras
             composable(Screen.Bandeiras.route) {
-                PlaceholderActionScreen(
-                    title = "Bandeiras",
-                    description = "Cartões e formas de pagamento.",
-                    onBack = { navController.popBackStack() }
+                val bandeirasViewModel: com.fernando.centraldomotorista.ui.screens.bandeiras.BandeirasViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.bandeiras.BandeirasScreen(
+                    viewModel = bandeirasViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
