@@ -15,4 +15,17 @@ interface CardOperatorApi {
     suspend fun createCardOperator(
         @Body operator: CardOperatorDto
     ): List<CardOperatorDto>
+
+    @Headers("Prefer: return=representation")
+    @PATCH("card_operators")
+    suspend fun updateCardOperator(
+        @Query("id") idFilter: String,
+        @Body operator: CardOperatorDto
+    ): List<CardOperatorDto>
+
+    @DELETE("card_operators")
+    suspend fun deleteCardOperator(
+        @Query("id") idFilter: String
+    )
 }
+

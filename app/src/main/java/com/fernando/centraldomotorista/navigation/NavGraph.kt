@@ -216,10 +216,10 @@ fun CentralDoMotoristaApp(
 
             // Cadastro - Emissores
             composable(Screen.Emissores.route) {
-                PlaceholderActionScreen(
-                    title = "Emissores",
-                    description = "Instituições Emissoras dos Cartões.",
-                    onBack = { navController.popBackStack() }
+                val emissoresViewModel: com.fernando.centraldomotorista.ui.screens.emissores.EmissoresViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.emissores.EmissoresScreen(
+                    viewModel = emissoresViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
