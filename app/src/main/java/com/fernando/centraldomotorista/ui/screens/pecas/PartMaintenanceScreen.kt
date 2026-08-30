@@ -38,6 +38,7 @@ import com.fernando.centraldomotorista.data.model.Company
 import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.PartProduct
 import com.fernando.centraldomotorista.ui.theme.*
+import java.math.BigDecimal
 
 private val WhatsAppGreen = Color(0xFF25D366)
 
@@ -293,6 +294,7 @@ fun PartMaintenanceScreen(
                     part = part,
                     company = linkedCompany,
                     product = linkedProduct,
+                    currentOdometerKm = uiState.currentOdometerKm,
                     onEdit = { viewModel.startEditing(part) },
                     onContactPhone = { phone, isWhatsapp ->
                         openCompanyContact(context, phone, isWhatsapp)
@@ -948,11 +950,50 @@ fun PartMaintenanceCard(
     part: PartMaintenance,
     company: Company?,
     product: PartProduct?,
+    currentOdometerKm: BigDecimal,
     onEdit: () -> Unit,
     onContactPhone: (String, Boolean) -> Unit,
     onOpenMap: (Company) -> Unit
 ) {
     val nextDueKm = part.lastChangeKm + part.lifeKm
+
+    // 1. Cálculo de Quilometragem e Progresso de Vida Útil
+    val usedKm = if (currentOdometerKm > part.lastChangeKm) {
+        currentOdometerKm - part.lastChangeKm
+    } else {
+        BigDecimal.ZERO
+    }
+
+    val progressRatio = if (part.lifeKm > BigDecimal.ZERO) {
+        (usedKm.toDouble() / part.lifeKm.toDouble()).coerceAtLeast(0.0)
+    } else {
+        0.0
+    }
+
+    val progressPercent = (progressRatio * 100.0).toInt()
+    val progressFraction = progressRatio.toFloat().coerceIn(0f, 1f)
+
+    // 2. Cores da linha e status conforme a regra:
+    // - Até 50% -> Verde
+    // - 51% até 85% -> Amarelo-Laranjado
+    // - Superior a 85% -> Vermelho
+    val (statusColor, statusBgColor, statusText) = when {
+        progressPercent <= 50 -> Triple(
+            Color(0xFF22C55E), // Verde
+            Color(0xFF22C55E).copy(alpha = 0.15f),
+            "Em dia (${progressPercent}% de uso)"
+        )
+        progressPercent <= 85 -> Triple(
+            Color(0xFFFF9800), // Amarelo-Laranjado
+            Color(0xFFFF9800).copy(alpha = 0.15f),
+            "Atenção (${progressPercent}% de uso)"
+        )
+        else -> Triple(
+            Color(0xFFEF4444), // Vermelho
+            Color(0xFFEF4444).copy(alpha = 0.15f),
+            if (progressPercent >= 100) "Vencida (${progressPercent}% de uso)!" else "Troca Iminente (${progressPercent}% de uso)!"
+        )
+    }
 
     Card(
         modifier = Modifier
@@ -1008,7 +1049,7 @@ fun PartMaintenanceCard(
                     }
 
                     Text(
-                        text = "Vida útil: ${part.lifeKm} KM",
+                        text = "Vida útil total: ${part.lifeKm} KM",
                         fontSize = 12.sp,
                         color = Color.LightGray
                     )
@@ -1046,18 +1087,124 @@ fun PartMaintenanceCard(
                     )
                 }
 
+                if (currentOdometerKm > BigDecimal.ZERO) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "ODÔMETRO ATUAL",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "$currentOdometerKm KM",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
+                }
+
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "PRÓXIMA TROCA",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = OrangeNeon
+                        color = statusColor
                     )
                     Text(
                         text = "$nextDueKm KM",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = OrangeNeon
+                        color = statusColor
+                    )
+                }
+            }
+
+            // 3. Barra Graduada de Vida Útil (Linha Grossa com Transição de Cores)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceDarkAlt.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.04f), RoundedCornerShape(10.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Linha de Status e Quilometragem Restante
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = statusBgColor,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = statusText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = statusColor,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
+                    if (currentOdometerKm > BigDecimal.ZERO) {
+                        if (currentOdometerKm <= nextDueKm) {
+                            val remainingKm = nextDueKm - currentOdometerKm
+                            Text(
+                                text = "Restam $remainingKm KM",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.LightGray
+                            )
+                        } else {
+                            val overdueKm = currentOdometerKm - nextDueKm
+                            Text(
+                                text = "Vencida há $overdueKm KM",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFEF4444)
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "0% de uso",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+
+                // A Linha Grossa de Progresso (Altura 8dp com cantos arredondados)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(4.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(progressFraction.coerceAtLeast(0.02f))
+                            .background(statusColor, RoundedCornerShape(4.dp))
+                    )
+                }
+
+                // Legenda de Escala da Linha
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "0% (${part.lastChangeKm} KM)",
+                        fontSize = 9.sp,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = "100% (${nextDueKm} KM)",
+                        fontSize = 9.sp,
+                        color = Color.Gray
                     )
                 }
             }

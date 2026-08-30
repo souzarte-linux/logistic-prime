@@ -11,6 +11,7 @@ import com.fernando.centraldomotorista.data.repository.CompanyRepository
 import com.fernando.centraldomotorista.data.repository.PartMaintenanceRepository
 import com.fernando.centraldomotorista.data.repository.PartProductRepository
 import com.fernando.centraldomotorista.data.repository.PartTypeRepository
+import com.fernando.centraldomotorista.data.repository.RouteRepository
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +38,7 @@ data class PartMaintenanceUiState(
     val companies: List<Company> = emptyList(),
     val partTypes: List<PartType> = emptyList(),
     val partProducts: List<PartProduct> = emptyList(),
+    val currentOdometerKm: BigDecimal = BigDecimal.ZERO,
     val searchQuery: String = "",
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -66,7 +68,8 @@ class PartMaintenanceViewModel(
     private val partRepository: PartMaintenanceRepository = PartMaintenanceRepository(),
     private val companyRepository: CompanyRepository = CompanyRepository(),
     private val partTypeRepository: PartTypeRepository = PartTypeRepository(),
-    private val partProductRepository: PartProductRepository = PartProductRepository()
+    private val partProductRepository: PartProductRepository = PartProductRepository(),
+    private val routeRepository: RouteRepository = RouteRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PartMaintenanceUiState())
@@ -86,12 +89,14 @@ class PartMaintenanceViewModel(
             val companiesList = companyRepository.getCompanies(currentUserId)
             val typesList = partTypeRepository.getPartTypes(currentUserId)
             val productsList = partProductRepository.getPartProducts(currentUserId)
+            val lastOdometer = routeRepository.getLastOdometerKm(currentUserId) ?: BigDecimal.ZERO
             _uiState.update {
                 it.copy(
                     parts = partsList,
                     companies = companiesList,
                     partTypes = typesList,
                     partProducts = productsList,
+                    currentOdometerKm = lastOdometer,
                     isLoading = false
                 )
             }
