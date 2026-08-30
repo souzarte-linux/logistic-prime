@@ -818,7 +818,7 @@ fun NewRouteScreen(
                             OutlinedTextField(
                                 value = uiState.startKmText,
                                 onValueChange = { viewModel.onStartKmChanged(it) },
-                                label = { Text("KM Inicial (Opcional)") },
+                                label = { Text("KM Inicial") },
                                 placeholder = { Text("0") },
                                 singleLine = true,
                                 visualTransformation = KmVisualTransformation(" KM"),
@@ -837,7 +837,7 @@ fun NewRouteScreen(
                             OutlinedTextField(
                                 value = uiState.endKmText,
                                 onValueChange = { viewModel.onEndKmChanged(it) },
-                                label = { Text("KM Final (Opcional)") },
+                                label = { Text("KM Final") },
                                 placeholder = { Text("0") },
                                 singleLine = true,
                                 visualTransformation = KmVisualTransformation(" KM"),
