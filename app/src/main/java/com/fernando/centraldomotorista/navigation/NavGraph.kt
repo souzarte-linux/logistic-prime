@@ -207,10 +207,10 @@ fun CentralDoMotoristaApp(
 
             // Cadastro - Empresas
             composable(Screen.Empresas.route) {
-                PlaceholderActionScreen(
-                    title = "Empresas",
-                    description = "Prestadoras de Serviços e Gestão de Contratos.",
-                    onBack = { navController.popBackStack() }
+                val empresasViewModel: com.fernando.centraldomotorista.ui.screens.empresas.EmpresasViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.empresas.EmpresasScreen(
+                    viewModel = empresasViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

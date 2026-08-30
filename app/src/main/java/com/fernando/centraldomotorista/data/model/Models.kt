@@ -212,3 +212,10 @@ data class CreditCard(
     val cardType: String = "credito", // "credito" | "debito" | "multiplo" | "voucher"
     val active: Boolean = true,
 )
+
+data class Company(
+    val id: String,
+    val userId: String,
+    val name: String,
+)
+

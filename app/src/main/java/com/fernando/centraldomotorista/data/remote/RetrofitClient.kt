@@ -45,4 +45,6 @@ object RetrofitClient {
     val cardBrandApi: CardBrandApi by lazy { retrofit.create(CardBrandApi::class.java) }
     val cardOperatorApi: CardOperatorApi by lazy { retrofit.create(CardOperatorApi::class.java) }
     val platformApi: PlatformApi by lazy { retrofit.create(PlatformApi::class.java) }
+    val companyApi: CompanyApi by lazy { retrofit.create(CompanyApi::class.java) }
 }
+
