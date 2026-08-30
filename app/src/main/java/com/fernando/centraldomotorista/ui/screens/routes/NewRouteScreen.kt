@@ -28,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.ui.theme.*
 import com.fernando.centraldomotorista.ui.utils.CurrencyVisualTransformation
 import com.fernando.centraldomotorista.ui.utils.KmVisualTransformation
+import com.fernando.centraldomotorista.ui.utils.SuffixVisualTransformation
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.time.LocalTime
@@ -111,14 +112,24 @@ fun NewRouteScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // 1. Plataforma (Dropdown alimentado pelas ativas do usuário)
-                        Text(
-                            text = "PLATAFORMA",
-                            color = Color.LightGray,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            letterSpacing = 0.8.sp
-                        )
+                        // 1. Seção Plataforma com Ícone
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Storefront,
+                                contentDescription = null,
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "PLATAFORMA",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                color = Color.White
+                            )
+                        }
 
                         val selectedPlatform = uiState.platforms.firstOrNull { it.id == uiState.selectedPlatformId }
                         val platformLabel = selectedPlatform?.name
@@ -216,19 +227,24 @@ fun NewRouteScreen(
                             )
                         }
 
-                        // 3. Distância (KM) e Tipo de Produto
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        // 3. Tipo de Produto (Largura Total)
+                        val selectedProductTypeOption = AVAILABLE_PRODUCT_TYPES.firstOrNull { it.code == uiState.selectedProductTypeCode }
+                            ?: AVAILABLE_PRODUCT_TYPES.first()
+
+                        ExposedDropdownMenuBox(
+                            expanded = productTypeMenuExpanded,
+                            onExpandedChange = { productTypeMenuExpanded = !productTypeMenuExpanded },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedTextField(
-                                value = uiState.distanceKmText,
-                                onValueChange = { viewModel.onDistanceKmChanged(it) },
-                                label = { Text("Distância") },
-                                placeholder = { Text("0,0") },
-                                singleLine = true,
-                                visualTransformation = KmVisualTransformation(" KM"),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                value = selectedProductTypeOption.label,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Tipo de Produto") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Category, contentDescription = null, tint = OrangeNeon)
+                                },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productTypeMenuExpanded) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
@@ -236,49 +252,23 @@ fun NewRouteScreen(
                                     focusedTextColor = Color.White,
                                     unfocusedTextColor = Color.White
                                 ),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
                             )
-
-                            // Dropdown Tipo de Produto
-                            val selectedProductTypeOption = AVAILABLE_PRODUCT_TYPES.firstOrNull { it.code == uiState.selectedProductTypeCode }
-                                ?: AVAILABLE_PRODUCT_TYPES.first()
-
-                            ExposedDropdownMenuBox(
+                            ExposedDropdownMenu(
                                 expanded = productTypeMenuExpanded,
-                                onExpandedChange = { productTypeMenuExpanded = !productTypeMenuExpanded },
-                                modifier = Modifier.weight(1f)
+                                onDismissRequest = { productTypeMenuExpanded = false },
+                                modifier = Modifier.background(SurfaceDark)
                             ) {
-                                OutlinedTextField(
-                                    value = selectedProductTypeOption.label,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    label = { Text("Tipo de Produto") },
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productTypeMenuExpanded) },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = OrangeNeon,
-                                        focusedLabelColor = OrangeNeon,
-                                        unfocusedBorderColor = Color.DarkGray,
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White
-                                    ),
-                                    modifier = Modifier
-                                        .menuAnchor()
-                                        .fillMaxWidth()
-                                )
-                                ExposedDropdownMenu(
-                                    expanded = productTypeMenuExpanded,
-                                    onDismissRequest = { productTypeMenuExpanded = false },
-                                    modifier = Modifier.background(SurfaceDark)
-                                ) {
-                                    AVAILABLE_PRODUCT_TYPES.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(option.label, color = Color.White) },
-                                            onClick = {
-                                                viewModel.onProductTypeSelected(option.code)
-                                                productTypeMenuExpanded = false
-                                            }
-                                        )
-                                    }
+                                AVAILABLE_PRODUCT_TYPES.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option.label, color = Color.White) },
+                                        onClick = {
+                                            viewModel.onProductTypeSelected(option.code)
+                                            productTypeMenuExpanded = false
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -610,7 +600,8 @@ fun NewRouteScreen(
                                         color = Color.LightGray,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.8.sp
+                                        letterSpacing = 0.8.sp,
+                                        modifier = Modifier.weight(1f)
                                     )
                                     Surface(
                                         color = OrangeNeon.copy(alpha = 0.2f),
@@ -621,7 +612,9 @@ fun NewRouteScreen(
                                             color = OrangeNeon,
                                             fontWeight = FontWeight.Black,
                                             fontSize = 13.sp,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                         )
                                     }
                                 }
@@ -652,14 +645,24 @@ fun NewRouteScreen(
 
                         HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 4.dp))
 
-                        // 8. Horário de Início e Fim + Minutos de Pausa
-                        Text(
-                            text = "HORÁRIOS & TEMPO DE PAUSA",
-                            color = Color.LightGray,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            letterSpacing = 0.8.sp
-                        )
+                        // 8. Horário de Início e Fim + Minutos de Pausa + Odômetro + Distância Total
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "HORÁRIOS & TEMPO DE PAUSA",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                color = Color.White
+                            )
+                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -730,6 +733,7 @@ fun NewRouteScreen(
                             label = { Text("Minutos de Pausa") },
                             placeholder = { Text("0") },
                             singleLine = true,
+                            visualTransformation = SuffixVisualTransformation(" Minutos"),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
@@ -782,6 +786,25 @@ fun NewRouteScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+
+                        // Distância Total (KM) - Largura total abaixo de KM Inicial e KM Final
+                        OutlinedTextField(
+                            value = uiState.distanceKmText,
+                            onValueChange = { viewModel.onDistanceKmChanged(it) },
+                            label = { Text("Distância Total (KM)") },
+                            placeholder = { Text("0,0") },
+                            singleLine = true,
+                            visualTransformation = KmVisualTransformation(" KM"),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = Color.DarkGray,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
                         Spacer(modifier = Modifier.height(6.dp))
 
