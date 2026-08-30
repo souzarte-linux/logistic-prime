@@ -18,6 +18,8 @@ data class PartMaintenanceDto(
     val lastChangeKm: BigDecimal,
     @SerializedName("last_change_at")
     val lastChangeAt: String? = null,
+    @SerializedName("company_id")
+    val companyId: String? = null,
     @SerializedName("created_at")
     val createdAt: String? = null
 )
@@ -33,6 +35,19 @@ fun PartMaintenanceDto.toDomain(): PartMaintenance {
         partName = partName,
         lifeKm = lifeKm,
         lastChangeKm = lastChangeKm,
-        lastChangeAt = parsedDate
+        lastChangeAt = parsedDate,
+        companyId = companyId
+    )
+}
+
+fun PartMaintenance.toDto(): PartMaintenanceDto {
+    return PartMaintenanceDto(
+        id = if (id.isNotBlank()) id else null,
+        userId = userId,
+        partName = partName,
+        lifeKm = lifeKm,
+        lastChangeKm = lastChangeKm,
+        lastChangeAt = lastChangeAt.toString(),
+        companyId = companyId?.takeIf { it.isNotBlank() }
     )
 }

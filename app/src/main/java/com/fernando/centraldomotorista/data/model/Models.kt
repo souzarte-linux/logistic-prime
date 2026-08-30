@@ -125,6 +125,7 @@ data class PartMaintenance(
     val lifeKm: BigDecimal,
     val lastChangeKm: BigDecimal,
     val lastChangeAt: OffsetDateTime,
+    val companyId: String? = null,
 ) {
     /** Quantos km restam até vencer (negativo = atrasado). Requer o odômetro atual do veículo. */
     fun kmRemaining(currentOdometerKm: BigDecimal): BigDecimal {
@@ -217,5 +218,14 @@ data class Company(
     val id: String,
     val userId: String,
     val name: String,
+    val cep: String? = null,
+    val street: String? = null,
+    val number: String? = null,
+    val complement: String? = null,
+    val cnpj: String? = null,
+    val phone: String? = null,
+    val isWhatsapp: Boolean = false,
+    val socialMedia: String? = null,
+    val website: String? = null,
 )
 

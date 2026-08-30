@@ -250,10 +250,17 @@ fun CentralDoMotoristaApp(
 
             // Cadastro - Monitoramento Peças
             composable(Screen.MonitoramentoPecas.route) {
-                PlaceholderActionScreen(
-                    title = "Monitoramento Peças",
-                    description = "Controle de trocas e manutenção.",
-                    onBack = { navController.popBackStack() }
+                val partViewModel: com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
+                    viewModel = partViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable("part_maintenance") {
+                val partViewModel: com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
+                    viewModel = partViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
