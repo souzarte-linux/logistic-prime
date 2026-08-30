@@ -526,12 +526,8 @@ fun FuelExpenseScreen(
     if (showCardModal) {
         CardPaymentModal(
             availableCards = uiState.creditCards,
-            availableBrands = uiState.cardBrands,
-            availableOperators = uiState.cardOperators,
             initialData = uiState.cardPaymentData,
             purchaseDate = uiState.dateTime,
-            onAddBrand = { viewModel.addBrand(it) },
-            onAddOperator = { viewModel.addOperator(it) },
             onNavigateToManageCards = {
                 showCardModal = false
                 onNavigateToManageCards()

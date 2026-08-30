@@ -258,6 +258,7 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
                     viewModel = partViewModel,
                     onNavigateToPartProducts = { navController.navigate("part_products") },
+                    onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) },
                     onNavigateBack = {
                         homeViewModel.refresh()
                         navController.popBackStack()
@@ -269,6 +270,7 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
                     viewModel = partViewModel,
                     onNavigateToPartProducts = { navController.navigate("part_products") },
+                    onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) },
                     onNavigateBack = {
                         homeViewModel.refresh()
                         navController.popBackStack()

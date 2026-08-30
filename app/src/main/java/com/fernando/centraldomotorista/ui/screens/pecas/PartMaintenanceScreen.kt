@@ -55,6 +55,7 @@ private val GreenNeon = Color(0xFF00E676)
 fun PartMaintenanceScreen(
     viewModel: PartMaintenanceViewModel = viewModel(),
     onNavigateToPartProducts: () -> Unit,
+    onNavigateToManageCards: () -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -939,13 +940,12 @@ fun PartMaintenanceScreen(
         if (showCardModal) {
             CardPaymentModal(
                 availableCards = uiState.availableCards,
-                availableBrands = uiState.availableBrands,
-                availableOperators = uiState.availableOperators,
                 initialData = uiState.cardPaymentData,
                 purchaseDate = uiState.lastChangeDateTime,
-                onAddBrand = { viewModel.addCardBrand(it) },
-                onAddOperator = { viewModel.addCardOperator(it) },
-                onNavigateToManageCards = {},
+                onNavigateToManageCards = {
+                    showCardModal = false
+                    onNavigateToManageCards()
+                },
                 onConfirm = { cardData ->
                     viewModel.onCardPaymentConfirmed(cardData)
                     showCardModal = false

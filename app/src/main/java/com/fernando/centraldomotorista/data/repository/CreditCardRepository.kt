@@ -21,7 +21,19 @@ class CreditCardRepository(
     suspend fun getCreditCards(userId: String): List<CreditCard> = withContext(Dispatchers.IO) {
         try {
             val userFilter = "eq.$userId"
-            creditCardApi.getCreditCards(userFilter, "nickname.asc").map { it.toDomain() }
+            val cards = creditCardApi.getCreditCards(userFilter, "nickname.asc").map { it.toDomain() }
+            val brands = try { cardBrandApi.getCardBrands(userFilter).map { it.toDomain() } } catch (e: Exception) { emptyList() }
+            val operators = try { cardOperatorApi.getCardOperators(userFilter).map { it.toDomain() } } catch (e: Exception) { emptyList() }
+
+            val brandsMap = brands.associate { it.id to it.name }
+            val operatorsMap = operators.associate { it.id to it.name }
+
+            cards.map { card ->
+                card.copy(
+                    brandName = card.brandId?.let { brandsMap[it] },
+                    issuerName = card.issuerId?.let { operatorsMap[it] }
+                )
+            }
         } catch (e: Exception) {
             Log.e("CreditCardRepo", "Erro ao buscar cartoes: ${e.message}", e)
             emptyList()

@@ -230,6 +230,8 @@ data class CreditCard(
     val closingDay: Int,
     val cardType: String = "credito", // "credito" | "debito" | "multiplo" | "voucher"
     val active: Boolean = true,
+    val brandName: String? = null,
+    val issuerName: String? = null,
 )
 
 data class Company(

@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,19 +19,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.fernando.centraldomotorista.data.model.CardBrand
-import com.fernando.centraldomotorista.data.model.CardOperator
 import com.fernando.centraldomotorista.data.model.CreditCard
 import com.fernando.centraldomotorista.ui.theme.*
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 data class CardPaymentData(
     val cardId: String,
-    val cardBrand: String?,
-    val cardOperator: String?,
+    val cardBrand: String? = null,
+    val cardOperator: String? = null,
     val cardDueDay: Int?,
     val isInstallment: Boolean,
     val installmentTotal: Int?,
@@ -42,12 +40,8 @@ data class CardPaymentData(
 @Composable
 fun CardPaymentModal(
     availableCards: List<CreditCard>,
-    availableBrands: List<CardBrand>,
-    availableOperators: List<CardOperator>,
     initialData: CardPaymentData?,
     purchaseDate: LocalDateTime = LocalDateTime.now(),
-    onAddBrand: (String) -> Unit,
-    onAddOperator: (String) -> Unit,
     onNavigateToManageCards: () -> Unit,
     onConfirm: (CardPaymentData) -> Unit,
     onDismiss: () -> Unit
@@ -60,18 +54,6 @@ fun CardPaymentModal(
 
     val selectedCard = remember(selectedCardId, activeCards) {
         activeCards.firstOrNull { it.id == selectedCardId }
-    }
-
-    var selectedBrandId by remember {
-        mutableStateOf(
-            selectedCard?.brandId ?: availableBrands.firstOrNull()?.id
-        )
-    }
-
-    var selectedIssuerId by remember {
-        mutableStateOf(
-            selectedCard?.issuerId ?: availableOperators.firstOrNull()?.id
-        )
     }
 
     var isInstallment by remember {
@@ -94,19 +76,6 @@ fun CardPaymentModal(
         }
     }
 
-    // Update due day and brand/issuer when selected card changes
-    LaunchedEffect(selectedCardId) {
-        selectedCard?.let { card ->
-            if (card.brandId != null) selectedBrandId = card.brandId
-            if (card.issuerId != null) selectedIssuerId = card.issuerId
-        }
-    }
-
-    var showAddBrandDialog by remember { mutableStateOf(false) }
-    var showAddOperatorDialog by remember { mutableStateOf(false) }
-
-    var brandExpanded by remember { mutableStateOf(false) }
-    var issuerExpanded by remember { mutableStateOf(false) }
     var cardExpanded by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -140,175 +109,142 @@ fun CardPaymentModal(
                 }
             }
 
-            // 1. Bandeira (Dropdown + Botão "+")
+            // 1. Seletor de Cartão com Botão "+" Fixo
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val brandName = availableBrands.firstOrNull { it.id == selectedBrandId }?.name ?: "Selecione a Bandeira"
-                    ExposedDropdownMenuBox(
-                        expanded = brandExpanded,
-                        onExpandedChange = { brandExpanded = !brandExpanded },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        OutlinedTextField(
-                            value = brandName,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Bandeira") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandExpanded) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                unfocusedBorderColor = Color.DarkGray
-                            ),
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = brandExpanded,
-                            onDismissRequest = { brandExpanded = false },
-                            modifier = Modifier.background(SurfaceDark)
+                    if (activeCards.isEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    onDismiss()
+                                    onNavigateToManageCards()
+                                },
+                            colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            availableBrands.forEach { brand ->
-                                DropdownMenuItem(
-                                    text = { Text(brand.name, color = Color.White) },
-                                    onClick = {
-                                        selectedBrandId = brand.id
-                                        brandExpanded = false
-                                    }
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Nenhum cartão cadastrado",
+                                    color = Color.LightGray,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Toque no '+' ao lado para cadastrar",
+                                    color = OrangeNeon,
+                                    fontSize = 11.sp
                                 )
                             }
                         }
-                    }
-                    IconButton(
-                        onClick = { showAddBrandDialog = true },
-                        modifier = Modifier.padding(top = 6.dp)
-                    ) {
-                        Icon(Icons.Default.AddCircle, contentDescription = "Nova Bandeira", tint = OrangeNeon)
-                    }
-                }
-            }
-
-            // 2. Emissor (Dropdown + Botão "+")
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val operatorName = availableOperators.firstOrNull { it.id == selectedIssuerId }?.name ?: "Selecione o Emissor"
-                    ExposedDropdownMenuBox(
-                        expanded = issuerExpanded,
-                        onExpandedChange = { issuerExpanded = !issuerExpanded },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        OutlinedTextField(
-                            value = operatorName,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Emissor / Banco") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = issuerExpanded) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                unfocusedBorderColor = Color.DarkGray
-                            ),
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = issuerExpanded,
-                            onDismissRequest = { issuerExpanded = false },
-                            modifier = Modifier.background(SurfaceDark)
-                        ) {
-                            availableOperators.forEach { op ->
-                                DropdownMenuItem(
-                                    text = { Text(op.name, color = Color.White) },
-                                    onClick = {
-                                        selectedIssuerId = op.id
-                                        issuerExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    IconButton(
-                        onClick = { showAddOperatorDialog = true },
-                        modifier = Modifier.padding(top = 6.dp)
-                    ) {
-                        Icon(Icons.Default.AddCircle, contentDescription = "Novo Emissor", tint = OrangeNeon)
-                    }
-                }
-            }
-
-            // 3. Seletor de Cartão
-            item {
-                if (activeCards.isEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "Nenhum cartão cadastrado",
-                                color = Color.LightGray,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            TextButton(onClick = {
-                                onDismiss()
-                                onNavigateToManageCards()
-                            }) {
-                                Text("Cadastrar Cartão Agora ➔", color = OrangeNeon, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                } else {
-                    val currentDisplay = selectedCard?.let { "${it.nickname} (•••• ${it.lastFour})" } ?: "Selecione um Cartão"
-                    ExposedDropdownMenuBox(
-                        expanded = cardExpanded,
-                        onExpandedChange = { cardExpanded = !cardExpanded }
-                    ) {
-                        OutlinedTextField(
-                            value = currentDisplay,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Selecione o Cartão Cadastrado *") },
-                            leadingIcon = { Icon(Icons.Default.CreditCard, contentDescription = null, tint = OrangeNeon) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cardExpanded) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                unfocusedBorderColor = Color.DarkGray
-                            ),
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
+                    } else {
+                        val currentDisplay = selectedCard?.let { "${it.nickname} (•••• ${it.lastFour})" } ?: "Selecione o Cartão *"
+                        ExposedDropdownMenuBox(
                             expanded = cardExpanded,
-                            onDismissRequest = { cardExpanded = false },
-                            modifier = Modifier.background(SurfaceDark)
+                            onExpandedChange = { cardExpanded = !cardExpanded },
+                            modifier = Modifier.weight(1f)
                         ) {
-                            activeCards.forEach { card ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text("${card.nickname} •••• ${card.lastFour}", color = Color.White, fontWeight = FontWeight.Bold)
-                                            Text("Fechamento: Dia ${card.closingDay} • Vencimento: Dia ${card.dueDay}", color = Color.Gray, fontSize = 11.sp)
+                            OutlinedTextField(
+                                value = currentDisplay,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Cartão Cadastrado *") },
+                                leadingIcon = { Icon(Icons.Default.CreditCard, contentDescription = null, tint = OrangeNeon) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cardExpanded) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = OrangeNeon,
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    unfocusedBorderColor = Color.DarkGray
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = cardExpanded,
+                                onDismissRequest = { cardExpanded = false },
+                                modifier = Modifier.background(SurfaceDark)
+                            ) {
+                                activeCards.forEach { card ->
+                                    val brandIssuerText = listOfNotNull(card.brandName, card.issuerName).joinToString(" • ")
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text("${card.nickname} •••• ${card.lastFour}", color = Color.White, fontWeight = FontWeight.Bold)
+                                                if (brandIssuerText.isNotBlank()) {
+                                                    Text(brandIssuerText, color = OrangeNeon, fontSize = 11.sp)
+                                                }
+                                                Text("Fechamento: Dia ${card.closingDay} • Vencimento: Dia ${card.dueDay}", color = Color.Gray, fontSize = 11.sp)
+                                            }
+                                        },
+                                        onClick = {
+                                            selectedCardId = card.id
+                                            cardExpanded = false
                                         }
-                                    },
-                                    onClick = {
-                                        selectedCardId = card.id
-                                        cardExpanded = false
-                                    }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Botão "+" Fixo para cadastrar ou gerenciar cartões
+                    IconButton(
+                        onClick = {
+                            onDismiss()
+                            onNavigateToManageCards()
+                        },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddCircle,
+                            contentDescription = "Novo Cartão / Gerenciar",
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+            }
+
+            // 2. Informação Somente Leitura da Bandeira e Emissor do Cartão Selecionado
+            if (selectedCard != null) {
+                val brandIssuerInfo = listOfNotNull(
+                    selectedCard.brandName?.takeIf { it.isNotBlank() },
+                    selectedCard.issuerName?.takeIf { it.isNotBlank() }
+                ).joinToString(" • ")
+
+                if (brandIssuerInfo.isNotBlank()) {
+                    item {
+                        Surface(
+                            color = SurfaceDarkAlt.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Bandeira / Emissor: $brandIssuerInfo",
+                                    color = Color.LightGray,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
@@ -316,7 +252,7 @@ fun CardPaymentModal(
                 }
             }
 
-            // 4. Toggle "À Vista" / "A Prazo"
+            // 3. Toggle "À Vista" / "A Prazo"
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -348,7 +284,7 @@ fun CardPaymentModal(
                 }
             }
 
-            // 5. Se "A Prazo": Parcelas (editável) e 1ª Parcela (somente leitura / calculado)
+            // 4. Se "A Prazo": Parcelas (editável) e 1ª Parcela (somente leitura / calculado)
             if (isInstallment) {
                 item {
                     Row(
@@ -368,6 +304,7 @@ fun CardPaymentModal(
                                 unfocusedTextColor = Color.White,
                                 unfocusedBorderColor = Color.DarkGray
                             ),
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         )
 
@@ -391,13 +328,14 @@ fun CardPaymentModal(
                                 unfocusedTextColor = GreenNeon,
                                 unfocusedBorderColor = Color.DarkGray
                             ),
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1.2f)
                         )
                     }
                 }
             }
 
-            // 6. Vencimento Fatura Cartão (Somente Visualização / Não editável)
+            // 5. Vencimento Fatura Cartão (Somente Visualização / Não editável)
             item {
                 val dueDayDisplay = selectedCard?.let { "Todo dia ${it.dueDay} de cada mês" } ?: "Selecione um cartão acima"
                 OutlinedTextField(
@@ -412,24 +350,23 @@ fun CardPaymentModal(
                         unfocusedTextColor = Color.LightGray,
                         unfocusedBorderColor = Color.DarkGray
                     ),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            // 7. Botão Confirmar
+            // 6. Botão Confirmar
             item {
                 Button(
                     onClick = {
-                        val brandName = availableBrands.firstOrNull { it.id == selectedBrandId }?.name
-                        val operatorName = availableOperators.firstOrNull { it.id == selectedIssuerId }?.name
                         val dueDay = selectedCard?.dueDay ?: 10
                         val totalInst = if (isInstallment) (installmentsCountText.toIntOrNull() ?: 1) else 1
                         val groupId = if (isInstallment) UUID.randomUUID().toString() else null
 
                         val result = CardPaymentData(
                             cardId = selectedCardId,
-                            cardBrand = brandName,
-                            cardOperator = operatorName,
+                            cardBrand = selectedCard?.brandName,
+                            cardOperator = selectedCard?.issuerName,
                             cardDueDay = dueDay,
                             isInstallment = isInstallment,
                             installmentTotal = if (isInstallment) totalInst else null,
@@ -438,6 +375,7 @@ fun CardPaymentModal(
                         )
                         onConfirm(result)
                     },
+                    enabled = selectedCard != null,
                     colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -448,83 +386,5 @@ fun CardPaymentModal(
                 }
             }
         }
-    }
-
-    // Dialog Novo Emissor
-    if (showAddOperatorDialog) {
-        var opName by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAddOperatorDialog = false },
-            title = { Text("Cadastrar Novo Emissor", color = Color.White) },
-            text = {
-                OutlinedTextField(
-                    value = opName,
-                    onValueChange = { opName = it },
-                    label = { Text("Nome do Emissor / Banco") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onAddOperator(opName)
-                        showAddOperatorDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
-                ) {
-                    Text("Salvar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddOperatorDialog = false }) { Text("Cancelar", color = Color.Gray) }
-            },
-            containerColor = SurfaceDark
-        )
-    }
-
-    // Dialog Nova Bandeira
-    if (showAddBrandDialog) {
-        var bName by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAddBrandDialog = false },
-            title = { Text("Cadastrar Nova Bandeira", color = Color.White) },
-            text = {
-                OutlinedTextField(
-                    value = bName,
-                    onValueChange = { bName = it },
-                    label = { Text("Nome da Bandeira") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onAddBrand(bName)
-                        showAddBrandDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
-                ) {
-                    Text("Salvar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddBrandDialog = false }) { Text("Cancelar", color = Color.Gray) }
-            },
-            containerColor = SurfaceDark
-        )
     }
 }
