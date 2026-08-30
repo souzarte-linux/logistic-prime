@@ -1,6 +1,10 @@
 package com.fernando.centraldomotorista.ui.screens.empresas
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,10 +38,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.data.model.Company
 import com.fernando.centraldomotorista.ui.theme.*
+import com.fernando.centraldomotorista.ui.utils.CepVisualTransformation
+import com.fernando.centraldomotorista.ui.utils.CnpjVisualTransformation
+import com.fernando.centraldomotorista.ui.utils.PhoneVisualTransformation
 
 private val WhatsAppGreen = Color(0xFF25D366)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmpresasScreen(
     viewModel: EmpresasViewModel = viewModel(),
@@ -59,6 +66,66 @@ fun EmpresasScreen(
         }
     }
 
+    when (uiState.mode) {
+        EmpresaScreenMode.LIST -> {
+            EmpresasListView(
+                uiState = uiState,
+                onSearchChanged = { viewModel.onSearchQueryChanged(it) },
+                onRefresh = { viewModel.loadCompanies() },
+                onAddNew = { viewModel.openCreateForm() },
+                onSelectSuggestion = { viewModel.openCreateForm(it) },
+                onSelectCompany = { viewModel.openViewDetails(it) },
+                onNavigateBack = onNavigateBack
+            )
+        }
+        EmpresaScreenMode.VIEW -> {
+            uiState.selectedCompany?.let { company ->
+                CompanyDetailsView(
+                    company = company,
+                    onEdit = { viewModel.openEditFormFromDetails() },
+                    onDelete = { viewModel.deleteCompany(company.id) },
+                    onNavigateBack = { viewModel.navigateBackFromView() }
+                )
+            } ?: run {
+                viewModel.navigateBackFromView()
+            }
+        }
+        EmpresaScreenMode.FORM -> {
+            CompanyFormView(
+                uiState = uiState,
+                onNameChanged = { viewModel.onNameChanged(it) },
+                onCepChanged = { viewModel.onCepChanged(it) },
+                onStreetChanged = { viewModel.onStreetChanged(it) },
+                onNumberChanged = { viewModel.onNumberChanged(it) },
+                onComplementChanged = { viewModel.onComplementChanged(it) },
+                onCnpjChanged = { viewModel.onCnpjChanged(it) },
+                onPhoneChanged = { viewModel.onPhoneChanged(it) },
+                onIsWhatsappChanged = { viewModel.onIsWhatsappChanged(it) },
+                onSocialMediaChanged = { viewModel.onSocialMediaChanged(it) },
+                onWebsiteChanged = { viewModel.onWebsiteChanged(it) },
+                onSave = { viewModel.saveCompany() },
+                onCancel = { viewModel.navigateBackFromForm() },
+                onConfirmDiscard = { viewModel.navigateBackFromForm(force = true) },
+                onDismissDiscard = { viewModel.dismissDiscardAlert() }
+            )
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 1. TELA DE LISTAGEM DE EMPRESAS
+// -----------------------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EmpresasListView(
+    uiState: EmpresasUiState,
+    onSearchChanged: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onAddNew: () -> Unit,
+    onSelectSuggestion: (String) -> Unit,
+    onSelectCompany: (Company) -> Unit,
+    onNavigateBack: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -81,7 +148,7 @@ fun EmpresasScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadCompanies() }) {
+                    IconButton(onClick = onRefresh) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Atualizar",
@@ -96,7 +163,7 @@ fun EmpresasScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { viewModel.openAddDialog() },
+                onClick = onAddNew,
                 containerColor = OrangeNeon,
                 contentColor = Color.Black,
                 shape = CircleShape
@@ -126,18 +193,18 @@ fun EmpresasScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp)
         ) {
-            // 1. Barra de Busca
+            // Barra de Busca
             item {
                 OutlinedTextField(
                     value = uiState.searchQuery,
-                    onValueChange = { viewModel.onSearchQueryChanged(it) },
+                    onValueChange = onSearchChanged,
                     placeholder = { Text("Buscar empresa por nome ou endereço...", color = Color.Gray, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotBlank()) {
-                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                            IconButton(onClick = { onSearchChanged("") }) {
                                 Icon(Icons.Default.Close, contentDescription = "Limpar", tint = Color.Gray)
                             }
                         }
@@ -155,7 +222,7 @@ fun EmpresasScreen(
                 )
             }
 
-            // 2. Contador de Empresas
+            // Contador de Empresas
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -178,7 +245,7 @@ fun EmpresasScreen(
                 }
             }
 
-            // 3. Loading state
+            // Loading
             if (uiState.isLoading) {
                 item {
                     Box(
@@ -192,7 +259,7 @@ fun EmpresasScreen(
                 }
             }
 
-            // 4. Empty State
+            // Empty State
             if (!uiState.isLoading && filteredCompanies.isEmpty()) {
                 item {
                     Card(
@@ -250,7 +317,7 @@ fun EmpresasScreen(
                                 ) {
                                     items(POPULAR_COMPANIES) { companyName ->
                                         SuggestionChip(
-                                            onClick = { viewModel.openAddDialog(companyName) },
+                                            onClick = { onSelectSuggestion(companyName) },
                                             label = { Text(companyName, fontSize = 12.sp, color = Color.White) },
                                             colors = SuggestionChipDefaults.suggestionChipColors(
                                                 containerColor = SurfaceDarkAlt
@@ -268,13 +335,13 @@ fun EmpresasScreen(
                 }
             }
 
-            // 5. Lista de Empresas
+            // Lista de Empresas
             items(filteredCompanies, key = { it.id }) { company ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable { viewModel.startEditing(company) },
+                        .clickable { onSelectCompany(company) },
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
@@ -289,15 +356,15 @@ fun EmpresasScreen(
                         // Ícone da empresa
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(46.dp)
                                 .background(
                                     color = OrangeNeon.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 )
                                 .border(
                                     width = 1.dp,
                                     color = OrangeNeon.copy(alpha = 0.25f),
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
@@ -309,7 +376,7 @@ fun EmpresasScreen(
                             )
                         }
 
-                        // Informações da Empresa
+                        // Informações
                         Column(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -392,8 +459,8 @@ fun EmpresasScreen(
 
                         // Seta indicativa
                         Icon(
-                            imageVector = Icons.Default.KeyboardArrowRight,
-                            contentDescription = "Editar",
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Ver Detalhes",
                             tint = Color.Gray,
                             modifier = Modifier.size(20.dp)
                         )
@@ -402,328 +469,749 @@ fun EmpresasScreen(
             }
         }
     }
+}
 
-    // Modal de Formulário Completo (Adicionar / Editar Empresa)
-    if (uiState.isFormOpen) {
-        val isEditing = uiState.editingCompanyId != null
-        var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+// -----------------------------------------------------------------------------
+// 2. TELA DE VISUALIZAÇÃO (MODO DETALHES - READ-ONLY)
+// -----------------------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompanyDetailsView(
+    company: Company,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onNavigateBack: () -> Unit
+) {
+    val context = LocalContext.current
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-        ModalBottomSheet(
-            onDismissRequest = { viewModel.closeForm() },
-            containerColor = SurfaceDark,
-            contentColor = Color.White,
-            dragHandle = { BottomSheetDefaults.DragHandle(color = Color.Gray) }
+    BackHandler {
+        onNavigateBack()
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "DETALHES DA EMPRESA",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 17.sp,
+                        letterSpacing = 1.sp,
+                        color = Color.White
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Voltar",
+                            tint = Color.White
+                        )
+                    }
+                },
+                actions = {
+                    // Ícone de Lápis para editar no topo da tela
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Editar Empresa",
+                            tint = OrangeNeon
+                        )
+                    }
+                    IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Excluir Empresa",
+                            tint = RedAlert
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = SurfaceDark
+                )
+            )
+        },
+        containerColor = BackgroundDark
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Cartão de Apresentação da Empresa
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.2f))
             ) {
-                // Cabeçalho do Modal
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .background(OrangeNeon.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                            .border(1.dp, OrangeNeon.copy(alpha = 0.35f), RoundedCornerShape(14.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Business,
+                            contentDescription = null,
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isEditing) "EDITAR EMPRESA" else "CADASTRAR NOVA EMPRESA",
-                            fontSize = 17.sp,
+                            text = company.name,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp,
-                            color = OrangeNeon
+                            fontSize = 18.sp,
+                            color = Color.White
                         )
                         Text(
-                            text = "Preencha os dados da empresa ou prestadora",
+                            text = "Empresa / Prestadora Parceira",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
                     }
-                    if (isEditing) {
-                        IconButton(onClick = { showDeleteConfirmDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Excluir Empresa", tint = RedAlert)
+                }
+            }
+
+            // Seção 1: Localização & Endereço
+            val hasAddress = !company.street.isNullOrBlank() || !company.cep.isNullOrBlank() || !company.number.isNullOrBlank()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Place, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = "LOCALIZAÇÃO & ENDEREÇO",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            letterSpacing = 1.sp,
+                            color = OrangeNeon
+                        )
+                    }
+
+                    if (hasAddress) {
+                        DetailItem(label = "Endereço", value = company.street ?: "Não informado")
+                        if (!company.number.isNullOrBlank()) {
+                            DetailItem(label = "Número", value = company.number)
                         }
+                        if (!company.complement.isNullOrBlank()) {
+                            DetailItem(label = "Complemento", value = company.complement)
+                        }
+                        if (!company.cep.isNullOrBlank()) {
+                            DetailItem(label = "CEP", value = EmpresasViewModel.formatCep(company.cep))
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Button(
+                            onClick = { openCompanyAddress(context, company) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SurfaceDarkAlt,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Abrir no Google Maps", fontWeight = FontWeight.SemiBold)
+                        }
+                    } else {
+                        Text("Nenhum endereço cadastrado.", color = Color.Gray, fontSize = 13.sp)
                     }
                 }
+            }
 
-                HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f))
-
-                // 1. Nome da Empresa * (obrigatório)
-                OutlinedTextField(
-                    value = uiState.name,
-                    onValueChange = { viewModel.onNameChanged(it) },
-                    label = { Text("Nome da Empresa *") },
-                    placeholder = { Text("Ex: Dinho Motos, Posto Shell, Auto Peças Silva") },
-                    singleLine = true,
-                    leadingIcon = {
-                        Icon(Icons.Default.Business, contentDescription = null, tint = OrangeNeon)
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // 2. CEP (opcional — preenchimento automático ViaCEP)
-                OutlinedTextField(
-                    value = uiState.cep,
-                    onValueChange = { viewModel.onCepChanged(it) },
-                    label = { Text("CEP (opcional - busca automática)") },
-                    placeholder = { Text("00000-000") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    leadingIcon = {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeNeon)
-                    },
-                    trailingIcon = {
-                        if (uiState.isSearchingCep) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                color = OrangeNeon,
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // 3. Endereço e Número lado a lado
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+            // Seção 2: Contato & Atendimento
+            val hasContact = !company.phone.isNullOrBlank() || !company.socialMedia.isNullOrBlank() || !company.website.isNullOrBlank()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Endereço (maior)
-                    OutlinedTextField(
-                        value = uiState.street,
-                        onValueChange = { viewModel.onStreetChanged(it) },
-                        label = { Text("Endereço / Rua") },
-                        placeholder = { Text("Rua, Av...") },
-                        singleLine = true,
-                        leadingIcon = {
-                            Icon(Icons.Default.Place, contentDescription = null, tint = OrangeNeon)
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.weight(0.68f)
-                    )
-
-                    // Número (menor)
-                    OutlinedTextField(
-                        value = uiState.number,
-                        onValueChange = { viewModel.onNumberChanged(it) },
-                        label = { Text("Número") },
-                        placeholder = { Text("123") },
-                        singleLine = true,
-                        leadingIcon = {
-                            Icon(Icons.Default.Tag, contentDescription = null, tint = OrangeNeon)
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.weight(0.32f)
-                    )
-                }
-
-                // 4. Complemento (opcional, até 500 caracteres, multilinha com contador 0/500)
-                OutlinedTextField(
-                    value = uiState.complement,
-                    onValueChange = { viewModel.onComplementChanged(it) },
-                    label = { Text("Complemento (opcional)") },
-                    placeholder = { Text("Ex: Galpão B, Próximo ao viaduto...") },
-                    minLines = 2,
-                    maxLines = 4,
-                    leadingIcon = {
-                        Icon(Icons.Default.Description, contentDescription = null, tint = OrangeNeon)
-                    },
-                    supportingText = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Phone, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
                         Text(
-                            text = "${uiState.complement.length}/500",
-                            color = if (uiState.complement.length >= 500) RedAlert else Color.Gray,
-                            fontSize = 11.sp,
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.End
+                            text = "CONTATO & REDES",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            letterSpacing = 1.sp,
+                            color = OrangeNeon
                         )
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    }
 
-                // 5. CNPJ (opcional, máscara 00.000.000/0001-00)
-                OutlinedTextField(
-                    value = uiState.cnpj,
-                    onValueChange = { viewModel.onCnpjChanged(it) },
-                    label = { Text("CNPJ (opcional)") },
-                    placeholder = { Text("00.000.000/0001-00") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    leadingIcon = {
-                        Icon(Icons.Default.Badge, contentDescription = null, tint = OrangeNeon)
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    if (hasContact) {
+                        if (!company.phone.isNullOrBlank()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Telefone / Celular", fontSize = 11.sp, color = Color.Gray)
+                                    Text(
+                                        text = EmpresasViewModel.formatPhone(company.phone),
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White
+                                    )
+                                }
+                                if (company.isWhatsapp) {
+                                    Surface(
+                                        color = WhatsAppGreen.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(Icons.Default.ChatBubble, contentDescription = null, tint = WhatsAppGreen, modifier = Modifier.size(13.dp))
+                                            Text("WhatsApp", color = WhatsAppGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
 
-                // 6. Contato/Celular + Checkbox WhatsApp
-                Row(
+                            Button(
+                                onClick = { openCompanyContact(context, company.phone, company.isWhatsapp) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (company.isWhatsapp) WhatsAppGreen else OrangeNeon,
+                                    contentColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = if (company.isWhatsapp) Icons.Default.ChatBubble else Icons.Default.Phone,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (company.isWhatsapp) "Conversar no WhatsApp" else "Ligar para Empresa",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        if (!company.socialMedia.isNullOrBlank()) {
+                            DetailItem(label = "Rede Social", value = company.socialMedia)
+                        }
+
+                        if (!company.website.isNullOrBlank()) {
+                            DetailItem(label = "Site Oficial", value = company.website)
+                            OutlinedButton(
+                                onClick = { openBrowserUrl(context, company.website) },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Language, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Acessar Site no Navegador")
+                            }
+                        }
+                    } else {
+                        Text("Nenhum contato cadastrado.", color = Color.Gray, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            // Seção 3: Identificação Fiscal (CNPJ)
+            if (!company.cnpj.isNullOrBlank()) {
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark)
                 ) {
-                    OutlinedTextField(
-                        value = uiState.phone,
-                        onValueChange = { viewModel.onPhoneChanged(it) },
-                        label = { Text("Contato / Celular") },
-                        placeholder = { Text("(00) 00000-0000") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        leadingIcon = {
-                            Icon(Icons.Default.Phone, contentDescription = null, tint = OrangeNeon)
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // Checkbox WhatsApp com ícone verde
-                    Surface(
+                    Column(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { viewModel.onIsWhatsappChanged(!uiState.isWhatsapp) }
-                            .padding(top = 6.dp),
-                        color = if (uiState.isWhatsapp) WhatsAppGreen.copy(alpha = 0.15f) else SurfaceDarkAlt,
-                        shape = RoundedCornerShape(10.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (uiState.isWhatsapp) WhatsAppGreen else Color.DarkGray
-                        )
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.ChatBubble,
-                                contentDescription = "WhatsApp",
-                                tint = if (uiState.isWhatsapp) WhatsAppGreen else Color.Gray,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Icon(Icons.Default.Badge, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
                             Text(
-                                text = "WhatsApp",
+                                text = "DADOS CADASTRAIS",
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
-                                fontWeight = if (uiState.isWhatsapp) FontWeight.Bold else FontWeight.Normal,
-                                color = if (uiState.isWhatsapp) WhatsAppGreen else Color.LightGray
-                            )
-                            Checkbox(
-                                checked = uiState.isWhatsapp,
-                                onCheckedChange = { viewModel.onIsWhatsappChanged(it) },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = WhatsAppGreen,
-                                    uncheckedColor = Color.Gray,
-                                    checkmarkColor = Color.Black
-                                ),
-                                modifier = Modifier.size(20.dp)
+                                letterSpacing = 1.sp,
+                                color = OrangeNeon
                             )
                         }
+                        DetailItem(label = "CNPJ", value = EmpresasViewModel.formatCnpj(company.cnpj))
                     }
                 }
+            }
 
-                // 7. Rede Social (opcional)
-                OutlinedTextField(
-                    value = uiState.socialMedia,
-                    onValueChange = { viewModel.onSocialMediaChanged(it) },
-                    label = { Text("Rede Social (opcional)") },
-                    placeholder = { Text("Ex: @suaempresa, instagram.com/...") },
-                    singleLine = true,
-                    leadingIcon = {
-                        Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = OrangeNeon)
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Spacer(modifier = Modifier.height(8.dp))
 
-                // 8. Site (opcional)
-                OutlinedTextField(
-                    value = uiState.website,
-                    onValueChange = { viewModel.onWebsiteChanged(it) },
-                    label = { Text("Site (opcional)") },
-                    placeholder = { Text("https://www.empresa.com.br") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    leadingIcon = {
-                        Icon(Icons.Default.Language, contentDescription = null, tint = OrangeNeon)
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+            // Botão Inferior de Editar Empresa
+            Button(
+                onClick = onEdit,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeNeon,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Editar Dados da Empresa", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+        }
+    }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Botão Salvar
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Excluir Empresa?", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = { Text("Tem certeza que deseja excluir '${company.name}'? O histórico de manutenções anteriores não será apagado.", color = Color.LightGray) },
+            confirmButton = {
                 Button(
-                    onClick = { viewModel.saveCompany() },
-                    enabled = !uiState.isSaving && uiState.name.isNotBlank(),
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
+                ) {
+                    Text("Excluir", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancelar", color = Color.White)
+                }
+            },
+            containerColor = SurfaceDark
+        )
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 3. TELA DE FORMULÁRIO (CADASTRO / EDIÇÃO COMPLETA)
+// -----------------------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompanyFormView(
+    uiState: EmpresasUiState,
+    onNameChanged: (String) -> Unit,
+    onCepChanged: (String) -> Unit,
+    onStreetChanged: (String) -> Unit,
+    onNumberChanged: (String) -> Unit,
+    onComplementChanged: (String) -> Unit,
+    onCnpjChanged: (String) -> Unit,
+    onPhoneChanged: (String) -> Unit,
+    onIsWhatsappChanged: (Boolean) -> Unit,
+    onSocialMediaChanged: (String) -> Unit,
+    onWebsiteChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+    onConfirmDiscard: () -> Unit,
+    onDismissDiscard: () -> Unit
+) {
+    val isEditing = uiState.isEditing
+
+    // Intercepta botão voltar físico do Android e checa dirty state
+    BackHandler {
+        onCancel()
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = if (isEditing) "EDITAR EMPRESA" else "NOVA EMPRESA",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 17.sp,
+                        letterSpacing = 1.sp,
+                        color = Color.White
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Voltar",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = SurfaceDark
+                )
+            )
+        },
+        containerColor = BackgroundDark
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            // Seção 1: Informações Principais
+            Text(
+                text = "DADOS DA EMPRESA",
+                color = OrangeNeon,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+
+            // 1. Nome da Empresa * (obrigatório)
+            OutlinedTextField(
+                value = uiState.formData.name,
+                onValueChange = onNameChanged,
+                label = { Text("Nome da Empresa *") },
+                placeholder = { Text("Ex: Dinho Motos, Posto Shell, Auto Peças...") },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Default.Business, contentDescription = null, tint = OrangeNeon)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedLabelColor = Color.Gray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // 5. CNPJ (opcional, máscara 00.000.000/0001-00)
+            OutlinedTextField(
+                value = uiState.formData.cnpj,
+                onValueChange = onCnpjChanged,
+                label = { Text("CNPJ (opcional)") },
+                placeholder = { Text("00.000.000/0001-00") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                visualTransformation = CnpjVisualTransformation(),
+                leadingIcon = {
+                    Icon(Icons.Default.Badge, contentDescription = null, tint = OrangeNeon)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedLabelColor = Color.Gray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Seção 2: Localização & Endereço
+            Text(
+                text = "LOCALIZAÇÃO & ENDEREÇO",
+                color = OrangeNeon,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+
+            // 2. CEP (opcional — preenchimento automático ViaCEP)
+            OutlinedTextField(
+                value = uiState.formData.cep,
+                onValueChange = onCepChanged,
+                label = { Text("CEP (opcional - busca automática)") },
+                placeholder = { Text("00000-000") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                visualTransformation = CepVisualTransformation(),
+                leadingIcon = {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeNeon)
+                },
+                trailingIcon = {
+                    if (uiState.isSearchingCep) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = OrangeNeon,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedLabelColor = Color.Gray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // 3. Endereço e Número lado a lado (0.68f / 0.32f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.formData.street,
+                    onValueChange = onStreetChanged,
+                    label = { Text("Endereço / Logradouro") },
+                    placeholder = { Text("Rua, Av...") },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(Icons.Default.Place, contentDescription = null, tint = OrangeNeon)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(0.68f)
+                )
+
+                OutlinedTextField(
+                    value = uiState.formData.number,
+                    onValueChange = onNumberChanged,
+                    label = { Text("Número") },
+                    placeholder = { Text("123") },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(Icons.Default.Tag, contentDescription = null, tint = OrangeNeon)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(0.32f)
+                )
+            }
+
+            // 4. Complemento (opcional, até 500 caracteres, multilinha com contador)
+            OutlinedTextField(
+                value = uiState.formData.complement,
+                onValueChange = onComplementChanged,
+                label = { Text("Complemento (opcional)") },
+                placeholder = { Text("Ex: Galpão B, Próximo ao viaduto...") },
+                minLines = 2,
+                maxLines = 4,
+                leadingIcon = {
+                    Icon(Icons.Default.Description, contentDescription = null, tint = OrangeNeon)
+                },
+                supportingText = {
+                    Text(
+                        text = "${uiState.formData.complement.length}/500",
+                        color = if (uiState.formData.complement.length >= 500) RedAlert else Color.Gray,
+                        fontSize = 11.sp,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedLabelColor = Color.Gray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Seção 3: Contato & Canais
+            Text(
+                text = "CONTATO & REDES",
+                color = OrangeNeon,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+
+            // 6. Contato/Celular + Checkbox WhatsApp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.formData.phone,
+                    onValueChange = onPhoneChanged,
+                    label = { Text("Contato / Celular") },
+                    placeholder = { Text("(00) 00000-0000") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    visualTransformation = PhoneVisualTransformation(),
+                    leadingIcon = {
+                        Icon(Icons.Default.Phone, contentDescription = null, tint = OrangeNeon)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Checkbox WhatsApp
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onIsWhatsappChanged(!uiState.formData.isWhatsapp) }
+                        .padding(top = 6.dp),
+                    color = if (uiState.formData.isWhatsapp) WhatsAppGreen.copy(alpha = 0.15f) else SurfaceDarkAlt,
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (uiState.formData.isWhatsapp) WhatsAppGreen else Color.DarkGray
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChatBubble,
+                            contentDescription = "WhatsApp",
+                            tint = if (uiState.formData.isWhatsapp) WhatsAppGreen else Color.Gray,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "WhatsApp",
+                            fontSize = 12.sp,
+                            fontWeight = if (uiState.formData.isWhatsapp) FontWeight.Bold else FontWeight.Normal,
+                            color = if (uiState.formData.isWhatsapp) WhatsAppGreen else Color.LightGray
+                        )
+                        Checkbox(
+                            checked = uiState.formData.isWhatsapp,
+                            onCheckedChange = { onIsWhatsappChanged(it) },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = WhatsAppGreen,
+                                uncheckedColor = Color.Gray,
+                                checkmarkColor = Color.Black
+                            ),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // 7. Rede Social (opcional)
+            OutlinedTextField(
+                value = uiState.formData.socialMedia,
+                onValueChange = onSocialMediaChanged,
+                label = { Text("Rede Social (opcional)") },
+                placeholder = { Text("Ex: @suaempresa, instagram.com/...") },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = OrangeNeon)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedLabelColor = Color.Gray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // 8. Site (opcional)
+            OutlinedTextField(
+                value = uiState.formData.website,
+                onValueChange = onWebsiteChanged,
+                label = { Text("Site Oficial (opcional)") },
+                placeholder = { Text("https://www.empresa.com.br") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                leadingIcon = {
+                    Icon(Icons.Default.Language, contentDescription = null, tint = OrangeNeon)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedLabelColor = Color.Gray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Botões de Ação no final da tela: Salvar e Cancelar
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onSave,
+                    enabled = !uiState.isSaving && uiState.formData.name.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = OrangeNeon,
                         contentColor = Color.Black
@@ -731,7 +1219,7 @@ fun EmpresasScreen(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .height(52.dp)
                 ) {
                     if (uiState.isSaving) {
                         CircularProgressIndicator(
@@ -747,33 +1235,136 @@ fun EmpresasScreen(
                         )
                     }
                 }
-            }
-        }
 
-        // Diálogo de confirmação de exclusão
-        if (showDeleteConfirmDialog && uiState.editingCompanyId != null) {
-            AlertDialog(
-                onDismissRequest = { showDeleteConfirmDialog = false },
-                title = { Text("Excluir Empresa?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Tem certeza que deseja excluir '${uiState.name}'? Peças e manutenções já vinculadas manterão o histórico.", color = Color.LightGray) },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showDeleteConfirmDialog = false
-                            viewModel.deleteCompany(uiState.editingCompanyId!!)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
-                    ) {
-                        Text("Excluir", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                        Text("Cancelar", color = Color.White)
-                    }
-                },
-                containerColor = SurfaceDark
-            )
+                OutlinedButton(
+                    onClick = onCancel,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Text("Cancelar", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+
+    // Alerta de Descarte de Alterações
+    if (uiState.showDiscardAlert) {
+        AlertDialog(
+            onDismissRequest = onDismissDiscard,
+            title = {
+                Text(
+                    text = "Descartar alterações?",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Você possui dados alterados que ainda não foram salvos. Deseja realmente sair e perder as modificações?",
+                    color = Color.LightGray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = onConfirmDiscard,
+                    colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
+                ) {
+                    Text("Descartar", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissDiscard) {
+                    Text("Continuar Editando", color = Color.White)
+                }
+            },
+            containerColor = SurfaceDark
+        )
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Componentes Auxiliares
+// -----------------------------------------------------------------------------
+@Composable
+private fun DetailItem(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(text = label, fontSize = 11.sp, color = Color.Gray)
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White
+        )
+    }
+}
+
+private fun openCompanyContact(context: Context, phone: String, isWhatsapp: Boolean) {
+    val digits = phone.filter { it.isDigit() }
+    if (digits.isBlank()) {
+        Toast.makeText(context, "Telefone não informado", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    try {
+        if (isWhatsapp) {
+            val fullPhone = if (digits.startsWith("55")) digits else "55$digits"
+            val uri = Uri.parse("https://wa.me/$fullPhone")
+            val intent = Intent(Intent.ACTION_VIEW, uri)
+            context.startActivity(intent)
+        } else {
+            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$digits"))
+            context.startActivity(intent)
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "Não foi possível abrir o aplicativo de contato", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openCompanyAddress(context: Context, company: Company) {
+    val addressParts = listOfNotNull(
+        company.street?.takeIf { it.isNotBlank() },
+        company.number?.takeIf { it.isNotBlank() },
+        company.cep?.takeIf { it.isNotBlank() },
+        company.name.takeIf { it.isNotBlank() }
+    ).joinToString(", ")
+
+    if (addressParts.isBlank()) {
+        Toast.makeText(context, "Endereço não informado", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    try {
+        val uri = Uri.parse("geo:0,0?q=" + Uri.encode(addressParts))
+        val mapIntent = Intent(Intent.ACTION_VIEW, uri)
+        mapIntent.setPackage("com.google.android.apps.maps")
+        if (mapIntent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(mapIntent)
+        } else {
+            val browserUri = Uri.parse("https://maps.google.com/?q=" + Uri.encode(addressParts))
+            context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+        }
+    } catch (e: Exception) {
+        try {
+            val browserUri = Uri.parse("https://maps.google.com/?q=" + Uri.encode(addressParts))
+            context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+        } catch (err: Exception) {
+            Toast.makeText(context, "Não foi possível abrir o mapa", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+private fun openBrowserUrl(context: Context, url: String) {
+    try {
+        val fullUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl))
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Não foi possível abrir o link", Toast.LENGTH_SHORT).show()
     }
 }

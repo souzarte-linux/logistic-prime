@@ -24,29 +24,47 @@ val POPULAR_COMPANIES = listOf(
     "Cooperativa / Transportadora"
 )
 
+enum class EmpresaScreenMode {
+    LIST,
+    VIEW,
+    FORM
+}
+
+data class CompanyFormData(
+    val id: String? = null,
+    val name: String = "",
+    val cep: String = "",          // dígitos apenas (ex: "01001000")
+    val street: String = "",
+    val number: String = "",
+    val complement: String = "",
+    val cnpj: String = "",         // dígitos apenas (ex: "12345678000199")
+    val phone: String = "",        // dígitos apenas (ex: "11987654321")
+    val isWhatsapp: Boolean = false,
+    val socialMedia: String = "",
+    val website: String = ""
+)
+
 data class EmpresasUiState(
     val companies: List<Company> = emptyList(),
     val searchQuery: String = "",
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isSearchingCep: Boolean = false,
-    val isFormOpen: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 
-    // Form fields
-    val editingCompanyId: String? = null,
-    val name: String = "",
-    val cep: String = "",
-    val street: String = "",
-    val number: String = "",
-    val complement: String = "",
-    val cnpj: String = "",
-    val phone: String = "",
-    val isWhatsapp: Boolean = false,
-    val socialMedia: String = "",
-    val website: String = ""
-)
+    val mode: EmpresaScreenMode = EmpresaScreenMode.LIST,
+    val selectedCompany: Company? = null,
+    val formData: CompanyFormData = CompanyFormData(),
+    val initialFormData: CompanyFormData = CompanyFormData(),
+    val showDiscardAlert: Boolean = false
+) {
+    val isDirty: Boolean
+        get() = formData != initialFormData
+
+    val isEditing: Boolean
+        get() = formData.id != null
+}
 
 class EmpresasViewModel(
     private val repository: CompanyRepository = CompanyRepository(),
@@ -67,9 +85,13 @@ class EmpresasViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val list = repository.getCompanies(currentUserId)
-            _uiState.update {
-                it.copy(
+            _uiState.update { state ->
+                val updatedSelected = state.selectedCompany?.let { sel ->
+                    list.firstOrNull { it.id == sel.id } ?: sel
+                }
+                state.copy(
                     companies = list,
+                    selectedCompany = updatedSelected,
                     isLoading = false
                 )
             }
@@ -80,73 +102,103 @@ class EmpresasViewModel(
         _uiState.update { it.copy(searchQuery = query) }
     }
 
-    fun openAddDialog(prefillName: String? = null) {
+    fun openCreateForm(prefillName: String? = null) {
+        val initial = CompanyFormData(
+            name = prefillName ?: ""
+        )
         _uiState.update {
             it.copy(
-                isFormOpen = true,
-                editingCompanyId = null,
-                name = prefillName ?: "",
-                cep = "",
-                street = "",
-                number = "",
-                complement = "",
-                cnpj = "",
-                phone = "",
-                isWhatsapp = false,
-                socialMedia = "",
-                website = "",
+                mode = EmpresaScreenMode.FORM,
+                formData = initial,
+                initialFormData = initial,
+                showDiscardAlert = false,
                 error = null
             )
         }
     }
 
-    fun startEditing(company: Company) {
+    fun openViewDetails(company: Company) {
         _uiState.update {
             it.copy(
-                isFormOpen = true,
-                editingCompanyId = company.id,
-                name = company.name,
-                cep = formatCep(company.cep ?: ""),
-                street = company.street ?: "",
-                number = company.number ?: "",
-                complement = company.complement ?: "",
-                cnpj = formatCnpj(company.cnpj ?: ""),
-                phone = formatPhone(company.phone ?: ""),
-                isWhatsapp = company.isWhatsapp,
-                socialMedia = company.socialMedia ?: "",
-                website = company.website ?: "",
+                mode = EmpresaScreenMode.VIEW,
+                selectedCompany = company,
+                showDiscardAlert = false,
                 error = null
             )
         }
     }
 
-    fun closeForm() {
+    fun openEditFormFromDetails() {
+        val company = _uiState.value.selectedCompany ?: return
+        val initial = CompanyFormData(
+            id = company.id,
+            name = company.name,
+            cep = company.cep?.filter { it.isDigit() } ?: "",
+            street = company.street ?: "",
+            number = company.number ?: "",
+            complement = company.complement ?: "",
+            cnpj = company.cnpj?.filter { it.isDigit() } ?: "",
+            phone = company.phone?.filter { it.isDigit() } ?: "",
+            isWhatsapp = company.isWhatsapp,
+            socialMedia = company.socialMedia ?: "",
+            website = company.website ?: ""
+        )
         _uiState.update {
             it.copy(
-                isFormOpen = false,
-                editingCompanyId = null,
-                name = "",
-                cep = "",
-                street = "",
-                number = "",
-                complement = "",
-                cnpj = "",
-                phone = "",
-                isWhatsapp = false,
-                socialMedia = "",
-                website = "",
+                mode = EmpresaScreenMode.FORM,
+                formData = initial,
+                initialFormData = initial,
+                showDiscardAlert = false,
                 error = null
             )
         }
     }
 
-    fun onNameChanged(name: String) = _uiState.update { it.copy(name = name) }
+    fun navigateBackFromForm(force: Boolean = false) {
+        val state = _uiState.value
+        if (!force && state.isDirty) {
+            _uiState.update { it.copy(showDiscardAlert = true) }
+            return
+        }
 
-    fun onCepChanged(cep: String) {
-        val formatted = formatCep(cep)
-        _uiState.update { it.copy(cep = formatted) }
+        // Se veio de detalhes de empresa existente, volta para VIEW; se era cadastro novo, volta para LIST
+        val previousMode = if (state.selectedCompany != null && state.formData.id != null) {
+            EmpresaScreenMode.VIEW
+        } else {
+            EmpresaScreenMode.LIST
+        }
 
-        val digits = cep.filter { it.isDigit() }
+        _uiState.update {
+            it.copy(
+                mode = previousMode,
+                showDiscardAlert = false,
+                error = null
+            )
+        }
+    }
+
+    fun dismissDiscardAlert() {
+        _uiState.update { it.copy(showDiscardAlert = false) }
+    }
+
+    fun navigateBackFromView() {
+        _uiState.update {
+            it.copy(
+                mode = EmpresaScreenMode.LIST,
+                selectedCompany = null
+            )
+        }
+    }
+
+    // Form value changers (armazena dígitos limpos e texto sanitizado)
+    fun onNameChanged(name: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(name = name)) }
+    }
+
+    fun onCepChanged(cepInput: String) {
+        val digits = cepInput.filter { it.isDigit() }.take(8)
+        _uiState.update { it.copy(formData = it.formData.copy(cep = digits)) }
+
         if (digits.length == 8) {
             searchCep(digits)
         }
@@ -161,7 +213,9 @@ class EmpresasViewModel(
                     _uiState.update { state ->
                         state.copy(
                             isSearchingCep = false,
-                            street = result.logradouro ?: state.street,
+                            formData = state.formData.copy(
+                                street = result.logradouro ?: state.formData.street
+                            ),
                             message = "Endereço preenchido pelo CEP!"
                         )
                     }
@@ -174,31 +228,46 @@ class EmpresasViewModel(
         }
     }
 
-    fun onStreetChanged(street: String) = _uiState.update { it.copy(street = street) }
-    fun onNumberChanged(number: String) = _uiState.update { it.copy(number = number) }
+    fun onStreetChanged(street: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(street = street)) }
+    }
+
+    fun onNumberChanged(number: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(number = number)) }
+    }
+
     fun onComplementChanged(complement: String) {
         if (complement.length <= 500) {
-            _uiState.update { it.copy(complement = complement) }
+            _uiState.update { it.copy(formData = it.formData.copy(complement = complement)) }
         }
     }
 
-    fun onCnpjChanged(cnpj: String) {
-        val formatted = formatCnpj(cnpj)
-        _uiState.update { it.copy(cnpj = formatted) }
+    fun onCnpjChanged(cnpjInput: String) {
+        val digits = cnpjInput.filter { it.isDigit() }.take(14)
+        _uiState.update { it.copy(formData = it.formData.copy(cnpj = digits)) }
     }
 
-    fun onPhoneChanged(phone: String) {
-        val formatted = formatPhone(phone)
-        _uiState.update { it.copy(phone = formatted) }
+    fun onPhoneChanged(phoneInput: String) {
+        val digits = phoneInput.filter { it.isDigit() }.take(11)
+        _uiState.update { it.copy(formData = it.formData.copy(phone = digits)) }
     }
 
-    fun onIsWhatsappChanged(isWhatsapp: Boolean) = _uiState.update { it.copy(isWhatsapp = isWhatsapp) }
-    fun onSocialMediaChanged(socialMedia: String) = _uiState.update { it.copy(socialMedia = socialMedia) }
-    fun onWebsiteChanged(website: String) = _uiState.update { it.copy(website = website) }
+    fun onIsWhatsappChanged(isWhatsapp: Boolean) {
+        _uiState.update { it.copy(formData = it.formData.copy(isWhatsapp = isWhatsapp)) }
+    }
 
-    fun saveCompany(onSuccess: (() -> Unit)? = null) {
+    fun onSocialMediaChanged(socialMedia: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(socialMedia = socialMedia)) }
+    }
+
+    fun onWebsiteChanged(website: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(website = website)) }
+    }
+
+    fun saveCompany() {
         val state = _uiState.value
-        if (state.name.isBlank()) {
+        val form = state.formData
+        if (form.name.isBlank()) {
             _uiState.update { it.copy(error = "Informe o nome da empresa.") }
             return
         }
@@ -206,31 +275,32 @@ class EmpresasViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
             val company = Company(
-                id = state.editingCompanyId ?: "",
+                id = form.id ?: "",
                 userId = currentUserId,
-                name = state.name.trim(),
-                cep = state.cep.trim().takeIf { it.isNotBlank() },
-                street = state.street.trim().takeIf { it.isNotBlank() },
-                number = state.number.trim().takeIf { it.isNotBlank() },
-                complement = state.complement.trim().takeIf { it.isNotBlank() },
-                cnpj = state.cnpj.filter { it.isDigit() }.takeIf { it.isNotBlank() },
-                phone = state.phone.trim().takeIf { it.isNotBlank() },
-                isWhatsapp = state.isWhatsapp,
-                socialMedia = state.socialMedia.trim().takeIf { it.isNotBlank() },
-                website = state.website.trim().takeIf { it.isNotBlank() }
+                name = form.name.trim(),
+                cep = form.cep.takeIf { it.isNotBlank() },
+                street = form.street.trim().takeIf { it.isNotBlank() },
+                number = form.number.trim().takeIf { it.isNotBlank() },
+                complement = form.complement.trim().takeIf { it.isNotBlank() },
+                cnpj = form.cnpj.takeIf { it.isNotBlank() },
+                phone = form.phone.takeIf { it.isNotBlank() },
+                isWhatsapp = form.isWhatsapp,
+                socialMedia = form.socialMedia.trim().takeIf { it.isNotBlank() },
+                website = form.website.trim().takeIf { it.isNotBlank() }
             )
 
             try {
-                repository.saveCompany(company)
+                val saved = repository.saveCompany(company)
+                val isEditing = form.id != null
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        isFormOpen = false,
-                        message = if (state.editingCompanyId != null) "Empresa atualizada com sucesso!" else "Empresa cadastrada com sucesso!"
+                        mode = if (isEditing) EmpresaScreenMode.VIEW else EmpresaScreenMode.LIST,
+                        selectedCompany = if (isEditing) saved else null,
+                        message = if (isEditing) "Empresa atualizada com sucesso!" else "Empresa cadastrada com sucesso!"
                     )
                 }
                 loadCompanies()
-                onSuccess?.invoke()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSaving = false, error = "Erro ao salvar empresa: ${e.message}") }
             }
@@ -244,8 +314,8 @@ class EmpresasViewModel(
             if (success) {
                 _uiState.update {
                     it.copy(
-                        isFormOpen = false,
-                        editingCompanyId = null,
+                        mode = EmpresaScreenMode.LIST,
+                        selectedCompany = null,
                         message = "Empresa excluída com sucesso!"
                     )
                 }
@@ -261,32 +331,32 @@ class EmpresasViewModel(
     }
 
     companion object {
-        fun formatCep(raw: String): String {
-            val digits = raw.filter { it.isDigit() }.take(8)
-            return if (digits.length > 5) "${digits.take(5)}-${digits.substring(5)}" else digits
+        fun formatCep(digits: String): String {
+            val clean = digits.filter { it.isDigit() }.take(8)
+            return if (clean.length > 5) "${clean.take(5)}-${clean.substring(5)}" else clean
         }
 
-        fun formatCnpj(raw: String): String {
-            val digits = raw.filter { it.isDigit() }.take(14)
+        fun formatCnpj(digits: String): String {
+            val clean = digits.filter { it.isDigit() }.take(14)
             val sb = StringBuilder()
-            for (i in digits.indices) {
+            for (i in clean.indices) {
                 if (i == 2 || i == 5) sb.append('.')
                 else if (i == 8) sb.append('/')
                 else if (i == 12) sb.append('-')
-                sb.append(digits[i])
+                sb.append(clean[i])
             }
             return sb.toString()
         }
 
-        fun formatPhone(raw: String): String {
-            val digits = raw.filter { it.isDigit() }.take(11)
-            if (digits.isEmpty()) return ""
+        fun formatPhone(digits: String): String {
+            val clean = digits.filter { it.isDigit() }.take(11)
+            if (clean.isEmpty()) return ""
             val sb = StringBuilder("(")
-            if (digits.length <= 2) {
-                sb.append(digits)
+            if (clean.length <= 2) {
+                sb.append(clean)
             } else {
-                sb.append(digits.substring(0, 2)).append(") ")
-                val remaining = digits.substring(2)
+                sb.append(clean.substring(0, 2)).append(") ")
+                val remaining = clean.substring(2)
                 if (remaining.length <= 4) {
                     sb.append(remaining)
                 } else if (remaining.length <= 8) {

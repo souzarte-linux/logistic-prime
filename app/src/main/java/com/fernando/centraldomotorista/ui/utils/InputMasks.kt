@@ -96,3 +96,112 @@ class KmVisualTransformation(
         return TransformedText(AnnotatedString(formatted), offsetMapping)
     }
 }
+
+class CepVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text.filter { it.isDigit() }.take(8)
+        val out = StringBuilder()
+        for (i in raw.indices) {
+            if (i == 5) out.append('-')
+            out.append(raw[i])
+        }
+        val formatted = out.toString()
+
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                if (offset <= 5) return offset.coerceAtMost(formatted.length)
+                return (offset + 1).coerceAtMost(formatted.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                if (offset <= 5) return offset.coerceAtMost(raw.length)
+                return (offset - 1).coerceAtLeast(0).coerceAtMost(raw.length)
+            }
+        }
+        return TransformedText(AnnotatedString(formatted), offsetMapping)
+    }
+}
+
+class CnpjVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text.filter { it.isDigit() }.take(14)
+        val out = StringBuilder()
+        for (i in raw.indices) {
+            if (i == 2 || i == 5) out.append('.')
+            else if (i == 8) out.append('/')
+            else if (i == 12) out.append('-')
+            out.append(raw[i])
+        }
+        val formatted = out.toString()
+
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                val clamped = offset.coerceIn(0, raw.length)
+                val extra = when {
+                    clamped <= 2 -> 0
+                    clamped <= 5 -> 1
+                    clamped <= 8 -> 2
+                    clamped <= 12 -> 3
+                    else -> 4
+                }
+                return (clamped + extra).coerceAtMost(formatted.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                val clamped = offset.coerceIn(0, formatted.length)
+                val reduction = when {
+                    clamped <= 2 -> 0
+                    clamped <= 6 -> 1
+                    clamped <= 10 -> 2
+                    clamped <= 15 -> 3
+                    else -> 4
+                }
+                return (clamped - reduction).coerceIn(0, raw.length)
+            }
+        }
+        return TransformedText(AnnotatedString(formatted), offsetMapping)
+    }
+}
+
+class PhoneVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text.filter { it.isDigit() }.take(11)
+        val out = StringBuilder()
+        val is11Digits = raw.length > 10
+        for (i in raw.indices) {
+            if (i == 0) out.append('(')
+            if (i == 2) out.append(") ")
+            if (is11Digits && i == 7) out.append('-')
+            else if (!is11Digits && i == 6) out.append('-')
+            out.append(raw[i])
+        }
+        val formatted = out.toString()
+
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                val clamped = offset.coerceIn(0, raw.length)
+                if (clamped == 0) return 0
+                val extra = when {
+                    clamped <= 2 -> 1
+                    is11Digits && clamped <= 7 -> 3
+                    !is11Digits && clamped <= 6 -> 3
+                    else -> 4
+                }
+                return (clamped + extra).coerceAtMost(formatted.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                val clamped = offset.coerceIn(0, formatted.length)
+                val reduction = when {
+                    clamped <= 1 -> clamped
+                    clamped <= 4 -> 1
+                    is11Digits && clamped <= 10 -> 3
+                    !is11Digits && clamped <= 9 -> 3
+                    else -> 4
+                }
+                return (clamped - reduction).coerceIn(0, raw.length)
+            }
+        }
+        return TransformedText(AnnotatedString(formatted), offsetMapping)
+    }
+}
