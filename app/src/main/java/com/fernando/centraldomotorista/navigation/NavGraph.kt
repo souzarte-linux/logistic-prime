@@ -38,14 +38,22 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Inicio : Screen("inicio", "Início", Icons.Default.Home)
     object Painel : Screen("painel", "Painel", Icons.Default.BarChart)
     object Relatorios : Screen("relatorios", "Relatórios", Icons.Default.Assessment)
-    object Apps : Screen("apps", "Apps", Icons.Default.Apps)
     object Historico : Screen("historico", "Histórico", Icons.Default.History)
     
     // Actions & Forms
     object LancarRota : Screen("lancar_rota", "Lançar Rota", Icons.Default.Navigation)
     object LancarTotalDia : Screen("lancar_total_dia", "Total do Dia", Icons.Default.CalendarToday)
     object FuelExpense : Screen("fuel_expense", "Novo Abastecimento", Icons.Default.LocalGasStation)
-    object GasStations : Screen("gas_stations", "Postos de Gasolina", Icons.Default.EvStation)
+    
+    // Menu Lateral - Cadastro
+    object Empresas : Screen("empresas", "Empresas", Icons.Default.Business)
+    object GasStations : Screen("postos", "Postos de Gasolina", Icons.Default.LocalGasStation)
+    object Emissores : Screen("emissores", "Emissores", Icons.Default.ReceiptLong)
+    object Plataformas : Screen("plataformas", "Apps & Plataformas", Icons.Default.Smartphone)
+    object Bandeiras : Screen("bandeiras", "Bandeiras", Icons.Default.CreditCard)
+    object MonitoramentoPecas : Screen("monitoramento-pecas", "Monitoramento Peças", Icons.Default.Build)
+    
+    // Suporte a telas auxiliares existentes
     object CreditCards : Screen("credit_cards", "Cartões de Crédito", Icons.Default.CreditCard)
 }
 
@@ -53,7 +61,6 @@ val bottomNavItems = listOf(
     Screen.Inicio,
     Screen.Painel,
     Screen.Relatorios,
-    Screen.Apps,
     Screen.Historico,
 )
 
@@ -74,13 +81,7 @@ fun CentralDoMotoristaApp(
         if (isUserLoggedIn) Screen.Inicio.route else Screen.Login.route
     }
 
-    val showBottomBar = currentRoute != null &&
-            currentRoute != Screen.Login.route &&
-            currentRoute != Screen.LancarRota.route &&
-            currentRoute != Screen.LancarTotalDia.route &&
-            currentRoute != Screen.FuelExpense.route &&
-            currentRoute != Screen.GasStations.route &&
-            currentRoute != Screen.CreditCards.route
+    val showBottomBar = bottomNavItems.any { it.route == currentRoute }
 
     Scaffold(
         bottomBar = {
@@ -162,11 +163,8 @@ fun CentralDoMotoristaApp(
                     onNavigateToFuelExpense = {
                         navController.navigate(Screen.FuelExpense.route)
                     },
-                    onNavigateToGasStations = {
-                        navController.navigate(Screen.GasStations.route)
-                    },
-                    onNavigateToCreditCards = {
-                        navController.navigate(Screen.CreditCards.route)
+                    onNavigateToRoute = { route ->
+                        navController.navigate(route)
                     },
                     onSignOut = {
                         authViewModel.signOut(googleAuthClient)
@@ -190,6 +188,7 @@ fun CentralDoMotoristaApp(
                 )
             }
 
+            // Cadastro - Postos de Gasolina
             composable(Screen.GasStations.route) {
                 val gasStationViewModel: com.fernando.centraldomotorista.ui.screens.gasstations.GasStationViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.gasstations.GasStationScreen(
@@ -197,7 +196,68 @@ fun CentralDoMotoristaApp(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
+            // Alias legado
+            composable("gas_stations") {
+                val gasStationViewModel: com.fernando.centraldomotorista.ui.screens.gasstations.GasStationViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.gasstations.GasStationScreen(
+                    viewModel = gasStationViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
 
+            // Cadastro - Empresas
+            composable(Screen.Empresas.route) {
+                PlaceholderActionScreen(
+                    title = "Empresas",
+                    description = "Prestadoras de Serviços e Gestão de Contratos.",
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Cadastro - Emissores
+            composable(Screen.Emissores.route) {
+                PlaceholderActionScreen(
+                    title = "Emissores",
+                    description = "Instituições Emissoras dos Cartões.",
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Cadastro - Apps & Plataformas
+            composable(Screen.Plataformas.route) {
+                PlaceholderActionScreen(
+                    title = "Apps & Plataformas",
+                    description = "Plataformas de entrega e repasse.",
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("apps") {
+                PlaceholderActionScreen(
+                    title = "Apps & Plataformas",
+                    description = "Plataformas de entrega e repasse.",
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Cadastro - Bandeiras
+            composable(Screen.Bandeiras.route) {
+                PlaceholderActionScreen(
+                    title = "Bandeiras",
+                    description = "Cartões e formas de pagamento.",
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Cadastro - Monitoramento Peças
+            composable(Screen.MonitoramentoPecas.route) {
+                PlaceholderActionScreen(
+                    title = "Monitoramento Peças",
+                    description = "Controle de trocas e manutenção.",
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Cartões de Crédito (Auxiliar)
             composable(Screen.CreditCards.route) {
                 val creditCardsViewModel: com.fernando.centraldomotorista.ui.screens.cards.CreditCardsViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.cards.CreditCardsScreen(
@@ -232,10 +292,6 @@ fun CentralDoMotoristaApp(
 
             composable(Screen.Relatorios.route) {
                 GenericScreenPlaceholder(title = "Relatórios e Faturamento")
-            }
-
-            composable(Screen.Apps.route) {
-                GenericScreenPlaceholder(title = "Plataformas e Aplicativos")
             }
 
             composable(Screen.Historico.route) {

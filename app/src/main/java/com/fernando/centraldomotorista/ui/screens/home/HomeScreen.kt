@@ -37,6 +37,14 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 fun BigDecimal.formatCurrency(): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
     return formatter.format(this)
@@ -50,8 +58,7 @@ fun HomeScreen(
     onNavigateToCreateDailyTotal: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToFuelExpense: () -> Unit,
-    onNavigateToGasStations: () -> Unit,
-    onNavigateToCreditCards: () -> Unit,
+    onNavigateToRoute: (String) -> Unit,
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -59,6 +66,7 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
+    var isCadastroExpanded by remember { mutableStateOf(true) }
     var selectedQuickExpenseCategory by remember { mutableStateOf<String?>(null) }
     var showExpenseBottomSheet by remember { mutableStateOf(false) }
 
@@ -78,105 +86,241 @@ fun HomeScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceDarkAlt)
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.DirectionsCar,
-                        contentDescription = null,
-                        tint = OrangeNeon,
-                        modifier = Modifier.size(36.dp)
+                    // Cabeçalho do Usuário
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SurfaceDarkAlt)
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DirectionsCar,
+                            contentDescription = null,
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Text(
+                            text = uiState.profile?.fullName ?: "Central do Motorista",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = uiState.profile?.email ?: "Logística & Entregas",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Início
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Home, contentDescription = null, tint = OrangeNeon) },
+                        label = { Text("Início", fontWeight = FontWeight.Bold, color = Color.White) },
+                        selected = true,
+                        onClick = {
+                            coroutineScope.launch { drawerState.close() }
+                        },
+                        colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = OrangeNeon.copy(alpha = 0.15f)),
+                        modifier = Modifier.padding(horizontal = 12.dp)
                     )
-                    Text(
-                        text = uiState.profile?.fullName ?: "Central do Motorista",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 17.sp,
-                        color = Color.White
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp), color = Color.DarkGray.copy(alpha = 0.6f))
+
+                    // Seção CADASTRO (Expansível / Colapsável, expandida por padrão)
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { isCadastroExpanded = !isCadastroExpanded },
+                        color = OrangeNeon.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Ícone laranja de pasta
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(OrangeNeon.copy(alpha = 0.18f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = "Cadastro",
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            // Título em destaque + subtítulo
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "CADASTRO",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.sp,
+                                    letterSpacing = 0.5.sp,
+                                    color = OrangeNeon
+                                )
+                                Text(
+                                    text = "Empresas, Postos, Operadoras...",
+                                    fontSize = 11.sp,
+                                    color = Color.LightGray,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // Seta indicando expansível/colapsável
+                            Icon(
+                                imageVector = if (isCadastroExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isCadastroExpanded) "Recolher" else "Expandir",
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+
+                    // Itens da Seção Cadastro
+                    AnimatedVisibility(
+                        visible = isCadastroExpanded,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 6.dp, end = 6.dp, top = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            // 🏢 Empresas
+                            DrawerCadastroItem(
+                                icon = Icons.Default.Business,
+                                title = "Empresas",
+                                subtitle = "Prestadoras de Serviços",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("empresas")
+                                    }
+                                }
+                            )
+
+                            // ⛽ Postos de Gasolina
+                            DrawerCadastroItem(
+                                icon = Icons.Default.LocalGasStation,
+                                title = "Postos de Gasolina",
+                                subtitle = "Postos e abastecimento",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("postos")
+                                    }
+                                }
+                            )
+
+                            // 🧾 Emissores
+                            DrawerCadastroItem(
+                                icon = Icons.Default.ReceiptLong,
+                                title = "Emissores",
+                                subtitle = "Instituições Emissoras dos Cartões",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("emissores")
+                                    }
+                                }
+                            )
+
+                            // 📱 Apps & Plataformas
+                            DrawerCadastroItem(
+                                icon = Icons.Default.Smartphone,
+                                title = "Apps & Plataformas",
+                                subtitle = "Plataformas de entrega e repasse",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("plataformas")
+                                    }
+                                }
+                            )
+
+                            // 💳 Bandeiras
+                            DrawerCadastroItem(
+                                icon = Icons.Default.CreditCard,
+                                title = "Bandeiras",
+                                subtitle = "Cartões e formas de pagamento",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("bandeiras")
+                                    }
+                                }
+                            )
+
+                            // 🔧 Monitoramento Peças
+                            DrawerCadastroItem(
+                                icon = Icons.Default.Build,
+                                title = "Monitoramento Peças",
+                                subtitle = "Controle de trocas e manutenção",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("monitoramento-pecas")
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp), color = Color.DarkGray.copy(alpha = 0.6f))
+
+                    // Relatórios & Extrato
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Assessment, contentDescription = null, tint = Color.LightGray) },
+                        label = { Text("Relatórios & Extrato", color = Color.White) },
+                        selected = false,
+                        onClick = {
+                            coroutineScope.launch {
+                                drawerState.close()
+                                onNavigateToReports()
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
                     )
-                    Text(
-                        text = uiState.profile?.email ?: "Logística & Entregas",
-                        fontSize = 12.sp,
-                        color = Color.Gray
+
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Sair da Conta
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = RedAlert) },
+                        label = { Text("Sair da Conta", color = RedAlert, fontWeight = FontWeight.Bold) },
+                        selected = false,
+                        onClick = {
+                            coroutineScope.launch {
+                                drawerState.close()
+                                onSignOut()
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = null, tint = OrangeNeon) },
-                    label = { Text("Início", fontWeight = FontWeight.Bold, color = Color.White) },
-                    selected = true,
-                    onClick = {
-                        kotlinx.coroutines.runBlocking { drawerState.close() }
-                    },
-                    colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = OrangeNeon.copy(alpha = 0.15f))
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp), color = Color.DarkGray)
-
-                Text(
-                    text = "CADASTRO",
-                    color = Color.Gray,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = OrangeNeon) },
-                    label = { Text("Postos de Gasolina", color = Color.White) },
-                    selected = false,
-                    onClick = {
-                        coroutineScope.launch {
-                            drawerState.close()
-                            onNavigateToGasStations()
-                        }
-                    }
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.CreditCard, contentDescription = null, tint = OrangeNeon) },
-                    label = { Text("Cartões de Crédito", color = Color.White) },
-                    selected = false,
-                    onClick = {
-                        coroutineScope.launch {
-                            drawerState.close()
-                            onNavigateToCreditCards()
-                        }
-                    }
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp), color = Color.DarkGray)
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Assessment, contentDescription = null, tint = Color.LightGray) },
-                    label = { Text("Relatórios & Extrato", color = Color.White) },
-                    selected = false,
-                    onClick = {
-                        coroutineScope.launch {
-                            drawerState.close()
-                            onNavigateToReports()
-                        }
-                    }
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = RedAlert) },
-                    label = { Text("Sair da Conta", color = RedAlert, fontWeight = FontWeight.Bold) },
-                    selected = false,
-                    onClick = {
-                        coroutineScope.launch {
-                            drawerState.close()
-                            onSignOut()
-                        }
-                    }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     ) {
@@ -889,3 +1033,81 @@ fun RouteRecentItem(route: Route) {
         }
     }
 }
+
+@Composable
+fun DrawerCadastroItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() },
+        color = Color.Transparent,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Ícone à esquerda dentro de um quadrado com cantos arredondados
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(
+                        color = SurfaceDarkAlt,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(10.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = OrangeNeon,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Título em branco/negrito, subtítulo em cinza claro abaixo
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp
+                )
+                Text(
+                    text = subtitle,
+                    color = Color.LightGray.copy(alpha = 0.8f),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Seta ">" à direita
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
