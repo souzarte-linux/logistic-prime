@@ -542,7 +542,7 @@ fun PartMaintenanceScreen(
                     OutlinedTextField(
                         value = uiState.partModel,
                         onValueChange = { viewModel.onPartModelChanged(it) },
-                        label = { Text("Modelo da Peça") },
+                        label = { Text("Modelo Peça") },
                         placeholder = { Text("Ex: Super 20W50") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -588,7 +588,7 @@ fun PartMaintenanceScreen(
                     OutlinedTextField(
                         value = uiState.lastChangeKm,
                         onValueChange = { viewModel.onLastChangeKmChanged(it) },
-                        label = { Text("KM Troca Atual *") },
+                        label = { Text("KM Troca*") },
                         placeholder = { Text("Ex: 12500") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
