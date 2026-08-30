@@ -164,6 +164,9 @@ fun CentralDoMotoristaApp(
                     onNavigateToFuelExpense = {
                         navController.navigate(Screen.FuelExpense.route)
                     },
+                    onNavigateToMaintenanceExpense = {
+                        navController.navigate(Screen.MonitoramentoPecas.route)
+                    },
                     onNavigateToRoute = { route ->
                         navController.navigate(route)
                     },
@@ -255,7 +258,10 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
                     viewModel = partViewModel,
                     onNavigateToPartProducts = { navController.navigate("part_products") },
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
                 )
             }
             composable("part_maintenance") {
@@ -263,7 +269,10 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
                     viewModel = partViewModel,
                     onNavigateToPartProducts = { navController.navigate("part_products") },
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
                 )
             }
 

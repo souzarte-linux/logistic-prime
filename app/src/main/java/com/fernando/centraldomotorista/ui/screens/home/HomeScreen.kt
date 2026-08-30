@@ -58,13 +58,27 @@ fun HomeScreen(
     onNavigateToCreateDailyTotal: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToFuelExpense: () -> Unit,
+    onNavigateToMaintenanceExpense: () -> Unit,
     onNavigateToRoute: (String) -> Unit,
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     var isCadastroExpanded by remember { mutableStateOf(true) }
     var selectedQuickExpenseCategory by remember { mutableStateOf<String?>(null) }
@@ -754,8 +768,7 @@ fun HomeScreen(
                             icon = Icons.Default.Build,
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                selectedQuickExpenseCategory = "manutencao"
-                                showExpenseBottomSheet = true
+                                onNavigateToMaintenanceExpense()
                             }
                         )
                         QuickExpenseButton(
@@ -842,12 +855,10 @@ fun HomeScreen(
     }
 }
 
-    // Modal Bottom Sheet de Despesa Rápida
+    // Modal Bottom Sheet de Despesa Rápida (Alimentação / Outros)
     if (showExpenseBottomSheet && selectedQuickExpenseCategory != null) {
         val category = selectedQuickExpenseCategory!!
         val categoryLabel = when (category) {
-            "combustivel" -> "Combustível"
-            "manutencao" -> "Manutenção"
             "alimentacao" -> "Alimentação"
             else -> "Despesa"
         }
