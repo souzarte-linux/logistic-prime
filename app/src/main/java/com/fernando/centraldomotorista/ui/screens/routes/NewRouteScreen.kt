@@ -555,7 +555,7 @@ fun NewRouteScreen(
                             }
                         }
 
-                        // 6. Gorjeta e Bônus (Opcionais)
+                        // 6. Gorjeta e Bônus
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -563,7 +563,7 @@ fun NewRouteScreen(
                             OutlinedTextField(
                                 value = uiState.tipText,
                                 onValueChange = { viewModel.onTipChanged(it) },
-                                label = { Text("Gorjeta (Opcional)") },
+                                label = { Text("Gorjeta") },
                                 placeholder = { Text("0,00") },
                                 singleLine = true,
                                 visualTransformation = CurrencyVisualTransformation(),
@@ -582,7 +582,7 @@ fun NewRouteScreen(
                             OutlinedTextField(
                                 value = uiState.bonusText,
                                 onValueChange = { viewModel.onBonusChanged(it) },
-                                label = { Text("Bônus (Opcional)") },
+                                label = { Text("Bônus") },
                                 placeholder = { Text("0,00") },
                                 singleLine = true,
                                 visualTransformation = CurrencyVisualTransformation(),
@@ -649,15 +649,19 @@ fun NewRouteScreen(
                                     Text(
                                         text = "VALOR TOTAL DA ROTA",
                                         color = Color.White,
-                                        fontSize = 13.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Black,
-                                        letterSpacing = 0.8.sp
+                                        letterSpacing = 0.5.sp,
+                                        modifier = Modifier.weight(1f)
                                     )
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Text(
                                         text = currencyFormatter.format(uiState.totalAmount),
                                         color = GreenNeon,
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Black
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Black,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }
