@@ -225,17 +225,17 @@ fun CentralDoMotoristaApp(
 
             // Cadastro - Apps & Plataformas
             composable(Screen.Plataformas.route) {
-                PlaceholderActionScreen(
-                    title = "Apps & Plataformas",
-                    description = "Plataformas de entrega e repasse.",
-                    onBack = { navController.popBackStack() }
+                val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
+                    viewModel = platformsViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable("apps") {
-                PlaceholderActionScreen(
-                    title = "Apps & Plataformas",
-                    description = "Plataformas de entrega e repasse.",
-                    onBack = { navController.popBackStack() }
+                val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
+                    viewModel = platformsViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
