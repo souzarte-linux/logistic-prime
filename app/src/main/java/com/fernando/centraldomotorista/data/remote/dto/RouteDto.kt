@@ -22,6 +22,8 @@ data class RouteDto(
     val amount: BigDecimal = BigDecimal.ZERO,
     @SerializedName("tip")
     val tip: BigDecimal = BigDecimal.ZERO,
+    @SerializedName("bonus")
+    val bonus: BigDecimal? = BigDecimal.ZERO,
     @SerializedName("product_type")
     val productType: String = "alimento",
     @SerializedName("notes")
@@ -68,6 +70,7 @@ fun RouteDto.toDomain(): Route {
         distanceKm = distanceKm,
         amount = amount,
         tip = tip,
+        bonus = bonus ?: BigDecimal.ZERO,
         productType = productType,
         notes = notes,
         packageCount = packageCount,
@@ -95,6 +98,7 @@ fun Route.toDto(): RouteDto {
         distanceKm = distanceKm,
         amount = amount,
         tip = tip,
+        bonus = bonus,
         productType = productType,
         notes = notes,
         packageCount = packageCount,

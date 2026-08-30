@@ -55,9 +55,10 @@ data class NewRouteUiState(
     val largePackagesIndividualPrices: List<BigDecimal> = emptyList(),
     val largePackagesTotal: BigDecimal = BigDecimal.ZERO,
     
-    // Gorjeta / Bônus
+    // Gorjeta / Bônus / Observações
     val tipText: String = "",
     val bonusText: String = "",
+    val notesText: String = "",
     
     // Horários e Odômetro
     val startTime: LocalTime = LocalTime.now().withSecond(0).withNano(0),
@@ -172,10 +173,6 @@ class NewRouteViewModel(
 
     fun onDestinationChanged(destination: String) {
         _uiState.value = _uiState.value.copy(destination = destination)
-    }
-
-    fun onDistanceKmChanged(distance: String) {
-        _uiState.value = _uiState.value.copy(distanceKmText = distance)
     }
 
     fun onProductTypeSelected(code: String) {
@@ -297,13 +294,17 @@ class NewRouteViewModel(
         _uiState.value = _uiState.value.copy(largePackagesTotal = total)
     }
 
-    // --- Gorjeta e Bônus ---
+    // --- Gorjeta, Bônus e Observações ---
     fun onTipChanged(tip: String) {
         _uiState.value = _uiState.value.copy(tipText = tip.filter { it.isDigit() || it == ',' || it == '.' })
     }
 
     fun onBonusChanged(bonus: String) {
         _uiState.value = _uiState.value.copy(bonusText = bonus.filter { it.isDigit() || it == ',' || it == '.' })
+    }
+
+    fun onNotesChanged(notes: String) {
+        _uiState.value = _uiState.value.copy(notesText = notes)
     }
 
     // --- Horários e Odômetro ---
@@ -322,13 +323,18 @@ class NewRouteViewModel(
     fun onStartKmChanged(kmText: String) {
         val clean = kmText.filter { it.isDigit() || it == ',' || it == '.' }
         _uiState.value = _uiState.value.copy(startKmText = clean)
-        recalculateDistanceIfPossible(startKm = clean, endKm = _uiState.value.endKmText)
+        recalculateDistanceIfPossible(clean, _uiState.value.endKmText)
     }
 
     fun onEndKmChanged(kmText: String) {
         val clean = kmText.filter { it.isDigit() || it == ',' || it == '.' }
         _uiState.value = _uiState.value.copy(endKmText = clean)
-        recalculateDistanceIfPossible(startKm = _uiState.value.startKmText, endKm = clean)
+        recalculateDistanceIfPossible(_uiState.value.startKmText, clean)
+    }
+
+    fun onDistanceKmChanged(kmText: String) {
+        val clean = kmText.filter { it.isDigit() || it == ',' || it == '.' }
+        _uiState.value = _uiState.value.copy(distanceKmText = clean)
     }
 
     private fun recalculateDistanceIfPossible(startKm: String, endKm: String) {
@@ -384,10 +390,7 @@ class NewRouteViewModel(
 
                 val tip = state.tipText.replace(',', '.').trim().toBigDecimalOrNull() ?: BigDecimal.ZERO
                 val bonus = state.bonusText.replace(',', '.').trim().toBigDecimalOrNull() ?: BigDecimal.ZERO
-
-                val notes = if (bonus > BigDecimal.ZERO) {
-                    "Bônus: R$ ${bonus.toPlainString()}"
-                } else null
+                val notes = state.notesText.trim().ifBlank { null }
 
                 val route = Route(
                     id = "",
@@ -397,7 +400,8 @@ class NewRouteViewModel(
                     destination = state.destination.trim().ifBlank { null },
                     distanceKm = distanceKm,
                     amount = totalAmount,
-                    tip = tip.add(bonus),
+                    tip = tip,
+                    bonus = bonus,
                     productType = state.selectedProductTypeCode,
                     notes = notes,
                     packageCount = (smallCount + largeCount).coerceAtLeast(1),

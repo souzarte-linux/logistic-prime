@@ -52,6 +52,7 @@ data class Route(
     val distanceKm: BigDecimal = BigDecimal.ZERO,
     val amount: BigDecimal = BigDecimal.ZERO,
     val tip: BigDecimal = BigDecimal.ZERO,
+    val bonus: BigDecimal = BigDecimal.ZERO,
     val productType: String = "alimento",
     val notes: String? = null,
     val packageCount: Int = 1,

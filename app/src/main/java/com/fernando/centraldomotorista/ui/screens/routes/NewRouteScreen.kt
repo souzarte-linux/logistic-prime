@@ -602,6 +602,33 @@ fun NewRouteScreen(
                             )
                         }
 
+                        // Observação (Opcional)
+                        OutlinedTextField(
+                            value = uiState.notesText,
+                            onValueChange = { viewModel.onNotesChanged(it) },
+                            label = { Text("Observação (Opcional)") },
+                            placeholder = { Text("Ex: Atraso no carregamento, pedágio, etc.", color = Color.Gray) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Notes,
+                                    contentDescription = null,
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = Color.DarkGray,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
                         // 7. CARD CONSOLIDADO DE TOTAIS
                         Card(
                             colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt),
