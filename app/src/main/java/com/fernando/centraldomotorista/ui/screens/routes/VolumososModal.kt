@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -13,8 +14,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +42,8 @@ fun VolumososModal(
     onDismiss: () -> Unit
 ) {
     val count = quantity.coerceAtLeast(1)
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     
     // Lista de strings para edição nos campos
     val priceTexts = remember(count, initialPrices) {
@@ -151,6 +158,7 @@ fun VolumososModal(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     itemsIndexed(priceTexts) { index, priceText ->
+                        val isLast = index == priceTexts.lastIndex
                         OutlinedTextField(
                             value = priceText,
                             onValueChange = { newText ->
@@ -161,7 +169,17 @@ fun VolumososModal(
                             placeholder = { Text("0,00") },
                             singleLine = true,
                             visualTransformation = CurrencyVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal,
+                                imeAction = if (isLast) ImeAction.Done else ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                }
+                            ),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,

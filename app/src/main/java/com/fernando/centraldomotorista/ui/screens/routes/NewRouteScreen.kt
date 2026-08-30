@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,9 +18,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +49,8 @@ fun NewRouteScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     var platformMenuExpanded by remember { mutableStateOf(false) }
     var productTypeMenuExpanded by remember { mutableStateOf(false) }
@@ -197,6 +204,8 @@ fun NewRouteScreen(
                                 leadingIcon = {
                                     Icon(Icons.Default.TripOrigin, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
                                 },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
@@ -216,6 +225,8 @@ fun NewRouteScreen(
                                 leadingIcon = {
                                     Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
                                 },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
@@ -308,7 +319,8 @@ fun NewRouteScreen(
                                         label = { Text("Qtd. Pacotinhos") },
                                         placeholder = { Text("0") },
                                         singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = OrangeNeon,
                                             focusedLabelColor = OrangeNeon,
@@ -326,7 +338,8 @@ fun NewRouteScreen(
                                         placeholder = { Text("0,00") },
                                         singleLine = true,
                                         visualTransformation = CurrencyVisualTransformation(),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = OrangeNeon,
                                             focusedLabelColor = OrangeNeon,
@@ -388,7 +401,8 @@ fun NewRouteScreen(
                                     label = { Text("Quantidade de Volumosos") },
                                     placeholder = { Text("0") },
                                     singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = OrangeNeon,
                                         focusedLabelColor = OrangeNeon,
@@ -460,7 +474,8 @@ fun NewRouteScreen(
                                         placeholder = { Text("0,00") },
                                         singleLine = true,
                                         visualTransformation = CurrencyVisualTransformation(),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = OrangeNeon,
                                             focusedLabelColor = OrangeNeon,
@@ -549,7 +564,8 @@ fun NewRouteScreen(
                                 placeholder = { Text("0,00") },
                                 singleLine = true,
                                 visualTransformation = CurrencyVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
@@ -567,7 +583,8 @@ fun NewRouteScreen(
                                 placeholder = { Text("0,00") },
                                 singleLine = true,
                                 visualTransformation = CurrencyVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
@@ -734,7 +751,8 @@ fun NewRouteScreen(
                             placeholder = { Text("0") },
                             singleLine = true,
                             visualTransformation = SuffixVisualTransformation(" Minutos"),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
@@ -757,7 +775,8 @@ fun NewRouteScreen(
                                 placeholder = { Text("0") },
                                 singleLine = true,
                                 visualTransformation = KmVisualTransformation(" KM"),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
@@ -775,7 +794,8 @@ fun NewRouteScreen(
                                 placeholder = { Text("0") },
                                 singleLine = true,
                                 visualTransformation = KmVisualTransformation(" KM"),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
@@ -787,7 +807,7 @@ fun NewRouteScreen(
                             )
                         }
 
-                        // Distância Total (KM) - Largura total abaixo de KM Inicial e KM Final
+                        // Distância Total (KM) - ÚLTIMO CAMPO DO FORMULÁRIO (Check / Done para fechar teclado)
                         OutlinedTextField(
                             value = uiState.distanceKmText,
                             onValueChange = { viewModel.onDistanceKmChanged(it) },
@@ -795,7 +815,11 @@ fun NewRouteScreen(
                             placeholder = { Text("0,0") },
                             singleLine = true,
                             visualTransformation = KmVisualTransformation(" KM"),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
