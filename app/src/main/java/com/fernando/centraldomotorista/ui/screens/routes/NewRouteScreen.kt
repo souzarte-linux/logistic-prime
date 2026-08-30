@@ -365,13 +365,13 @@ fun NewRouteScreen(
                                     Text(
                                         text = "Valor Total Pacotinhos:",
                                         color = Color.LightGray,
-                                        fontSize = 12.sp,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
                                         text = currencyFormatter.format(uiState.smallPackagesTotal),
                                         color = GreenNeon,
-                                        fontSize = 15.sp,
+                                        fontSize = 17.sp,
                                         fontWeight = FontWeight.Black
                                     )
                                 }
@@ -545,13 +545,13 @@ fun NewRouteScreen(
                                     Text(
                                         text = "Valor Total Volumosos:",
                                         color = Color.LightGray,
-                                        fontSize = 12.sp,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
                                         text = currencyFormatter.format(uiState.largePackagesTotal),
                                         color = GreenNeon,
-                                        fontSize = 15.sp,
+                                        fontSize = 17.sp,
                                         fontWeight = FontWeight.Black
                                     )
                                 }
