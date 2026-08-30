@@ -61,7 +61,7 @@ data class NewRouteUiState(
     // Horários e Odômetro
     val startTime: LocalTime = LocalTime.now().withSecond(0).withNano(0),
     val endTime: LocalTime = LocalTime.now().plusHours(2).withSecond(0).withNano(0),
-    val breakMinutesText: String = "0",
+    val breakMinutesText: String = "",
     val startKmText: String = "",
     val endKmText: String = "",
     

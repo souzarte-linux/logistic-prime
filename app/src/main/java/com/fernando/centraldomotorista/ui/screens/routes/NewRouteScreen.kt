@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,6 +57,7 @@ fun NewRouteScreen(
     var platformMenuExpanded by remember { mutableStateOf(false) }
     var productTypeMenuExpanded by remember { mutableStateOf(false) }
     var showVolumososModal by remember { mutableStateOf(false) }
+    var isBreakMinutesFocused by remember { mutableStateOf(false) }
 
     val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
     val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm") }
@@ -748,9 +751,17 @@ fun NewRouteScreen(
                             value = uiState.breakMinutesText,
                             onValueChange = { viewModel.onBreakMinutesChanged(it) },
                             label = { Text("Minutos de Pausa") },
-                            placeholder = { Text("0") },
+                            placeholder = {
+                                if (!isBreakMinutesFocused) {
+                                    Text("0 Minutos", color = Color.Gray)
+                                }
+                            },
                             singleLine = true,
-                            visualTransformation = SuffixVisualTransformation(" Minutos"),
+                            visualTransformation = if (!isBreakMinutesFocused && uiState.breakMinutesText.isNotEmpty()) {
+                                SuffixVisualTransformation(" Minutos")
+                            } else {
+                                VisualTransformation.None
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -760,7 +771,9 @@ fun NewRouteScreen(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White
                             ),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { isBreakMinutesFocused = it.isFocused }
                         )
 
                         // 9. KM Inicial e KM Final do Odômetro (Opcional)
