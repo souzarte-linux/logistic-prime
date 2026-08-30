@@ -22,6 +22,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.util.Locale
 
 data class ProductTypeOption(val code: String, val label: String)
 
@@ -85,6 +86,26 @@ data class NewRouteUiState(
                 .add(largePackagesTotal)
                 .add(tip)
                 .add(bonus)
+        }
+
+    val workedMinutes: Int
+        get() {
+            val startMin = startTime.hour * 60 + startTime.minute
+            var endMin = endTime.hour * 60 + endTime.minute
+            if (endMin < startMin) {
+                endMin += 24 * 60
+            }
+            val totalMin = endMin - startMin
+            val pause = breakMinutesText.toIntOrNull() ?: 0
+            return (totalMin - pause).coerceAtLeast(0)
+        }
+
+    val workedTimeFormatted: String
+        get() {
+            val total = workedMinutes
+            val h = total / 60
+            val m = total % 60
+            return String.format(Locale.getDefault(), "%02dh %02dmin", h, m)
         }
 }
 

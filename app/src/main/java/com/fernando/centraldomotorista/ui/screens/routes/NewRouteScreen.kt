@@ -776,6 +776,33 @@ fun NewRouteScreen(
                                 .onFocusChanged { isBreakMinutesFocused = it.isFocused }
                         )
 
+                        // Tempo Trabalhado (Cálculo Automático: Hora Final - Hora Inicial - Minutos de Pausa)
+                        OutlinedTextField(
+                            value = uiState.workedTimeFormatted,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Tempo Trabalhado") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = null,
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = Color.DarkGray,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                disabledTextColor = Color.White,
+                                disabledBorderColor = Color.DarkGray,
+                                disabledLabelColor = Color.LightGray
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
                         // 9. KM Inicial e KM Final do Odômetro (Opcional)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
