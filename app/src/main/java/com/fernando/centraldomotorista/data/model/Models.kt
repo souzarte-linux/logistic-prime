@@ -118,6 +118,21 @@ data class OilChange(
     val notes: String?,
 )
 
+data class PartType(
+    val id: String,
+    val userId: String,
+    val name: String,
+)
+
+data class PartProduct(
+    val id: String,
+    val userId: String,
+    val partTypeId: String,
+    val brand: String,
+    val model: String? = null,
+    val defaultLifeKm: BigDecimal,
+)
+
 data class PartMaintenance(
     val id: String,
     val userId: String,
@@ -126,6 +141,7 @@ data class PartMaintenance(
     val lastChangeKm: BigDecimal,
     val lastChangeAt: OffsetDateTime,
     val companyId: String? = null,
+    val partProductId: String? = null,
 ) {
     /** Quantos km restam até vencer (negativo = atrasado). Requer o odômetro atual do veículo. */
     fun kmRemaining(currentOdometerKm: BigDecimal): BigDecimal {

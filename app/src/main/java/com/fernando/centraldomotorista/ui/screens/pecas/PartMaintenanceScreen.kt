@@ -36,7 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.data.model.Company
 import com.fernando.centraldomotorista.data.model.PartMaintenance
-import com.fernando.centraldomotorista.ui.screens.empresas.EmpresasViewModel
+import com.fernando.centraldomotorista.data.model.PartProduct
 import com.fernando.centraldomotorista.ui.theme.*
 
 private val WhatsAppGreen = Color(0xFF25D366)
@@ -45,6 +45,7 @@ private val WhatsAppGreen = Color(0xFF25D366)
 @Composable
 fun PartMaintenanceScreen(
     viewModel: PartMaintenanceViewModel = viewModel(),
+    onNavigateToPartProducts: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -86,11 +87,19 @@ fun PartMaintenanceScreen(
                     }
                 },
                 actions = {
+                    // Botão para navegar para a tela de Produtos & Marcas de Peças
+                    IconButton(onClick = onNavigateToPartProducts) {
+                        Icon(
+                            imageVector = Icons.Default.Category,
+                            contentDescription = "Gerenciar Produtos e Marcas",
+                            tint = OrangeNeon
+                        )
+                    }
                     IconButton(onClick = { viewModel.loadData() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Atualizar",
-                            tint = OrangeNeon
+                            tint = Color.White
                         )
                     }
                 },
@@ -106,7 +115,7 @@ fun PartMaintenanceScreen(
                 contentColor = Color.Black,
                 shape = CircleShape
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Adicionar Peça")
+                Icon(Icons.Default.Add, contentDescription = "Lançar Peça / Manutenção")
             }
         },
         containerColor = BackgroundDark
@@ -158,7 +167,7 @@ fun PartMaintenanceScreen(
                 )
             }
 
-            // 2. Contador de Peças
+            // 2. Atalho para Produtos & Marcas + Contador
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -166,7 +175,7 @@ fun PartMaintenanceScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "PEÇAS & COMPONENTES",
+                        text = "PEÇAS EM MONITORAMENTO",
                         color = Color.Gray,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -240,7 +249,7 @@ fun PartMaintenanceScreen(
 
                             if (uiState.parts.isEmpty()) {
                                 Text(
-                                    text = "SUGESTÕES DE PEÇAS:",
+                                    text = "SUGESTÕES RÁPIDAS:",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
@@ -276,10 +285,14 @@ fun PartMaintenanceScreen(
                 val linkedCompany = remember(uiState.companies, part.companyId) {
                     uiState.companies.firstOrNull { it.id == part.companyId }
                 }
+                val linkedProduct = remember(uiState.partProducts, part.partProductId) {
+                    uiState.partProducts.firstOrNull { it.id == part.partProductId }
+                }
 
                 PartMaintenanceCard(
                     part = part,
                     company = linkedCompany,
+                    product = linkedProduct,
                     onEdit = { viewModel.startEditing(part) },
                     onContactPhone = { phone, isWhatsapp ->
                         openCompanyContact(context, phone, isWhatsapp)
@@ -292,11 +305,13 @@ fun PartMaintenanceScreen(
         }
     }
 
-    // Modal de Cadastro / Edição de Peça
+    // Modal de Formulário de Lançamento / Edição de Manutenção
     if (uiState.isFormOpen) {
         val isEditing = uiState.editingPartId != null
         var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+        var productDropdownExpanded by remember { mutableStateOf(false) }
         var companyDropdownExpanded by remember { mutableStateOf(false) }
+        var productSearchQuery by remember { mutableStateOf("") }
 
         ModalBottomSheet(
             onDismissRequest = { viewModel.closeForm() },
@@ -320,14 +335,14 @@ fun PartMaintenanceScreen(
                 ) {
                     Column {
                         Text(
-                            text = if (isEditing) "EDITAR PEÇA" else "NOVA PEÇA / MANUTENÇÃO",
+                            text = if (isEditing) "EDITAR PEÇA" else "LANÇAR MANUTENÇÃO",
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.5.sp,
                             color = OrangeNeon
                         )
                         Text(
-                            text = "Controle de durabilidade e trocas periódicas",
+                            text = "Controle de trocas e durabilidade estimada",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -341,12 +356,139 @@ fun PartMaintenanceScreen(
 
                 HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f))
 
-                // Nome da Peça *
+                // 1. Seletor de Produto Cadastrado (Tipo — Marca Modelo) com botão "+"
+                Text(
+                    text = "SELECIONAR PRODUTO DO CATÁLOGO",
+                    color = OrangeNeon,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.8.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val currentSelectedProduct = uiState.partProducts.firstOrNull { it.id == uiState.selectedPartProductId }
+                    val currentProductLabel = if (currentSelectedProduct != null) {
+                        val typeName = uiState.partTypes.firstOrNull { it.id == currentSelectedProduct.partTypeId }?.name ?: "Peça"
+                        val modelText = if (!currentSelectedProduct.model.isNullOrBlank()) " ${currentSelectedProduct.model}" else ""
+                        "$typeName — ${currentSelectedProduct.brand}$modelText"
+                    } else {
+                        "Escolher produto cadastrado (opcional)"
+                    }
+
+                    ExposedDropdownMenuBox(
+                        expanded = productDropdownExpanded,
+                        onExpandedChange = { productDropdownExpanded = !productDropdownExpanded },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        OutlinedTextField(
+                            value = currentProductLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Produto / Marca (Catálogo)") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Category, contentDescription = null, tint = OrangeNeon)
+                            },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = productDropdownExpanded)
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = Color.DarkGray,
+                                unfocusedLabelColor = Color.Gray,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = productDropdownExpanded,
+                            onDismissRequest = { productDropdownExpanded = false },
+                            modifier = Modifier
+                                .background(SurfaceDark)
+                                .heightIn(max = 300.dp)
+                        ) {
+                            // Opção de desvincular produto (manual puro)
+                            DropdownMenuItem(
+                                text = { Text("(Preenchimento manual / Sem catálogo)", color = Color.Gray) },
+                                onClick = {
+                                    viewModel.clearSelectedProduct()
+                                    productDropdownExpanded = false
+                                }
+                            )
+
+                            val availableProducts = uiState.partProducts.filter { prod ->
+                                val typeName = uiState.partTypes.firstOrNull { it.id == prod.partTypeId }?.name ?: ""
+                                productSearchQuery.isBlank() ||
+                                        typeName.contains(productSearchQuery, ignoreCase = true) ||
+                                        prod.brand.contains(productSearchQuery, ignoreCase = true) ||
+                                        (prod.model?.contains(productSearchQuery, ignoreCase = true) == true)
+                            }
+
+                            if (availableProducts.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("Nenhum produto encontrado. Clique em '+' para cadastrar.", color = Color.LightGray, fontSize = 12.sp) },
+                                    onClick = {
+                                        productDropdownExpanded = false
+                                        viewModel.openAddProductDialog()
+                                    }
+                                )
+                            } else {
+                                availableProducts.forEach { prod ->
+                                    val typeName = uiState.partTypes.firstOrNull { it.id == prod.partTypeId }?.name ?: "Peça"
+                                    val modelText = if (!prod.model.isNullOrBlank()) " ${prod.model}" else ""
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(
+                                                    text = "$typeName — ${prod.brand}$modelText",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                                Text(
+                                                    text = "Vida útil padrão: ${prod.defaultLifeKm} KM",
+                                                    color = OrangeNeon,
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.onSelectProduct(prod)
+                                            productDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Botão "+" para abrir o formulário completo de Adicionar Produto
+                    IconButton(
+                        onClick = { viewModel.openAddProductDialog() },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddCircle,
+                            contentDescription = "Adicionar Novo Produto",
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+                }
+
+                // 2. Nome da Peça / Descrição * (editável)
                 OutlinedTextField(
                     value = uiState.partName,
                     onValueChange = { viewModel.onPartNameChanged(it) },
-                    label = { Text("Nome da Peça / Componente *") },
-                    placeholder = { Text("Ex: Óleo do Motor, Pneu Traseiro, Pastilhas") },
+                    label = { Text("Nome da Peça / Descrição do Serviço *") },
+                    placeholder = { Text("Ex: Óleo do Motor — Mobil Super 20W50") },
                     singleLine = true,
                     leadingIcon = {
                         Icon(Icons.Default.Build, contentDescription = null, tint = OrangeNeon)
@@ -359,10 +501,11 @@ fun PartMaintenanceScreen(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Vida Útil em KM * e KM da Última Troca *
+                // 3. Vida Útil em KM * e KM da Última Troca *
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -385,13 +528,14 @@ fun PartMaintenanceScreen(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
                         ),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     )
 
                     OutlinedTextField(
                         value = uiState.lastChangeKm,
                         onValueChange = { viewModel.onLastChangeKmChanged(it) },
-                        label = { Text("KM Última Troca *") },
+                        label = { Text("KM Troca Atual *") },
                         placeholder = { Text("Ex: 12500") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -406,13 +550,14 @@ fun PartMaintenanceScreen(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
                         ),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                // 5. Empresa/Oficina (opcional) — Dropdown + Botão "+"
+                // 4. Empresa / Oficina (opcional) — Dropdown + Botão "+"
                 Text(
-                    text = "VÍNCULO COM EMPRESA / OFICINA",
+                    text = "LOCAL ONDE FOI COMPRADA / TROCADA",
                     color = Color.LightGray,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp,
@@ -452,6 +597,7 @@ fun PartMaintenanceScreen(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White
                             ),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .menuAnchor()
                                 .fillMaxWidth()
@@ -462,7 +608,7 @@ fun PartMaintenanceScreen(
                             modifier = Modifier.background(SurfaceDark)
                         ) {
                             DropdownMenuItem(
-                                text = { Text("(Nenhuma empresa)", color = Color.Gray) },
+                                text = { Text("(Nenhuma empresa vinculada)", color = Color.Gray) },
                                 onClick = {
                                     viewModel.onCompanySelected(null)
                                     companyDropdownExpanded = false
@@ -518,7 +664,7 @@ fun PartMaintenanceScreen(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .height(52.dp)
                 ) {
                     if (uiState.isSaving) {
                         CircularProgressIndicator(
@@ -528,7 +674,7 @@ fun PartMaintenanceScreen(
                         )
                     } else {
                         Text(
-                            text = if (isEditing) "Salvar Alterações" else "Cadastrar Peça",
+                            text = if (isEditing) "Salvar Alterações" else "Confirmar Lançamento",
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         )
@@ -564,6 +710,191 @@ fun PartMaintenanceScreen(
         }
     }
 
+    // Modal de Formulário Completo: "Adicionar Produto ao Catálogo"
+    if (uiState.isAddProductDialogOpen) {
+        var quickTypeDropdownExpanded by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { viewModel.closeAddProductDialog() },
+            title = { Text("Adicionar Produto / Marca", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Dropdown de Tipo de Peça + Botão "+"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val selectedTypeName = uiState.partTypes.firstOrNull { it.id == uiState.quickProductTypeId }?.name
+                            ?: "Selecione o Tipo"
+
+                        ExposedDropdownMenuBox(
+                            expanded = quickTypeDropdownExpanded,
+                            onExpandedChange = { quickTypeDropdownExpanded = !quickTypeDropdownExpanded },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            OutlinedTextField(
+                                value = selectedTypeName,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Tipo de Peça *") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = quickTypeDropdownExpanded) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = OrangeNeon,
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    unfocusedBorderColor = Color.DarkGray
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = quickTypeDropdownExpanded,
+                                onDismissRequest = { quickTypeDropdownExpanded = false },
+                                modifier = Modifier.background(SurfaceDark)
+                            ) {
+                                uiState.partTypes.forEach { type ->
+                                    DropdownMenuItem(
+                                        text = { Text(type.name, color = Color.White) },
+                                        onClick = {
+                                            viewModel.onQuickProductTypeChanged(type.id)
+                                            quickTypeDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.openAddTypeDialog() },
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddCircle,
+                                contentDescription = "Novo Tipo",
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+                    }
+
+                    // Marca
+                    OutlinedTextField(
+                        value = uiState.quickProductBrand,
+                        onValueChange = { viewModel.onQuickProductBrandChanged(it) },
+                        label = { Text("Marca * (ex: Mobil, Cobreq)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            unfocusedBorderColor = Color.DarkGray
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Modelo
+                    OutlinedTextField(
+                        value = uiState.quickProductModel,
+                        onValueChange = { viewModel.onQuickProductModelChanged(it) },
+                        label = { Text("Modelo (opcional, ex: Super 20W50)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            unfocusedBorderColor = Color.DarkGray
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Vida Útil Padrão
+                    OutlinedTextField(
+                        value = uiState.quickProductLifeKm,
+                        onValueChange = { viewModel.onQuickProductLifeKmChanged(it) },
+                        label = { Text("Vida Útil Padrão em KM *") },
+                        placeholder = { Text("Ex: 5000") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            unfocusedBorderColor = Color.DarkGray
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.saveQuickProduct() },
+                    enabled = uiState.quickProductBrand.isNotBlank() && uiState.quickProductLifeKm.isNotBlank() && uiState.quickProductTypeId != null,
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
+                ) {
+                    Text("Salvar e Selecionar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.closeAddProductDialog() }) {
+                    Text("Cancelar", color = Color.Gray)
+                }
+            },
+            containerColor = SurfaceDark
+        )
+    }
+
+    // Diálogo Simples de 1 linha: "Novo Tipo de Peça"
+    if (uiState.isAddTypeDialogOpen) {
+        var quickTypeName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { viewModel.closeAddTypeDialog() },
+            title = { Text("Novo Tipo de Peça", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = quickTypeName,
+                    onValueChange = { quickTypeName = it },
+                    label = { Text("Nome da Categoria (ex: Óleo do Motor)") },
+                    placeholder = { Text("Ex: Pastilha de Freio, Vela de Ignição") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        unfocusedBorderColor = Color.DarkGray
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.createQuickPartType(quickTypeName) },
+                    enabled = quickTypeName.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
+                ) {
+                    Text("Salvar Tipo")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.closeAddTypeDialog() }) {
+                    Text("Cancelar", color = Color.Gray)
+                }
+            },
+            containerColor = SurfaceDark
+        )
+    }
+
     // Diálogo de Cadastro Rápido de Empresa
     if (uiState.isAddCompanyDialogOpen) {
         var quickCompanyName by remember { mutableStateOf("") }
@@ -588,15 +919,14 @@ fun PartMaintenanceScreen(
                             unfocusedTextColor = Color.White,
                             unfocusedBorderColor = Color.DarkGray
                         ),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
                 Button(
-                    onClick = {
-                        viewModel.addQuickCompany(quickCompanyName)
-                    },
+                    onClick = { viewModel.addQuickCompany(quickCompanyName) },
                     enabled = quickCompanyName.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
                 ) {
@@ -617,6 +947,7 @@ fun PartMaintenanceScreen(
 fun PartMaintenanceCard(
     part: PartMaintenance,
     company: Company?,
+    product: PartProduct?,
     onEdit: () -> Unit,
     onContactPhone: (String, Boolean) -> Unit,
     onOpenMap: (Company) -> Unit
@@ -663,9 +994,19 @@ fun PartMaintenanceCard(
                     Text(
                         text = part.partName,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         color = Color.White
                     )
+
+                    if (product != null) {
+                        val modelText = if (!product.model.isNullOrBlank()) " • ${product.model}" else ""
+                        Text(
+                            text = "Produto: ${product.brand}$modelText",
+                            fontSize = 12.sp,
+                            color = OrangeNeon
+                        )
+                    }
+
                     Text(
                         text = "Vida útil: ${part.lifeKm} KM",
                         fontSize = 12.sp,
@@ -721,7 +1062,7 @@ fun PartMaintenanceCard(
                 }
             }
 
-            // 6. Empresa Vinculada + Ações Rápidas (Telefone / WhatsApp / Google Maps)
+            // Empresa Vinculada + Ações Rápidas
             if (company != null) {
                 HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.4f))
 
@@ -730,7 +1071,6 @@ fun PartMaintenanceCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Identificação da Empresa
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
@@ -753,7 +1093,9 @@ fun PartMaintenanceCard(
                             )
                             val companyAddr = listOfNotNull(
                                 company.street?.takeIf { it.isNotBlank() },
-                                company.number?.takeIf { it.isNotBlank() }
+                                company.number?.takeIf { it.isNotBlank() },
+                                company.neighborhood?.takeIf { it.isNotBlank() },
+                                company.city?.takeIf { it.isNotBlank() }
                             ).joinToString(", ")
                             if (companyAddr.isNotBlank()) {
                                 Text(
@@ -767,12 +1109,10 @@ fun PartMaintenanceCard(
                         }
                     }
 
-                    // Ações Rápidas: Contato & Endereço
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Botão Telefone / WhatsApp
                         if (!company.phone.isNullOrBlank()) {
                             val isWpp = company.isWhatsapp
                             FilledTonalIconButton(
@@ -791,8 +1131,7 @@ fun PartMaintenanceCard(
                             }
                         }
 
-                        // Botão Google Maps
-                        val hasAddress = !company.street.isNullOrBlank() || !company.cep.isNullOrBlank()
+                        val hasAddress = !company.street.isNullOrBlank() || !company.cep.isNullOrBlank() || !company.city.isNullOrBlank()
                         if (hasAddress) {
                             FilledTonalIconButton(
                                 onClick = { onOpenMap(company) },
@@ -842,6 +1181,9 @@ private fun openCompanyAddress(context: Context, company: Company) {
     val addressParts = listOfNotNull(
         company.street?.takeIf { it.isNotBlank() },
         company.number?.takeIf { it.isNotBlank() },
+        company.neighborhood?.takeIf { it.isNotBlank() },
+        company.city?.takeIf { it.isNotBlank() },
+        company.state?.takeIf { it.isNotBlank() },
         company.cep?.takeIf { it.isNotBlank() },
         company.name.takeIf { it.isNotBlank() }
     ).joinToString(", ")

@@ -55,6 +55,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     
     // Suporte a telas auxiliares existentes
     object CreditCards : Screen("credit_cards", "Cartões de Crédito", Icons.Default.CreditCard)
+    object PartProducts : Screen("part_products", "Produtos & Marcas", Icons.Default.Category)
 }
 
 val bottomNavItems = listOf(
@@ -253,6 +254,7 @@ fun CentralDoMotoristaApp(
                 val partViewModel: com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
                     viewModel = partViewModel,
+                    onNavigateToPartProducts = { navController.navigate("part_products") },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
@@ -260,6 +262,16 @@ fun CentralDoMotoristaApp(
                 val partViewModel: com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
                     viewModel = partViewModel,
+                    onNavigateToPartProducts = { navController.navigate("part_products") },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Produtos & Marcas de Peças (acessada a partir do Monitoramento de Peças)
+            composable("part_products") {
+                val partProductsViewModel: com.fernando.centraldomotorista.ui.screens.partproducts.PartProductsViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.partproducts.PartProductsScreen(
+                    viewModel = partProductsViewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
