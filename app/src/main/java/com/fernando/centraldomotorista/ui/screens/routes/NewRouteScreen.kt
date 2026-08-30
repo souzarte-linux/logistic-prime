@@ -322,7 +322,7 @@ fun NewRouteScreen(
                                     OutlinedTextField(
                                         value = uiState.smallPackagesCountText,
                                         onValueChange = { viewModel.onSmallPackagesCountChanged(it) },
-                                        label = { Text("Qtd. Pacotinhos") },
+                                        label = { Text("Quant.") },
                                         placeholder = { Text("Quant.", color = Color.Gray) },
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
@@ -340,7 +340,7 @@ fun NewRouteScreen(
                                     OutlinedTextField(
                                         value = uiState.smallPackagesUnitPriceText,
                                         onValueChange = { viewModel.onSmallPackagesUnitPriceChanged(it) },
-                                        label = { Text("Valor Unitário") },
+                                        label = { Text("Valor Und.") },
                                         placeholder = { Text("Valor", color = Color.Gray) },
                                         singleLine = true,
                                         visualTransformation = CurrencyVisualTransformation(),
