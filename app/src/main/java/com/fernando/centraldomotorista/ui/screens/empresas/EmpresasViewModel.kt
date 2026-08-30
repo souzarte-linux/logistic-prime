@@ -37,6 +37,9 @@ data class CompanyFormData(
     val street: String = "",
     val number: String = "",
     val complement: String = "",
+    val neighborhood: String = "",
+    val city: String = "",
+    val state: String = "",
     val cnpj: String = "",         // dígitos apenas (ex: "12345678000199")
     val phone: String = "",        // dígitos apenas (ex: "11987654321")
     val isWhatsapp: Boolean = false,
@@ -137,6 +140,9 @@ class EmpresasViewModel(
             street = company.street ?: "",
             number = company.number ?: "",
             complement = company.complement ?: "",
+            neighborhood = company.neighborhood ?: "",
+            city = company.city ?: "",
+            state = company.state ?: "",
             cnpj = company.cnpj?.filter { it.isDigit() } ?: "",
             phone = company.phone?.filter { it.isDigit() } ?: "",
             isWhatsapp = company.isWhatsapp,
@@ -161,7 +167,6 @@ class EmpresasViewModel(
             return
         }
 
-        // Se veio de detalhes de empresa existente, volta para VIEW; se era cadastro novo, volta para LIST
         val previousMode = if (state.selectedCompany != null && state.formData.id != null) {
             EmpresaScreenMode.VIEW
         } else {
@@ -190,7 +195,6 @@ class EmpresasViewModel(
         }
     }
 
-    // Form value changers (armazena dígitos limpos e texto sanitizado)
     fun onNameChanged(name: String) {
         _uiState.update { it.copy(formData = it.formData.copy(name = name)) }
     }
@@ -214,7 +218,10 @@ class EmpresasViewModel(
                         state.copy(
                             isSearchingCep = false,
                             formData = state.formData.copy(
-                                street = result.logradouro ?: state.formData.street
+                                street = result.logradouro ?: state.formData.street,
+                                neighborhood = result.bairro ?: state.formData.neighborhood,
+                                city = result.localidade ?: state.formData.city,
+                                state = result.uf ?: state.formData.state
                             ),
                             message = "Endereço preenchido pelo CEP!"
                         )
@@ -240,6 +247,18 @@ class EmpresasViewModel(
         if (complement.length <= 500) {
             _uiState.update { it.copy(formData = it.formData.copy(complement = complement)) }
         }
+    }
+
+    fun onNeighborhoodChanged(neighborhood: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(neighborhood = neighborhood)) }
+    }
+
+    fun onCityChanged(city: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(city = city)) }
+    }
+
+    fun onStateChanged(state: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(state = state.take(2).uppercase())) }
     }
 
     fun onCnpjChanged(cnpjInput: String) {
@@ -282,6 +301,9 @@ class EmpresasViewModel(
                 street = form.street.trim().takeIf { it.isNotBlank() },
                 number = form.number.trim().takeIf { it.isNotBlank() },
                 complement = form.complement.trim().takeIf { it.isNotBlank() },
+                neighborhood = form.neighborhood.trim().takeIf { it.isNotBlank() },
+                city = form.city.trim().takeIf { it.isNotBlank() },
+                state = form.state.trim().takeIf { it.isNotBlank() },
                 cnpj = form.cnpj.takeIf { it.isNotBlank() },
                 phone = form.phone.takeIf { it.isNotBlank() },
                 isWhatsapp = form.isWhatsapp,

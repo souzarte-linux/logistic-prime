@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -98,6 +99,9 @@ fun EmpresasScreen(
                 onStreetChanged = { viewModel.onStreetChanged(it) },
                 onNumberChanged = { viewModel.onNumberChanged(it) },
                 onComplementChanged = { viewModel.onComplementChanged(it) },
+                onNeighborhoodChanged = { viewModel.onNeighborhoodChanged(it) },
+                onCityChanged = { viewModel.onCityChanged(it) },
+                onStateChanged = { viewModel.onStateChanged(it) },
                 onCnpjChanged = { viewModel.onCnpjChanged(it) },
                 onPhoneChanged = { viewModel.onPhoneChanged(it) },
                 onIsWhatsappChanged = { viewModel.onIsWhatsappChanged(it) },
@@ -180,7 +184,9 @@ private fun EmpresasListView(
                 uiState.companies.filter {
                     it.name.contains(uiState.searchQuery, ignoreCase = true) ||
                             (it.cnpj?.contains(uiState.searchQuery) == true) ||
-                            (it.street?.contains(uiState.searchQuery, ignoreCase = true) == true)
+                            (it.street?.contains(uiState.searchQuery, ignoreCase = true) == true) ||
+                            (it.neighborhood?.contains(uiState.searchQuery, ignoreCase = true) == true) ||
+                            (it.city?.contains(uiState.searchQuery, ignoreCase = true) == true)
                 }
             }
         }
@@ -198,7 +204,7 @@ private fun EmpresasListView(
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = onSearchChanged,
-                    placeholder = { Text("Buscar empresa por nome ou endereço...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Buscar por nome, bairro, cidade...", color = Color.Gray, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
@@ -390,13 +396,25 @@ private fun EmpresasListView(
                                 overflow = TextOverflow.Ellipsis
                             )
 
-                            // Endereço (se houver)
-                            val address = listOfNotNull(
+                            // Endereço e Cidade (se houver)
+                            val addressStreet = listOfNotNull(
                                 company.street?.takeIf { it.isNotBlank() },
                                 company.number?.takeIf { it.isNotBlank() }?.let { "nº $it" }
                             ).joinToString(", ")
 
-                            if (address.isNotBlank()) {
+                            val cityState = listOfNotNull(
+                                company.neighborhood?.takeIf { it.isNotBlank() },
+                                company.city?.takeIf { it.isNotBlank() }?.let { city ->
+                                    if (!company.state.isNullOrBlank()) "$city - ${company.state}" else city
+                                }
+                            ).joinToString(" • ")
+
+                            val fullDisplayAddress = listOfNotNull(
+                                addressStreet.takeIf { it.isNotBlank() },
+                                cityState.takeIf { it.isNotBlank() }
+                            ).joinToString(" - ")
+
+                            if (fullDisplayAddress.isNotBlank()) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -408,7 +426,7 @@ private fun EmpresasListView(
                                         modifier = Modifier.size(13.dp)
                                     )
                                     Text(
-                                        text = address,
+                                        text = fullDisplayAddress,
                                         fontSize = 12.sp,
                                         color = Color.LightGray,
                                         maxLines = 1,
@@ -511,7 +529,6 @@ private fun CompanyDetailsView(
                     }
                 },
                 actions = {
-                    // Ícone de Lápis para editar no topo da tela
                     IconButton(onClick = onEdit) {
                         Icon(
                             imageVector = Icons.Default.Edit,
@@ -588,7 +605,7 @@ private fun CompanyDetailsView(
             }
 
             // Seção 1: Localização & Endereço
-            val hasAddress = !company.street.isNullOrBlank() || !company.cep.isNullOrBlank() || !company.number.isNullOrBlank()
+            val hasAddress = !company.street.isNullOrBlank() || !company.cep.isNullOrBlank() || !company.number.isNullOrBlank() || !company.city.isNullOrBlank()
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -615,12 +632,24 @@ private fun CompanyDetailsView(
                     }
 
                     if (hasAddress) {
-                        DetailItem(label = "Endereço", value = company.street ?: "Não informado")
+                        if (!company.street.isNullOrBlank()) {
+                            DetailItem(label = "Endereço / Rua", value = company.street)
+                        }
                         if (!company.number.isNullOrBlank()) {
                             DetailItem(label = "Número", value = company.number)
                         }
                         if (!company.complement.isNullOrBlank()) {
                             DetailItem(label = "Complemento", value = company.complement)
+                        }
+                        if (!company.neighborhood.isNullOrBlank()) {
+                            DetailItem(label = "Bairro", value = company.neighborhood)
+                        }
+                        if (!company.city.isNullOrBlank() || !company.state.isNullOrBlank()) {
+                            val cityStateText = listOfNotNull(
+                                company.city?.takeIf { it.isNotBlank() },
+                                company.state?.takeIf { it.isNotBlank() }
+                            ).joinToString(" - ")
+                            DetailItem(label = "Cidade / UF", value = cityStateText)
                         }
                         if (!company.cep.isNullOrBlank()) {
                             DetailItem(label = "CEP", value = EmpresasViewModel.formatCep(company.cep))
@@ -843,6 +872,9 @@ private fun CompanyFormView(
     onStreetChanged: (String) -> Unit,
     onNumberChanged: (String) -> Unit,
     onComplementChanged: (String) -> Unit,
+    onNeighborhoodChanged: (String) -> Unit,
+    onCityChanged: (String) -> Unit,
+    onStateChanged: (String) -> Unit,
     onCnpjChanged: (String) -> Unit,
     onPhoneChanged: (String) -> Unit,
     onIsWhatsappChanged: (Boolean) -> Unit,
@@ -855,7 +887,6 @@ private fun CompanyFormView(
 ) {
     val isEditing = uiState.isEditing
 
-    // Intercepta botão voltar físico do Android e checa dirty state
     BackHandler {
         onCancel()
     }
@@ -927,7 +958,7 @@ private fun CompanyFormView(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // 5. CNPJ (opcional, máscara 00.000.000/0001-00)
+            // 2. CNPJ (opcional, máscara 00.000.000/0001-00)
             OutlinedTextField(
                 value = uiState.formData.cnpj,
                 onValueChange = onCnpjChanged,
@@ -961,7 +992,7 @@ private fun CompanyFormView(
                 modifier = Modifier.padding(top = 6.dp)
             )
 
-            // 2. CEP (opcional — preenchimento automático ViaCEP)
+            // 3. CEP (opcional — preenchimento automático ViaCEP)
             OutlinedTextField(
                 value = uiState.formData.cep,
                 onValueChange = onCepChanged,
@@ -994,7 +1025,7 @@ private fun CompanyFormView(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // 3. Endereço e Número lado a lado (0.68f / 0.32f)
+            // 4. Endereço e Número lado a lado (0.68f / 0.32f)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1042,7 +1073,7 @@ private fun CompanyFormView(
                 )
             }
 
-            // 4. Complemento (opcional, até 500 caracteres, multilinha com contador)
+            // 5. Complemento (opcional, até 500 caracteres, multilinha com contador)
             OutlinedTextField(
                 value = uiState.formData.complement,
                 onValueChange = onComplementChanged,
@@ -1074,6 +1105,77 @@ private fun CompanyFormView(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // 6. Bairro
+            OutlinedTextField(
+                value = uiState.formData.neighborhood,
+                onValueChange = onNeighborhoodChanged,
+                label = { Text("Bairro") },
+                placeholder = { Text("Ex: Centro, Pinheiros, Vila Nova...") },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Default.HomeWork, contentDescription = null, tint = OrangeNeon)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedLabelColor = Color.Gray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // 7. Cidade e Estado lado a lado (0.72f / 0.28f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.formData.city,
+                    onValueChange = onCityChanged,
+                    label = { Text("Cidade") },
+                    placeholder = { Text("Ex: São Paulo, Campinas...") },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(Icons.Default.LocationCity, contentDescription = null, tint = OrangeNeon)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(0.72f)
+                )
+
+                OutlinedTextField(
+                    value = uiState.formData.state,
+                    onValueChange = onStateChanged,
+                    label = { Text("UF") },
+                    placeholder = { Text("SP") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                    leadingIcon = {
+                        Icon(Icons.Default.Map, contentDescription = null, tint = OrangeNeon)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(0.28f)
+                )
+            }
+
             // Seção 3: Contato & Canais
             Text(
                 text = "CONTATO & REDES",
@@ -1084,7 +1186,7 @@ private fun CompanyFormView(
                 modifier = Modifier.padding(top = 6.dp)
             )
 
-            // 6. Contato/Celular + Checkbox WhatsApp
+            // 8. Contato/Celular + Checkbox WhatsApp
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1157,7 +1259,7 @@ private fun CompanyFormView(
                 }
             }
 
-            // 7. Rede Social (opcional)
+            // 9. Rede Social (opcional)
             OutlinedTextField(
                 value = uiState.formData.socialMedia,
                 onValueChange = onSocialMediaChanged,
@@ -1179,7 +1281,7 @@ private fun CompanyFormView(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // 8. Site (opcional)
+            // 10. Site (opcional)
             OutlinedTextField(
                 value = uiState.formData.website,
                 onValueChange = onWebsiteChanged,
@@ -1330,6 +1432,9 @@ private fun openCompanyAddress(context: Context, company: Company) {
     val addressParts = listOfNotNull(
         company.street?.takeIf { it.isNotBlank() },
         company.number?.takeIf { it.isNotBlank() },
+        company.neighborhood?.takeIf { it.isNotBlank() },
+        company.city?.takeIf { it.isNotBlank() },
+        company.state?.takeIf { it.isNotBlank() },
         company.cep?.takeIf { it.isNotBlank() },
         company.name.takeIf { it.isNotBlank() }
     ).joinToString(", ")

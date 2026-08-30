@@ -18,6 +18,12 @@ data class CompanyDto(
     val number: String? = null,
     @SerializedName("complement")
     val complement: String? = null,
+    @SerializedName("neighborhood")
+    val neighborhood: String? = null,
+    @SerializedName("city")
+    val city: String? = null,
+    @SerializedName("state")
+    val state: String? = null,
     @SerializedName("cnpj")
     val cnpj: String? = null,
     @SerializedName("phone")
@@ -41,6 +47,9 @@ fun CompanyDto.toDomain(): Company {
         street = street,
         number = number,
         complement = complement,
+        neighborhood = neighborhood,
+        city = city,
+        state = state,
         cnpj = cnpj,
         phone = phone,
         isWhatsapp = isWhatsapp,
@@ -58,6 +67,9 @@ fun Company.toDto(): CompanyDto {
         street = street?.takeIf { it.isNotBlank() },
         number = number?.takeIf { it.isNotBlank() },
         complement = complement?.takeIf { it.isNotBlank() },
+        neighborhood = neighborhood?.takeIf { it.isNotBlank() },
+        city = city?.takeIf { it.isNotBlank() },
+        state = state?.takeIf { it.isNotBlank() },
         cnpj = cnpj?.filter { it.isDigit() }?.takeIf { it.isNotBlank() },
         phone = phone?.takeIf { it.isNotBlank() },
         isWhatsapp = isWhatsapp,
