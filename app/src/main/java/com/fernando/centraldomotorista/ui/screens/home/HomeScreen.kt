@@ -38,12 +38,16 @@ import java.util.Locale
 import kotlinx.coroutines.launch
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Brush
 
 fun BigDecimal.formatCurrency(): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
@@ -529,6 +533,78 @@ fun HomeScreen(
                             fontSize = 38.sp,
                             fontWeight = FontWeight.Black
                         )
+
+                        // Termômetro de Meta do Dia
+                        val metaVal = uiState.metaDiaria
+                        val lucroVal = uiState.lucroHoje
+                        val rawPercent = if (metaVal > BigDecimal.ZERO) (lucroVal.toFloat() / metaVal.toFloat()) else 0f
+                        val clampedProgress = rawPercent.coerceIn(0f, 1f)
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = clampedProgress,
+                            animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                            label = "thermometerProgress"
+                        )
+                        val percentText = (rawPercent * 100).toInt().coerceAtLeast(0)
+
+                        val thermometerColor = when {
+                            clampedProgress >= 0.85f -> GreenNeon                     // Verde
+                            clampedProgress >= 0.55f -> Color(0xFFFFD600)            // Amarelo
+                            clampedProgress >= 0.25f -> Color(0xFFFF8A00)            // Amarelo-Alaranjado
+                            else -> RedAlert                                         // Vermelho
+                        }
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "TERMÔMETRO DA META",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = "$percentText% atingido",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = thermometerColor
+                                )
+                            }
+
+                            // Linha / Barra do Termômetro
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .background(Color(0xFF26262B), RoundedCornerShape(100.dp))
+                                    .clip(RoundedCornerShape(100.dp))
+                            ) {
+                                val gradientColors = listOf(
+                                    Color(0xFFE53935), // Vermelho
+                                    Color(0xFFFF8A00), // Amarelo-alaranjado
+                                    Color(0xFFFFD600), // Amarelo
+                                    Color(0xFF00E676)  // Verde
+                                )
+
+                                if (animatedProgress > 0f) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .fillMaxWidth(animatedProgress)
+                                            .background(
+                                                Brush.horizontalGradient(colors = gradientColors),
+                                                RoundedCornerShape(100.dp)
+                                            )
+                                    )
+                                }
+                            }
+                        }
 
                         HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f))
 
