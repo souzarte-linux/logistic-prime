@@ -58,8 +58,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.biometric)
 
-    // Google Sign-In (Credential Manager API)
+    // Google Sign-In (Credential Manager API) & Location
     implementation(libs.play.services.auth)
+    implementation(libs.play.services.location)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.google.googleid)
