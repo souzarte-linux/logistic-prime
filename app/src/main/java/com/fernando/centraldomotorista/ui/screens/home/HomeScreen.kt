@@ -58,6 +58,7 @@ fun HomeScreen(
     onNavigateToCreateDailyTotal: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToFuelExpense: () -> Unit,
+    onNavigateToMealExpense: () -> Unit = {},
     onNavigateToMaintenanceExpense: () -> Unit,
     onNavigateToRoute: (String) -> Unit,
     onSignOut: () -> Unit
@@ -776,8 +777,7 @@ fun HomeScreen(
                             icon = Icons.Default.Restaurant,
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                selectedQuickExpenseCategory = "alimentacao"
-                                showExpenseBottomSheet = true
+                                onNavigateToMealExpense()
                             }
                         )
                     }

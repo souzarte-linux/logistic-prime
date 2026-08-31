@@ -44,6 +44,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object LancarRota : Screen("lancar_rota", "Lançar Rota", Icons.Default.Navigation)
     object LancarTotalDia : Screen("lancar_total_dia", "Total do Dia", Icons.Default.CalendarToday)
     object FuelExpense : Screen("fuel_expense", "Novo Abastecimento", Icons.Default.LocalGasStation)
+    object MealExpense : Screen("meal_expense", "Lançamento de Alimentação", Icons.Default.Restaurant)
     object LancarManutencao : Screen("lancar-manutencao", "Lançar Manutenção", Icons.Default.Build)
     
     // Menu Lateral - Cadastro
@@ -166,6 +167,9 @@ fun CentralDoMotoristaApp(
                     onNavigateToFuelExpense = {
                         navController.navigate(Screen.FuelExpense.route)
                     },
+                    onNavigateToMealExpense = {
+                        navController.navigate(Screen.MealExpense.route)
+                    },
                     onNavigateToMaintenanceExpense = {
                         partMaintenanceViewModel.openAddDialog()
                         navController.navigate(Screen.LancarManutencao.route)
@@ -191,6 +195,19 @@ fun CentralDoMotoristaApp(
                         navController.popBackStack()
                     },
                     onNavigateToGasStations = { navController.navigate(Screen.GasStations.route) },
+                    onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) }
+                )
+            }
+
+            composable(Screen.MealExpense.route) {
+                val mealViewModel: com.fernando.centraldomotorista.ui.screens.expenses.MealExpenseViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.expenses.MealExpenseScreen(
+                    viewModel = mealViewModel,
+                    onNavigateBack = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    },
+                    onNavigateToCompanies = { navController.navigate(Screen.Empresas.route) },
                     onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) }
                 )
             }
