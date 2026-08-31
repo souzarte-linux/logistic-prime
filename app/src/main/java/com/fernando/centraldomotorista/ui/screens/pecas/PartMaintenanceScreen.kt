@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,10 +27,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -333,6 +338,8 @@ fun PartMaintenanceScreen(
     // Modal de Formulário de Lançamento / Edição de Manutenção
     if (uiState.isFormOpen) {
         val isEditing = uiState.editingPartId != null
+        val focusManager = LocalFocusManager.current
+        val keyboardController = LocalSoftwareKeyboardController.current
         var showDeleteConfirmDialog by remember { mutableStateOf(false) }
         var productDropdownExpanded by remember { mutableStateOf(false) }
         var companyDropdownExpanded by remember { mutableStateOf(false) }
@@ -515,6 +522,8 @@ fun PartMaintenanceScreen(
                     label = { Text("Nome da Peça / Descrição do Serviço *") },
                     placeholder = { Text("Ex: Óleo do Motor — Mobil Super 20W50") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     leadingIcon = {
                         Icon(Icons.Default.Build, contentDescription = null, tint = OrangeNeon)
                     },
@@ -541,6 +550,8 @@ fun PartMaintenanceScreen(
                         label = { Text("Marca da Peça") },
                         placeholder = { Text("Ex: Mobil, Cobreq") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedLabelColor = OrangeNeon,
@@ -559,6 +570,8 @@ fun PartMaintenanceScreen(
                         label = { Text("Modelo Peça") },
                         placeholder = { Text("Ex: Super 20W50") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedLabelColor = OrangeNeon,
@@ -583,7 +596,8 @@ fun PartMaintenanceScreen(
                         label = { Text("Vida Útil (KM) *") },
                         placeholder = { Text("Ex: 5000") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) }),
                         leadingIcon = {
                             Icon(Icons.Default.Speed, contentDescription = null, tint = OrangeNeon)
                         },
@@ -605,7 +619,8 @@ fun PartMaintenanceScreen(
                         label = { Text("KM Troca*") },
                         placeholder = { Text("Ex: 12500") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                         leadingIcon = {
                             Icon(Icons.Default.Timeline, contentDescription = null, tint = OrangeNeon)
                         },
@@ -737,7 +752,8 @@ fun PartMaintenanceScreen(
                     placeholder = { Text("0,00") },
                     singleLine = true,
                     visualTransformation = CurrencyVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     leadingIcon = {
                         Icon(Icons.Default.AttachMoney, contentDescription = null, tint = GreenNeon)
                     },
@@ -797,6 +813,8 @@ fun PartMaintenanceScreen(
                     label = { Text("Nº Nota Fiscal / Cupom / Recibo (opcional)") },
                     placeholder = { Text("Ex: NF-e 123456") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     leadingIcon = {
                         Icon(Icons.Default.Receipt, contentDescription = null, tint = OrangeNeon)
                     },
@@ -812,7 +830,7 @@ fun PartMaintenanceScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 9. Observação (opcional, multilinha)
+                // 9. Observação (opcional, multilinha - último campo de texto)
                 OutlinedTextField(
                     value = uiState.notes,
                     onValueChange = { viewModel.onNotesChanged(it) },
@@ -820,6 +838,11 @@ fun PartMaintenanceScreen(
                     placeholder = { Text("Ex: Mão de obra inclusa, garantia de 3 meses, etc.") },
                     minLines = 2,
                     maxLines = 4,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                    }),
                     leadingIcon = {
                         Icon(Icons.Default.Description, contentDescription = null, tint = OrangeNeon)
                     },
@@ -997,6 +1020,8 @@ fun PartMaintenanceScreen(
     // Modal de Formulário Completo: "Adicionar Produto ao Catálogo"
     if (uiState.isAddProductDialogOpen) {
         var quickTypeDropdownExpanded by remember { mutableStateOf(false) }
+        val dialogFocusManager = LocalFocusManager.current
+        val dialogKeyboardController = LocalSoftwareKeyboardController.current
 
         AlertDialog(
             onDismissRequest = { viewModel.closeAddProductDialog() },
@@ -1075,6 +1100,8 @@ fun PartMaintenanceScreen(
                         onValueChange = { viewModel.onQuickProductBrandChanged(it) },
                         label = { Text("Marca * (ex: Mobil, Cobreq)") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { dialogFocusManager.moveFocus(FocusDirection.Down) }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedTextColor = Color.White,
@@ -1091,6 +1118,8 @@ fun PartMaintenanceScreen(
                         onValueChange = { viewModel.onQuickProductModelChanged(it) },
                         label = { Text("Modelo (opcional, ex: Super 20W50)") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { dialogFocusManager.moveFocus(FocusDirection.Down) }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedTextColor = Color.White,
@@ -1108,7 +1137,11 @@ fun PartMaintenanceScreen(
                         label = { Text("Vida Útil Padrão em KM *") },
                         placeholder = { Text("Ex: 5000") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            dialogKeyboardController?.hide()
+                            dialogFocusManager.clearFocus()
+                        }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedTextColor = Color.White,
@@ -1141,6 +1174,7 @@ fun PartMaintenanceScreen(
     // Diálogo Simples de 1 linha: "Novo Tipo de Peça"
     if (uiState.isAddTypeDialogOpen) {
         var quickTypeName by remember { mutableStateOf("") }
+        val dialogKeyboardController = LocalSoftwareKeyboardController.current
         AlertDialog(
             onDismissRequest = { viewModel.closeAddTypeDialog() },
             title = { Text("Novo Tipo de Peça", color = Color.White, fontWeight = FontWeight.Bold) },
@@ -1151,6 +1185,8 @@ fun PartMaintenanceScreen(
                     label = { Text("Nome da Categoria (ex: Óleo do Motor)") },
                     placeholder = { Text("Ex: Pastilha de Freio, Vela de Ignição") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { dialogKeyboardController?.hide() }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedTextColor = Color.White,
@@ -1182,6 +1218,7 @@ fun PartMaintenanceScreen(
     // Diálogo de Cadastro Rápido de Empresa
     if (uiState.isAddCompanyDialogOpen) {
         var quickCompanyName by remember { mutableStateOf("") }
+        val dialogKeyboardController = LocalSoftwareKeyboardController.current
         AlertDialog(
             onDismissRequest = { viewModel.closeAddCompanyDialog() },
             title = { Text("Nova Empresa / Oficina", color = Color.White, fontWeight = FontWeight.Bold) },
@@ -1194,6 +1231,8 @@ fun PartMaintenanceScreen(
                         label = { Text("Nome da Empresa") },
                         placeholder = { Text("Ex: Oficina Moto Prime, Dinho Motos") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { dialogKeyboardController?.hide() }),
                         leadingIcon = {
                             Icon(Icons.Default.Business, contentDescription = null, tint = OrangeNeon)
                         },
