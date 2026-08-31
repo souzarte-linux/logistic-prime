@@ -29,7 +29,7 @@ sealed class AuthState {
     data class Error(val message: String) : AuthState()
 }
 
-class AuthViewModel(
+class AuthViewModel @JvmOverloads constructor(
     application: Application,
     private val profileRepository: ProfileRepository = ProfileRepository()
 ) : AndroidViewModel(application) {
