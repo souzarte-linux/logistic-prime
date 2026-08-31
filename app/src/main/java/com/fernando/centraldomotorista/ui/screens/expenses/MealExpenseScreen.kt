@@ -305,6 +305,65 @@ fun MealExpenseScreen(
                 )
             }
 
+            // 2.1 TIPO DE REFEIÇÃO (Radio Buttons: Café Manhã, Almoço, Lanche, Jantar)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "TIPO DE REFEIÇÃO",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    color = Color(0xFFC5C5C5)
+                )
+
+                val mealRows = listOf(
+                    listOf("Café Manhã", "Almoço"),
+                    listOf("Lanche", "Jantar")
+                )
+
+                mealRows.forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowItems.forEach { type ->
+                            val isSelected = uiState.selectedMealType == type
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp)
+                                    .background(FieldBackground, RoundedCornerShape(12.dp))
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) OrangeNeon else FieldBorder,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable { viewModel.onMealTypeSelected(type) }
+                                    .padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { viewModel.onMealTypeSelected(type) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = OrangeNeon,
+                                        unselectedColor = Color.Gray
+                                    ),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = type,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) Color.White else Color(0xFFC0C0C0)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // 3. VALOR TOTAL PAGO
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(

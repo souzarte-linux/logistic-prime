@@ -58,6 +58,8 @@ data class ExpenseDto(
     val cardId: String? = null,
     @SerializedName("company_id")
     val companyId: String? = null,
+    @SerializedName("meal_type")
+    val mealType: String? = null,
     @SerializedName("occurred_at")
     val occurredAt: String? = null,
     @SerializedName("created_at")
@@ -96,7 +98,8 @@ fun ExpenseDto.toDomain(): Expense {
         cardDueDay = cardDueDay,
         gasStationId = gasStationId,
         cardId = cardId,
-        companyId = companyId
+        companyId = companyId,
+        mealType = mealType
     )
 }
 
@@ -128,6 +131,7 @@ fun Expense.toDto(): ExpenseDto {
         gasStationId = gasStationId,
         cardId = cardId,
         companyId = companyId?.takeIf { it.isNotBlank() },
+        mealType = mealType?.takeIf { it.isNotBlank() },
         occurredAt = occurredAt.toString()
     )
 }

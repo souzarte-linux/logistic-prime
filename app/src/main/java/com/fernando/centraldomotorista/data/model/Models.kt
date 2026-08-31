@@ -109,6 +109,7 @@ data class Expense(
     val gasStationId: String? = null,
     val cardId: String? = null,
     val companyId: String? = null,
+    val mealType: String? = null,
 )
 
 data class OilChange(

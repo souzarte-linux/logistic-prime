@@ -32,6 +32,7 @@ data class MealExpenseUiState(
     val error: String? = null,
     // Fields
     val selectedCompanyId: String? = null,
+    val selectedMealType: String = "Almoço", // "Café Manhã", "Almoço", "Lanche", "Jantar"
     val title: String = "", // O que foi comprado (ex: Almoço, lanche...)
     val amountText: String = "", // Valor total pago
     val dateTime: LocalDateTime = LocalDateTime.now(),
@@ -89,6 +90,10 @@ class MealExpenseViewModel(
 
     fun onCompanySelected(companyId: String?) {
         _uiState.update { it.copy(selectedCompanyId = companyId) }
+    }
+
+    fun onMealTypeSelected(mealType: String) {
+        _uiState.update { it.copy(selectedMealType = mealType) }
     }
 
     fun onTitleChanged(title: String) {
@@ -168,7 +173,7 @@ class MealExpenseViewModel(
             try {
                 val selectedCompany = state.companies.firstOrNull { it.id == state.selectedCompanyId }
                 val title = state.title.trim().ifBlank {
-                    if (selectedCompany != null) "Alimentação - ${selectedCompany.name}" else "Alimentação"
+                    if (selectedCompany != null) "${state.selectedMealType} - ${selectedCompany.name}" else state.selectedMealType
                 }
 
                 val occurredAtOffset = state.dateTime
@@ -188,6 +193,7 @@ class MealExpenseViewModel(
                     paymentMethod = state.paymentMethod,
                     occurredAt = occurredAtOffset,
                     companyId = state.selectedCompanyId?.takeIf { it.isNotBlank() },
+                    mealType = state.selectedMealType,
                     cardId = cardData?.cardId,
                     cardBrand = cardData?.cardBrand,
                     cardOperator = cardData?.cardOperator,
