@@ -45,8 +45,12 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 
 fun BigDecimal.formatCurrency(): String {
@@ -86,6 +90,7 @@ fun HomeScreen(
     }
 
     var isCadastroExpanded by remember { mutableStateOf(true) }
+    var isSpeedDialOpen by remember { mutableStateOf(false) }
     var selectedQuickExpenseCategory by remember { mutableStateOf<String?>(null) }
     var showExpenseBottomSheet by remember { mutableStateOf(false) }
 
@@ -416,25 +421,117 @@ fun HomeScreen(
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { onNavigateToFuelExpense() },
-                    containerColor = OrangeNeon,
-                    contentColor = Color.Black,
-                    shape = CircleShape
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(Icons.Default.LocalGasStation, contentDescription = "Novo Abastecimento")
+                    AnimatedVisibility(
+                        visible = isSpeedDialOpen,
+                        enter = fadeIn(animationSpec = tween(180)) + slideInVertically(animationSpec = tween(220)) { it / 2 },
+                        exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(animationSpec = tween(180)) { it / 2 }
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        ) {
+                            // 1. Lançar Ganhos por Rota
+                            SpeedDialOptionItem(
+                                label = "Lançar Ganhos por Rota",
+                                icon = Icons.Default.Navigation,
+                                onClick = {
+                                    isSpeedDialOpen = false
+                                    onNavigateToCreateRoute()
+                                }
+                            )
+
+                            // 2. Total do Dia
+                            SpeedDialOptionItem(
+                                label = "Total do Dia",
+                                icon = Icons.Default.CalendarToday,
+                                onClick = {
+                                    isSpeedDialOpen = false
+                                    onNavigateToCreateDailyTotal()
+                                }
+                            )
+
+                            // Linha divisória sutil
+                            HorizontalDivider(
+                                modifier = Modifier
+                                    .width(220.dp)
+                                    .padding(vertical = 4.dp),
+                                color = Color.White.copy(alpha = 0.15f)
+                            )
+
+                            // 3. Combustível
+                            SpeedDialOptionItem(
+                                label = "Combustível",
+                                icon = Icons.Default.LocalGasStation,
+                                onClick = {
+                                    isSpeedDialOpen = false
+                                    onNavigateToFuelExpense()
+                                }
+                            )
+
+                            // 4. Manutenção
+                            SpeedDialOptionItem(
+                                label = "Manutenção",
+                                icon = Icons.Default.Build,
+                                onClick = {
+                                    isSpeedDialOpen = false
+                                    onNavigateToMaintenanceExpense()
+                                }
+                            )
+
+                            // 5. Alimentação
+                            SpeedDialOptionItem(
+                                label = "Alimentação",
+                                icon = Icons.Default.Restaurant,
+                                onClick = {
+                                    isSpeedDialOpen = false
+                                    onNavigateToMealExpense()
+                                }
+                            )
+                        }
+                    }
+
+                    // FAB Principal
+                    val fabRotation by animateFloatAsState(
+                        targetValue = if (isSpeedDialOpen) 45f else 0f,
+                        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                        label = "fabRotation"
+                    )
+
+                    FloatingActionButton(
+                        onClick = { isSpeedDialOpen = !isSpeedDialOpen },
+                        containerColor = OrangeNeon,
+                        contentColor = Color.Black,
+                        shape = CircleShape
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = if (isSpeedDialOpen) "Fechar menu" else "Menu de ações rápidas",
+                            modifier = Modifier
+                                .size(28.dp)
+                                .rotate(fabRotation)
+                        )
+                    }
                 }
             },
             containerColor = BackgroundDark
         ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
-        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+                ) {
             // A. Indicador de Carregamento / Erro
             if (uiState.loading) {
                 item {
@@ -928,6 +1025,20 @@ fun HomeScreen(
                 }
             }
         }
+
+        // Scrim semi-transparente quando o Speed Dial estiver aberto
+        AnimatedVisibility(
+            visible = isSpeedDialOpen,
+            enter = fadeIn(animationSpec = tween(180)),
+            exit = fadeOut(animationSpec = tween(150))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .clickable { isSpeedDialOpen = false }
+            )
+        }
     }
 }
 
@@ -1020,6 +1131,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
     }
 }
 
@@ -1194,6 +1306,50 @@ fun DrawerCadastroItem(
                 tint = Color.Gray,
                 modifier = Modifier.size(18.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun SpeedDialOptionItem(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = SurfaceDark,
+            shadowElevation = 6.dp,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+        ) {
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        }
+
+        Surface(
+            modifier = Modifier.size(42.dp),
+            shape = CircleShape,
+            color = OrangeNeon,
+            shadowElevation = 6.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = Color.Black,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
