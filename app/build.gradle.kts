@@ -54,8 +54,9 @@ dependencies {
     // Navigation Compose
     implementation(libs.androidx.navigation.compose)
 
-    // Jetpack DataStore Preferences
+    // Jetpack DataStore Preferences & Biometrics
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.biometric)
 
     // Google Sign-In (Credential Manager API)
     implementation(libs.play.services.auth)

@@ -18,8 +18,10 @@ coroutines = "1.10.1"
 supabase = "3.1.1"
 ktor = "3.1.1"
 datastore = "1.1.2"
+biometric = "1.2.0-alpha05"
 
 [libraries]
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

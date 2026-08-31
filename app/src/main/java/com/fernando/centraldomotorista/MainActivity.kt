@@ -1,7 +1,7 @@
 package com.fernando.centraldomotorista
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -11,7 +11,7 @@ import com.fernando.centraldomotorista.navigation.CentralDoMotoristaApp
 import com.fernando.centraldomotorista.ui.theme.CentralDoMotoristaTheme
 import com.fernando.centraldomotorista.ui.theme.ThemeViewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private val themeViewModel: ThemeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {

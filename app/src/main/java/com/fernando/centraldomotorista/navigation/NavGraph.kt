@@ -32,6 +32,9 @@ import com.fernando.centraldomotorista.ui.screens.login.LoginScreen
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.SurfaceDark
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fernando.centraldomotorista.auth.BiometricAuthHelper
 import io.github.jan.supabase.auth.auth
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
@@ -84,8 +87,39 @@ fun CentralDoMotoristaApp(
     val homeViewModel: HomeViewModel = viewModel()
     val partMaintenanceViewModel: com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceViewModel = viewModel()
 
+    val isBiometricEnabled by authViewModel.isBiometricEnabled.collectAsStateWithLifecycle()
+    val isBiometricAvailable = remember { BiometricAuthHelper.isBiometricAvailable(context) }
+    var isBiometricAuthenticated by remember { mutableStateOf(false) }
+
+    val requireBiometricOnStart = isUserLoggedIn && isBiometricEnabled && isBiometricAvailable
+
     val startDestination = remember {
-        if (isUserLoggedIn) Screen.Inicio.route else Screen.Login.route
+        if (isUserLoggedIn && (!isBiometricEnabled || !isBiometricAvailable)) {
+            Screen.Inicio.route
+        } else {
+            Screen.Login.route
+        }
+    }
+
+    LaunchedEffect(requireBiometricOnStart) {
+        if (requireBiometricOnStart && !isBiometricAuthenticated) {
+            val activity = context as? FragmentActivity
+            if (activity != null) {
+                BiometricAuthHelper.showBiometricPrompt(
+                    activity = activity,
+                    onSuccess = {
+                        isBiometricAuthenticated = true
+                        homeViewModel.refresh()
+                        navController.navigate(Screen.Inicio.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    },
+                    onError = {
+                        // Permanece na tela de login
+                    }
+                )
+            }
+        }
     }
 
     val showBottomBar = bottomNavItems.any { it.route == currentRoute }
