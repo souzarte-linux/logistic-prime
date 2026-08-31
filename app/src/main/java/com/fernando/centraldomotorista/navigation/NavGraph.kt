@@ -60,7 +60,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object MonitoramentoPecas : Screen("monitoramento-pecas", "Monitoramento Peças", Icons.Default.Build)
     
     // Suporte a telas auxiliares existentes
-    object CreditCards : Screen("credit_cards", "Cartões de Crédito", Icons.Default.CreditCard)
+    object CreditCards : Screen("credit_cards", "Gerenciamento de Cartões", Icons.Default.CreditCard)
     object PartProducts : Screen("part_products", "Produtos & Marcas", Icons.Default.Category)
 }
 
@@ -360,11 +360,9 @@ fun CentralDoMotoristaApp(
                 )
             }
 
-            // Cartões de Crédito (Auxiliar)
+            // Gerenciamento de Cartões (Cartões, Emissores e Bandeiras em abas)
             composable(Screen.CreditCards.route) {
-                val creditCardsViewModel: com.fernando.centraldomotorista.ui.screens.cards.CreditCardsViewModel = viewModel()
-                com.fernando.centraldomotorista.ui.screens.cards.CreditCardsScreen(
-                    viewModel = creditCardsViewModel,
+                com.fernando.centraldomotorista.ui.screens.cards.CardManagementScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

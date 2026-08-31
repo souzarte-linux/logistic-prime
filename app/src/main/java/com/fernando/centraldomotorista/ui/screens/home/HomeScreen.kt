@@ -264,19 +264,6 @@ fun HomeScreen(
                                 }
                             )
 
-                            // 🧾 Emissores
-                            DrawerCadastroItem(
-                                icon = Icons.Default.ReceiptLong,
-                                title = "Emissores",
-                                subtitle = "Instituições Emissoras dos Cartões",
-                                onClick = {
-                                    coroutineScope.launch {
-                                        drawerState.close()
-                                        onNavigateToRoute("emissores")
-                                    }
-                                }
-                            )
-
                             // 📱 Apps & Plataformas
                             DrawerCadastroItem(
                                 icon = Icons.Default.Smartphone,
@@ -290,15 +277,15 @@ fun HomeScreen(
                                 }
                             )
 
-                            // 💳 Bandeiras
+                            // 💳 Gerenciamento de Cartões (Cartões, Emissores e Bandeiras)
                             DrawerCadastroItem(
                                 icon = Icons.Default.CreditCard,
-                                title = "Bandeiras",
-                                subtitle = "Cartões e formas de pagamento",
+                                title = "Gerenciamento de Cartões",
+                                subtitle = "Cartões, emissores e bandeiras",
                                 onClick = {
                                     coroutineScope.launch {
                                         drawerState.close()
-                                        onNavigateToRoute("bandeiras")
+                                        onNavigateToRoute("credit_cards")
                                     }
                                 }
                             )
