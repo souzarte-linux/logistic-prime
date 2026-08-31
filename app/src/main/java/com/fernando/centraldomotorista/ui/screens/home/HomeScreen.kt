@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Route
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
@@ -70,6 +71,7 @@ fun HomeScreen(
     onNavigateToFuelExpense: () -> Unit,
     onNavigateToMealExpense: () -> Unit = {},
     onNavigateToMaintenanceExpense: () -> Unit,
+    onNavigateToEditMaintenance: (PartMaintenance) -> Unit = {},
     onNavigateToRoute: (String) -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -787,15 +789,21 @@ fun HomeScreen(
 
             // C. Banner de Alerta de Manutenção
             if (uiState.alertaManutencao != null) {
+                val alerta = uiState.alertaManutencao!!
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { onNavigateToEditMaintenance(alerta) },
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = RedAlert.copy(alpha = 0.15f)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
@@ -813,17 +821,30 @@ fun HomeScreen(
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "ALERTA: ${uiState.alertaManutencao?.partName?.uppercase() ?: "PEÇA"}",
+                                    text = "ALERTA: ${alerta.partName.uppercase()}",
                                     color = RedAlert,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
                                 )
                                 Text(
-                                    text = "Você ultrapassou em ${uiState.kmUltrapassado} KM a vida útil de ${uiState.alertaManutencao?.lifeKm} KM.",
-                                    color = Color.White,
+                                    text = "Você ultrapassou em ${uiState.kmUltrapassado} KM a vida útil de ${alerta.lifeKm} KM.",
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 12.sp
                                 )
+                                Text(
+                                    text = "Toque para abrir no modo edição ➔",
+                                    color = OrangeNeon,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
                             }
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowRight,
+                                contentDescription = "Editar",
+                                tint = RedAlert,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
                 }

@@ -24,6 +24,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.fernando.centraldomotorista.auth.AuthViewModel
 import com.fernando.centraldomotorista.auth.GoogleAuthClient
+import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.ui.screens.home.HomeScreen
 import com.fernando.centraldomotorista.ui.screens.home.HomeViewModel
@@ -176,6 +177,10 @@ fun CentralDoMotoristaApp(
                     },
                     onNavigateToMaintenanceExpense = {
                         partMaintenanceViewModel.openAddDialog()
+                        navController.navigate(Screen.LancarManutencao.route)
+                    },
+                    onNavigateToEditMaintenance = { part ->
+                        partMaintenanceViewModel.startEditing(part)
                         navController.navigate(Screen.LancarManutencao.route)
                     },
                     onNavigateToRoute = { route ->
