@@ -62,6 +62,8 @@ fun BigDecimal.formatCurrency(): String {
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    isDarkMode: Boolean = true,
+    onThemeToggle: (Boolean) -> Unit = {},
     onNavigateToCreateRoute: () -> Unit,
     onNavigateToCreateDailyTotal: () -> Unit,
     onNavigateToReports: () -> Unit,
@@ -73,9 +75,9 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -105,8 +107,8 @@ fun HomeScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                drawerContainerColor = SurfaceDark,
-                drawerContentColor = Color.White
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                drawerContentColor = MaterialTheme.colorScheme.onSurface
             ) {
                 Column(
                     modifier = Modifier
@@ -117,7 +119,7 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(SurfaceDarkAlt)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -131,12 +133,12 @@ fun HomeScreen(
                             text = uiState.profile?.fullName ?: "Central do Motorista",
                             fontWeight = FontWeight.Black,
                             fontSize = 17.sp,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = uiState.profile?.email ?: "Logística & Entregas",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -145,16 +147,19 @@ fun HomeScreen(
                     // Início
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Default.Home, contentDescription = null, tint = OrangeNeon) },
-                        label = { Text("Início", fontWeight = FontWeight.Bold, color = Color.White) },
+                        label = { Text("Início", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
                         selected = true,
                         onClick = {
                             coroutineScope.launch { drawerState.close() }
                         },
-                        colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = OrangeNeon.copy(alpha = 0.15f)),
+                        colors = NavigationDrawerItemDefaults.colors(
+                            selectedContainerColor = OrangeNeon.copy(alpha = 0.15f),
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurface
+                        ),
                         modifier = Modifier.padding(horizontal = 12.dp)
                     )
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp), color = Color.DarkGray.copy(alpha = 0.6f))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
 
                     // Seção CADASTRO (Expansível / Colapsável, expandida por padrão)
                     Surface(
@@ -203,7 +208,7 @@ fun HomeScreen(
                                 Text(
                                     text = "Empresas, Postos, Operadoras...",
                                     fontSize = 11.sp,
-                                    color = Color.LightGray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -311,12 +316,12 @@ fun HomeScreen(
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp), color = Color.DarkGray.copy(alpha = 0.6f))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
 
                     // Relatórios & Extrato
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.Assessment, contentDescription = null, tint = Color.LightGray) },
-                        label = { Text("Relatórios & Extrato", color = Color.White) },
+                        icon = { Icon(Icons.Default.Assessment, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        label = { Text("Relatórios & Extrato", color = MaterialTheme.colorScheme.onSurface) },
                         selected = false,
                         onClick = {
                             coroutineScope.launch {
@@ -329,6 +334,43 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.weight(1f))
                     Spacer(modifier = Modifier.height(16.dp))
+
+                    // Alternador Modo Escuro / Claro
+                    NavigationDrawerItem(
+                        icon = {
+                            Icon(
+                                imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                contentDescription = "Modo Escuro",
+                                tint = OrangeNeon
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = "Modo Escuro",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        },
+                        badge = {
+                            Switch(
+                                checked = isDarkMode,
+                                onCheckedChange = { onThemeToggle(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.Black,
+                                    checkedTrackColor = OrangeNeon,
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color.Gray.copy(alpha = 0.5f)
+                                )
+                            )
+                        },
+                        selected = false,
+                        onClick = {
+                            onThemeToggle(!isDarkMode)
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Sair da Conta
                     NavigationDrawerItem(
@@ -1261,12 +1303,12 @@ fun DrawerCadastroItem(
                 modifier = Modifier
                     .size(38.dp)
                     .background(
-                        color = SurfaceDarkAlt,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(10.dp)
                     )
                     .border(
                         width = 1.dp,
-                        color = Color.White.copy(alpha = 0.08f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                         shape = RoundedCornerShape(10.dp)
                     ),
                 contentAlignment = Alignment.Center
@@ -1279,20 +1321,20 @@ fun DrawerCadastroItem(
                 )
             }
 
-            // Título em branco/negrito, subtítulo em cinza claro abaixo
+            // Título e subtítulo
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
                     text = title,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.5.sp
                 )
                 Text(
                     text = subtitle,
-                    color = Color.LightGray.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1303,7 +1345,7 @@ fun DrawerCadastroItem(
             Icon(
                 imageVector = Icons.Default.KeyboardArrowRight,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp)
             )
         }

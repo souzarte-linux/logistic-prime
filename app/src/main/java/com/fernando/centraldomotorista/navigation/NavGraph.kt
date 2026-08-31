@@ -69,7 +69,9 @@ val bottomNavItems = listOf(
 
 @Composable
 fun CentralDoMotoristaApp(
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
+    isDarkMode: Boolean = true,
+    onThemeToggle: (Boolean) -> Unit = {}
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -91,8 +93,8 @@ fun CentralDoMotoristaApp(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = SurfaceDark,
-                    contentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     bottomNavItems.forEach { screen ->
                         val selected = currentRoute == screen.route
@@ -155,6 +157,8 @@ fun CentralDoMotoristaApp(
             composable(Screen.Inicio.route) {
                 HomeScreen(
                     viewModel = homeViewModel,
+                    isDarkMode = isDarkMode,
+                    onThemeToggle = onThemeToggle,
                     onNavigateToCreateRoute = {
                         navController.navigate(Screen.LancarRota.route)
                     },
