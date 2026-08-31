@@ -44,6 +44,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object LancarRota : Screen("lancar_rota", "Lançar Rota", Icons.Default.Navigation)
     object LancarTotalDia : Screen("lancar_total_dia", "Total do Dia", Icons.Default.CalendarToday)
     object FuelExpense : Screen("fuel_expense", "Novo Abastecimento", Icons.Default.LocalGasStation)
+    object LancarManutencao : Screen("lancar-manutencao", "Lançar Manutenção", Icons.Default.Build)
     
     // Menu Lateral - Cadastro
     object Empresas : Screen("empresas", "Empresas", Icons.Default.Business)
@@ -77,6 +78,7 @@ fun CentralDoMotoristaApp(
 
     val isUserLoggedIn = supabase.auth.currentUserOrNull() != null
     val homeViewModel: HomeViewModel = viewModel()
+    val partMaintenanceViewModel: com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceViewModel = viewModel()
 
     val startDestination = remember {
         if (isUserLoggedIn) Screen.Inicio.route else Screen.Login.route
@@ -165,7 +167,8 @@ fun CentralDoMotoristaApp(
                         navController.navigate(Screen.FuelExpense.route)
                     },
                     onNavigateToMaintenanceExpense = {
-                        navController.navigate(Screen.MonitoramentoPecas.route)
+                        partMaintenanceViewModel.openAddDialog()
+                        navController.navigate(Screen.LancarManutencao.route)
                     },
                     onNavigateToRoute = { route ->
                         navController.navigate(route)
@@ -254,11 +257,10 @@ fun CentralDoMotoristaApp(
 
             // Cadastro - Monitoramento Peças
             composable(Screen.MonitoramentoPecas.route) {
-                val partViewModel: com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
-                    viewModel = partViewModel,
+                    viewModel = partMaintenanceViewModel,
+                    onNavigateToLancarManutencao = { navController.navigate(Screen.LancarManutencao.route) },
                     onNavigateToPartProducts = { navController.navigate("part_products") },
-                    onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) },
                     onNavigateBack = {
                         homeViewModel.refresh()
                         navController.popBackStack()
@@ -266,10 +268,21 @@ fun CentralDoMotoristaApp(
                 )
             }
             composable("part_maintenance") {
-                val partViewModel: com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(
-                    viewModel = partViewModel,
+                    viewModel = partMaintenanceViewModel,
+                    onNavigateToLancarManutencao = { navController.navigate(Screen.LancarManutencao.route) },
                     onNavigateToPartProducts = { navController.navigate("part_products") },
+                    onNavigateBack = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            // Formulário Dedicado - Lançar / Editar Manutenção
+            composable(Screen.LancarManutencao.route) {
+                com.fernando.centraldomotorista.ui.screens.pecas.LancarManutencaoScreen(
+                    viewModel = partMaintenanceViewModel,
                     onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) },
                     onNavigateBack = {
                         homeViewModel.refresh()

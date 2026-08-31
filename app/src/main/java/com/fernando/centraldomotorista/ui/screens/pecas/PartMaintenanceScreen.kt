@@ -59,14 +59,13 @@ private val GreenNeon = Color(0xFF00E676)
 @Composable
 fun PartMaintenanceScreen(
     viewModel: PartMaintenanceViewModel = viewModel(),
+    onNavigateToLancarManutencao: () -> Unit,
     onNavigateToPartProducts: () -> Unit,
-    onNavigateToManageCards: () -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    var showCardModal by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -139,7 +138,10 @@ fun PartMaintenanceScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { viewModel.openAddDialog() },
+                onClick = {
+                    viewModel.openAddDialog()
+                    onNavigateToLancarManutencao()
+                },
                 containerColor = OrangeNeon,
                 contentColor = Color.Black,
                 shape = CircleShape
@@ -186,8 +188,6 @@ fun PartMaintenanceScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         unfocusedBorderColor = Color.DarkGray,
-                        focusedContainerColor = SurfaceDark,
-                        unfocusedContainerColor = SurfaceDark,
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
@@ -196,87 +196,91 @@ fun PartMaintenanceScreen(
                 )
             }
 
-            // 2. Atalho para Produtos & Marcas + Contador
+            // 2. Banner com Hodômetro Atual do Veículo
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "PEÇAS EM MONITORAMENTO",
-                        color = Color.Gray,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = "${filteredParts.size} cadastrada(s)",
-                        color = OrangeNeon,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            // 3. Loading
-            if (uiState.isLoading) {
-                item {
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        CircularProgressIndicator(color = OrangeNeon)
+                        Column {
+                            Text(
+                                text = "HODÔMETRO ATUAL",
+                                color = Color.LightGray,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "${uiState.currentOdometerKm.toPlainString()} KM",
+                                color = OrangeNeon,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Speed,
+                            contentDescription = null,
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(36.dp)
+                        )
                     }
                 }
             }
 
-            // 4. Empty State
+            // 3. Indicador de Carregamento
+            if (uiState.isLoading) {
+                item {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = OrangeNeon,
+                        trackColor = SurfaceDark
+                    )
+                }
+            }
+
+            // 4. Estado Vazio / Sugestões
             if (!uiState.isLoading && filteredParts.isEmpty()) {
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
+                                .padding(24.dp)
+                                .fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .background(OrangeNeon.copy(alpha = 0.15f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Build,
-                                    contentDescription = null,
-                                    tint = OrangeNeon,
-                                    modifier = Modifier.size(30.dp)
-                                )
-                            }
-                            Text(
-                                text = if (uiState.parts.isEmpty()) "Nenhuma peça em monitoramento" else "Nenhum resultado encontrado",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                            Icon(
+                                imageVector = Icons.Default.Build,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(48.dp)
                             )
                             Text(
-                                text = if (uiState.parts.isEmpty())
-                                    "Cadastre peças e componentes do seu veículo para acompanhar a vida útil, receber alertas e controlar o custo financeiro."
-                                else "Tente buscar por outro termo.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray,
+                                text = if (uiState.searchQuery.isBlank()) "Nenhuma peça em monitoramento." else "Nenhuma peça encontrada.",
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Acompanhe a vida útil das peças para saber exatamente quando realizar a próxima troca preventiva.",
+                                color = Color.LightGray,
+                                fontSize = 12.sp,
                                 textAlign = TextAlign.Center
                             )
 
-                            if (uiState.parts.isEmpty()) {
+                            if (uiState.searchQuery.isBlank()) {
                                 Text(
                                     text = "SUGESTÕES RÁPIDAS:",
                                     fontSize = 11.sp,
@@ -291,7 +295,10 @@ fun PartMaintenanceScreen(
                                 ) {
                                     items(SUGGESTED_PARTS) { partName ->
                                         SuggestionChip(
-                                            onClick = { viewModel.openAddDialog(partName) },
+                                            onClick = {
+                                                viewModel.openAddDialog(partName)
+                                                onNavigateToLancarManutencao()
+                                            },
                                             label = { Text(partName, fontSize = 12.sp, color = Color.White) },
                                             colors = SuggestionChipDefaults.suggestionChipColors(
                                                 containerColor = SurfaceDarkAlt
@@ -323,7 +330,10 @@ fun PartMaintenanceScreen(
                     company = linkedCompany,
                     product = linkedProduct,
                     currentOdometerKm = uiState.currentOdometerKm,
-                    onEdit = { viewModel.startEditing(part) },
+                    onEdit = {
+                        viewModel.startEditing(part)
+                        onNavigateToLancarManutencao()
+                    },
                     onContactPhone = { phone, isWhatsapp ->
                         openCompanyContact(context, phone, isWhatsapp)
                     },
@@ -333,936 +343,6 @@ fun PartMaintenanceScreen(
                 )
             }
         }
-    }
-
-    // Modal de Formulário de Lançamento / Edição de Manutenção
-    if (uiState.isFormOpen) {
-        val isEditing = uiState.editingPartId != null
-        val focusManager = LocalFocusManager.current
-        val keyboardController = LocalSoftwareKeyboardController.current
-        var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-        var productDropdownExpanded by remember { mutableStateOf(false) }
-        var companyDropdownExpanded by remember { mutableStateOf(false) }
-        var productSearchQuery by remember { mutableStateOf("") }
-
-        ModalBottomSheet(
-            onDismissRequest = { viewModel.closeForm() },
-            containerColor = SurfaceDark,
-            contentColor = Color.White,
-            dragHandle = { BottomSheetDefaults.DragHandle(color = Color.Gray) }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Cabeçalho
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = if (isEditing) "EDITAR PEÇA / MANUTENÇÃO" else "LANÇAR MANUTENÇÃO",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp,
-                            color = OrangeNeon
-                        )
-                        Text(
-                            text = "Controle de durabilidade e despesa financeira",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                    }
-                    if (isEditing) {
-                        IconButton(onClick = { showDeleteConfirmDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Excluir Peça", tint = RedAlert)
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f))
-
-                // SEÇÃO 1: DADOS DA PEÇA & CATÁLOGO
-                Text(
-                    text = "DADOS DA PEÇA & CATÁLOGO",
-                    color = OrangeNeon,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.8.sp
-                )
-
-                // 1. Seletor de Produto Cadastrado (Tipo — Marca Modelo) com botão "+"
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val currentSelectedProduct = uiState.partProducts.firstOrNull { it.id == uiState.selectedPartProductId }
-                    val currentProductLabel = if (currentSelectedProduct != null) {
-                        val typeName = uiState.partTypes.firstOrNull { it.id == currentSelectedProduct.partTypeId }?.name ?: "Peça"
-                        val modelText = if (!currentSelectedProduct.model.isNullOrBlank()) " ${currentSelectedProduct.model}" else ""
-                        "$typeName — ${currentSelectedProduct.brand}$modelText"
-                    } else {
-                        "Escolher produto cadastrado (opcional)"
-                    }
-
-                    ExposedDropdownMenuBox(
-                        expanded = productDropdownExpanded,
-                        onExpandedChange = { productDropdownExpanded = !productDropdownExpanded },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        OutlinedTextField(
-                            value = currentProductLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Produto / Marca (Catálogo)") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Category, contentDescription = null, tint = OrangeNeon)
-                            },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = productDropdownExpanded)
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = OrangeNeon,
-                                focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                unfocusedLabelColor = Color.Gray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = productDropdownExpanded,
-                            onDismissRequest = { productDropdownExpanded = false },
-                            modifier = Modifier
-                                .background(SurfaceDark)
-                                .heightIn(max = 300.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("(Preenchimento manual / Sem catálogo)", color = Color.Gray) },
-                                onClick = {
-                                    viewModel.clearSelectedProduct()
-                                    productDropdownExpanded = false
-                                }
-                            )
-
-                            val availableProducts = uiState.partProducts.filter { prod ->
-                                val typeName = uiState.partTypes.firstOrNull { it.id == prod.partTypeId }?.name ?: ""
-                                productSearchQuery.isBlank() ||
-                                        typeName.contains(productSearchQuery, ignoreCase = true) ||
-                                        prod.brand.contains(productSearchQuery, ignoreCase = true) ||
-                                        (prod.model?.contains(productSearchQuery, ignoreCase = true) == true)
-                            }
-
-                            if (availableProducts.isEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text("Nenhum produto encontrado. Clique em '+' para cadastrar.", color = Color.LightGray, fontSize = 12.sp) },
-                                    onClick = {
-                                        productDropdownExpanded = false
-                                        viewModel.openAddProductDialog()
-                                    }
-                                )
-                            } else {
-                                availableProducts.forEach { prod ->
-                                    val typeName = uiState.partTypes.firstOrNull { it.id == prod.partTypeId }?.name ?: "Peça"
-                                    val modelText = if (!prod.model.isNullOrBlank()) " ${prod.model}" else ""
-                                    DropdownMenuItem(
-                                        text = {
-                                            Column {
-                                                Text(
-                                                    text = "$typeName — ${prod.brand}$modelText",
-                                                    color = Color.White,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                                Text(
-                                                    text = "Vida útil padrão: ${prod.defaultLifeKm} KM",
-                                                    color = OrangeNeon,
-                                                    fontSize = 11.sp
-                                                )
-                                            }
-                                        },
-                                        onClick = {
-                                            viewModel.onSelectProduct(prod)
-                                            productDropdownExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Botão "+" para abrir o formulário completo de Adicionar Produto
-                    IconButton(
-                        onClick = { viewModel.openAddProductDialog() },
-                        modifier = Modifier.padding(top = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AddCircle,
-                            contentDescription = "Adicionar Novo Produto",
-                            tint = OrangeNeon,
-                            modifier = Modifier.size(34.dp)
-                        )
-                    }
-                }
-
-                // 2. Nome da Peça / Descrição * (editável)
-                OutlinedTextField(
-                    value = uiState.partName,
-                    onValueChange = { viewModel.onPartNameChanged(it) },
-                    label = { Text("Nome da Peça / Descrição do Serviço *") },
-                    placeholder = { Text("Ex: Óleo do Motor — Mobil Super 20W50") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                    leadingIcon = {
-                        Icon(Icons.Default.Build, contentDescription = null, tint = OrangeNeon)
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // 3. Marca e Modelo lado a lado (opcionais, auto-preenchidos ou editáveis)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedTextField(
-                        value = uiState.partBrand,
-                        onValueChange = { viewModel.onPartBrandChanged(it) },
-                        label = { Text("Marca da Peça") },
-                        placeholder = { Text("Ex: Mobil, Cobreq") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.partModel,
-                        onValueChange = { viewModel.onPartModelChanged(it) },
-                        label = { Text("Modelo Peça") },
-                        placeholder = { Text("Ex: Super 20W50") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // 4. Vida Útil em KM * e KM da Última Troca *
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedTextField(
-                        value = uiState.lifeKm,
-                        onValueChange = { viewModel.onLifeKmChanged(it) },
-                        label = { Text("Vida Útil (KM) *") },
-                        placeholder = { Text("Ex: 5000") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) }),
-                        leadingIcon = {
-                            Icon(Icons.Default.Speed, contentDescription = null, tint = OrangeNeon)
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.lastChangeKm,
-                        onValueChange = { viewModel.onLastChangeKmChanged(it) },
-                        label = { Text("KM Troca*") },
-                        placeholder = { Text("Ex: 12500") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                        leadingIcon = {
-                            Icon(Icons.Default.Timeline, contentDescription = null, tint = OrangeNeon)
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // 5. Empresa / Oficina (opcional) — Dropdown + Botão "+"
-                Text(
-                    text = "EMPRESA / OFICINA ONDE FOI REALIZADA",
-                    color = Color.LightGray,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.8.sp,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val selectedCompanyName = uiState.companies.firstOrNull { it.id == uiState.selectedCompanyId }?.name
-                        ?: "Nenhuma empresa vinculada"
-
-                    ExposedDropdownMenuBox(
-                        expanded = companyDropdownExpanded,
-                        onExpandedChange = { companyDropdownExpanded = !companyDropdownExpanded },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        OutlinedTextField(
-                            value = selectedCompanyName,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Empresa / Oficina (opcional)") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Business, contentDescription = null, tint = OrangeNeon)
-                            },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = companyDropdownExpanded)
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = OrangeNeon,
-                                focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                unfocusedLabelColor = Color.Gray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = companyDropdownExpanded,
-                            onDismissRequest = { companyDropdownExpanded = false },
-                            modifier = Modifier.background(SurfaceDark)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("(Nenhuma empresa vinculada)", color = Color.Gray) },
-                                onClick = {
-                                    viewModel.onCompanySelected(null)
-                                    companyDropdownExpanded = false
-                                }
-                            )
-                            uiState.companies.forEach { company ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text(company.name, color = Color.White, fontWeight = FontWeight.SemiBold)
-                                            if (!company.street.isNullOrBlank()) {
-                                                Text(
-                                                    text = "${company.street}, ${company.number ?: ""}",
-                                                    color = Color.LightGray,
-                                                    fontSize = 11.sp
-                                                )
-                                            }
-                                        }
-                                    },
-                                    onClick = {
-                                        viewModel.onCompanySelected(company.id)
-                                        companyDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    // Botão "+" para cadastro rápido de nova empresa
-                    IconButton(
-                        onClick = { viewModel.openAddCompanyDialog() },
-                        modifier = Modifier.padding(top = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AddCircle,
-                            contentDescription = "Nova Empresa",
-                            tint = OrangeNeon,
-                            modifier = Modifier.size(34.dp)
-                        )
-                    }
-                }
-
-                HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
-
-                // SEÇÃO 2: IMPACTO FINANCEIRO & PAGAMENTO (EXPENSES)
-                Text(
-                    text = "IMPACTO FINANCEIRO & PAGAMENTO",
-                    color = GreenNeon,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.8.sp
-                )
-
-                // 6. Valor Total Pago (R$)
-                OutlinedTextField(
-                    value = uiState.totalAmountText,
-                    onValueChange = { viewModel.onTotalAmountChanged(it) },
-                    label = { Text("Valor Total Pago (R$)") },
-                    placeholder = { Text("0,00") },
-                    singleLine = true,
-                    visualTransformation = CurrencyVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                    leadingIcon = {
-                        Icon(Icons.Default.AttachMoney, contentDescription = null, tint = GreenNeon)
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenNeon,
-                        focusedLabelColor = GreenNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = GreenNeon,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // 7. Data e Hora da Troca
-                val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
-                OutlinedTextField(
-                    value = uiState.lastChangeDateTime.format(dateFormatter),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Data e Hora da Troca") },
-                    leadingIcon = {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = OrangeNeon)
-                    },
-                    trailingIcon = {
-                        IconButton(onClick = {
-                            showDateTimePicker(context, uiState.lastChangeDateTime) {
-                                viewModel.onLastChangeDateTimeChanged(it)
-                            }
-                        }) {
-                            Icon(Icons.Default.EditCalendar, contentDescription = "Alterar Data", tint = OrangeNeon)
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            showDateTimePicker(context, uiState.lastChangeDateTime) {
-                                viewModel.onLastChangeDateTimeChanged(it)
-                            }
-                        }
-                )
-
-                // 8. Nota Fiscal / Cupom / Recibo (opcional)
-                OutlinedTextField(
-                    value = uiState.receiptNumber,
-                    onValueChange = { viewModel.onReceiptNumberChanged(it) },
-                    label = { Text("Nº Nota Fiscal / Cupom / Recibo (opcional)") },
-                    placeholder = { Text("Ex: NF-e 123456") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                    leadingIcon = {
-                        Icon(Icons.Default.Receipt, contentDescription = null, tint = OrangeNeon)
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // 9. Observação (opcional, multilinha - último campo de texto)
-                OutlinedTextField(
-                    value = uiState.notes,
-                    onValueChange = { viewModel.onNotesChanged(it) },
-                    label = { Text("Observação / Detalhes do Serviço (opcional)") },
-                    placeholder = { Text("Ex: Mão de obra inclusa, garantia de 3 meses, etc.") },
-                    minLines = 2,
-                    maxLines = 4,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                    }),
-                    leadingIcon = {
-                        Icon(Icons.Default.Description, contentDescription = null, tint = OrangeNeon)
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // 10. Forma de Pagamento (Segmented Buttons: PIX / Cartão / Dinheiro)
-                Text(
-                    text = "FORMA DE PAGAMENTO",
-                    color = Color.LightGray,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.8.sp
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // PIX
-                    PaymentOptionButton(
-                        title = "PIX",
-                        icon = Icons.Default.QrCode,
-                        isSelected = uiState.paymentMethod == "pix",
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.onPaymentMethodSelected("pix") }
-                    )
-
-                    // Cartão (Abre Modal de Cartão)
-                    PaymentOptionButton(
-                        title = "Cartão",
-                        icon = Icons.Default.CreditCard,
-                        isSelected = uiState.paymentMethod == "cartao",
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            viewModel.onPaymentMethodSelected("cartao")
-                            showCardModal = true
-                        }
-                    )
-
-                    // Dinheiro
-                    PaymentOptionButton(
-                        title = "Dinheiro",
-                        icon = Icons.Default.AttachMoney,
-                        isSelected = uiState.paymentMethod == "dinheiro",
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.onPaymentMethodSelected("dinheiro") }
-                    )
-                }
-
-                // Resumo do Cartão se selecionado
-                if (uiState.paymentMethod == "cartao" && uiState.cardPaymentData != null) {
-                    val cardData = uiState.cardPaymentData!!
-                    Surface(
-                        color = SurfaceDarkAlt,
-                        shape = RoundedCornerShape(10.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.3f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showCardModal = true }
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(
-                                    text = if (cardData.isInstallment) "Parcelado: ${cardData.installmentTotal}x" else "Crédito / Débito à Vista",
-                                    color = OrangeNeon,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    text = "${cardData.cardBrand ?: "Cartão"} • ${cardData.cardOperator ?: ""}",
-                                    color = Color.White,
-                                    fontSize = 13.sp
-                                )
-                            }
-                            TextButton(onClick = { showCardModal = true }) {
-                                Text("Alterar", color = OrangeNeon, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Botão Salvar
-                Button(
-                    onClick = { viewModel.savePartMaintenance() },
-                    enabled = !uiState.isSaving && uiState.partName.isNotBlank() && uiState.lifeKm.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangeNeon,
-                        contentColor = Color.Black
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                ) {
-                    if (uiState.isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            color = Color.Black,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = if (isEditing) "Salvar Alterações" else "Confirmar Lançamento",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
-                }
-            }
-        }
-
-        // Modal de Pagamento com Cartão
-        if (showCardModal) {
-            CardPaymentModal(
-                availableCards = uiState.availableCards,
-                initialData = uiState.cardPaymentData,
-                purchaseDate = uiState.lastChangeDateTime,
-                onNavigateToManageCards = {
-                    showCardModal = false
-                    onNavigateToManageCards()
-                },
-                onConfirm = { cardData ->
-                    viewModel.onCardPaymentConfirmed(cardData)
-                    showCardModal = false
-                },
-                onDismiss = { showCardModal = false }
-            )
-        }
-
-        // Confirmação de exclusão
-        if (showDeleteConfirmDialog && uiState.editingPartId != null) {
-            AlertDialog(
-                onDismissRequest = { showDeleteConfirmDialog = false },
-                title = { Text("Excluir Peça?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Tem certeza que deseja excluir o monitoramento de '${uiState.partName}' e a despesa associada?", color = Color.LightGray) },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showDeleteConfirmDialog = false
-                            viewModel.deletePartMaintenance(uiState.editingPartId!!)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
-                    ) {
-                        Text("Excluir", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                        Text("Cancelar", color = Color.White)
-                    }
-                },
-                containerColor = SurfaceDark
-            )
-        }
-    }
-
-    // Modal de Formulário Completo: "Adicionar Produto ao Catálogo"
-    if (uiState.isAddProductDialogOpen) {
-        var quickTypeDropdownExpanded by remember { mutableStateOf(false) }
-        val dialogFocusManager = LocalFocusManager.current
-        val dialogKeyboardController = LocalSoftwareKeyboardController.current
-
-        AlertDialog(
-            onDismissRequest = { viewModel.closeAddProductDialog() },
-            title = { Text("Adicionar Produto / Marca", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Dropdown de Tipo de Peça + Botão "+"
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val selectedTypeName = uiState.partTypes.firstOrNull { it.id == uiState.quickProductTypeId }?.name
-                            ?: "Selecione o Tipo"
-
-                        ExposedDropdownMenuBox(
-                            expanded = quickTypeDropdownExpanded,
-                            onExpandedChange = { quickTypeDropdownExpanded = !quickTypeDropdownExpanded },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            OutlinedTextField(
-                                value = selectedTypeName,
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Tipo de Peça *") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = quickTypeDropdownExpanded) },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = OrangeNeon,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    unfocusedBorderColor = Color.DarkGray
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = quickTypeDropdownExpanded,
-                                onDismissRequest = { quickTypeDropdownExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
-                            ) {
-                                uiState.partTypes.forEach { type ->
-                                    DropdownMenuItem(
-                                        text = { Text(type.name, color = Color.White) },
-                                        onClick = {
-                                            viewModel.onQuickProductTypeChanged(type.id)
-                                            quickTypeDropdownExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        IconButton(
-                            onClick = { viewModel.openAddTypeDialog() },
-                            modifier = Modifier.padding(top = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AddCircle,
-                                contentDescription = "Novo Tipo",
-                                tint = OrangeNeon,
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
-                    }
-
-                    // Marca
-                    OutlinedTextField(
-                        value = uiState.quickProductBrand,
-                        onValueChange = { viewModel.onQuickProductBrandChanged(it) },
-                        label = { Text("Marca * (ex: Mobil, Cobreq)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(onNext = { dialogFocusManager.moveFocus(FocusDirection.Down) }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Modelo
-                    OutlinedTextField(
-                        value = uiState.quickProductModel,
-                        onValueChange = { viewModel.onQuickProductModelChanged(it) },
-                        label = { Text("Modelo (opcional, ex: Super 20W50)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(onNext = { dialogFocusManager.moveFocus(FocusDirection.Down) }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Vida Útil Padrão
-                    OutlinedTextField(
-                        value = uiState.quickProductLifeKm,
-                        onValueChange = { viewModel.onQuickProductLifeKmChanged(it) },
-                        label = { Text("Vida Útil Padrão em KM *") },
-                        placeholder = { Text("Ex: 5000") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = {
-                            dialogKeyboardController?.hide()
-                            dialogFocusManager.clearFocus()
-                        }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.saveQuickProduct() },
-                    enabled = uiState.quickProductBrand.isNotBlank() && uiState.quickProductLifeKm.isNotBlank() && uiState.quickProductTypeId != null,
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
-                ) {
-                    Text("Salvar e Selecionar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.closeAddProductDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
-                }
-            },
-            containerColor = SurfaceDark
-        )
-    }
-
-    // Diálogo Simples de 1 linha: "Novo Tipo de Peça"
-    if (uiState.isAddTypeDialogOpen) {
-        var quickTypeName by remember { mutableStateOf("") }
-        val dialogKeyboardController = LocalSoftwareKeyboardController.current
-        AlertDialog(
-            onDismissRequest = { viewModel.closeAddTypeDialog() },
-            title = { Text("Novo Tipo de Peça", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = quickTypeName,
-                    onValueChange = { quickTypeName = it },
-                    label = { Text("Nome da Categoria (ex: Óleo do Motor)") },
-                    placeholder = { Text("Ex: Pastilha de Freio, Vela de Ignição") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { dialogKeyboardController?.hide() }),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.createQuickPartType(quickTypeName) },
-                    enabled = quickTypeName.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
-                ) {
-                    Text("Salvar Tipo")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.closeAddTypeDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
-                }
-            },
-            containerColor = SurfaceDark
-        )
-    }
-
-    // Diálogo de Cadastro Rápido de Empresa
-    if (uiState.isAddCompanyDialogOpen) {
-        var quickCompanyName by remember { mutableStateOf("") }
-        val dialogKeyboardController = LocalSoftwareKeyboardController.current
-        AlertDialog(
-            onDismissRequest = { viewModel.closeAddCompanyDialog() },
-            title = { Text("Nova Empresa / Oficina", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Cadastre o nome da empresa para vinculá-la a esta peça:", color = Color.LightGray, fontSize = 13.sp)
-                    OutlinedTextField(
-                        value = quickCompanyName,
-                        onValueChange = { quickCompanyName = it },
-                        label = { Text("Nome da Empresa") },
-                        placeholder = { Text("Ex: Oficina Moto Prime, Dinho Motos") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { dialogKeyboardController?.hide() }),
-                        leadingIcon = {
-                            Icon(Icons.Default.Business, contentDescription = null, tint = OrangeNeon)
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.addQuickCompany(quickCompanyName) },
-                    enabled = quickCompanyName.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
-                ) {
-                    Text("Salvar Empresa")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.closeAddCompanyDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
-                }
-            },
-            containerColor = SurfaceDark
-        )
     }
 }
 
@@ -1623,72 +703,6 @@ fun PartMaintenanceCard(
     }
 }
 
-@Composable
-private fun PaymentOptionButton(
-    title: String,
-    icon: ImageVector,
-    isSelected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = modifier
-            .height(44.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .clickable { onClick() },
-        color = if (isSelected) OrangeNeon.copy(alpha = 0.2f) else SurfaceDarkAlt,
-        shape = RoundedCornerShape(10.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (isSelected) OrangeNeon else Color.DarkGray
-        )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = if (isSelected) OrangeNeon else Color.Gray,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = title,
-                color = if (isSelected) OrangeNeon else Color.White,
-                fontSize = 12.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
-        }
-    }
-}
-
-fun showDateTimePicker(
-    context: Context,
-    currentDateTime: LocalDateTime,
-    onDateTimeSelected: (LocalDateTime) -> Unit
-) {
-    DatePickerDialog(
-        context,
-        { _, year, month, dayOfMonth ->
-            TimePickerDialog(
-                context,
-                { _, hourOfDay, minute ->
-                    val selected = LocalDateTime.of(year, month + 1, dayOfMonth, hourOfDay, minute)
-                    onDateTimeSelected(selected)
-                },
-                currentDateTime.hour,
-                currentDateTime.minute,
-                true
-            ).show()
-        },
-        currentDateTime.year,
-        currentDateTime.monthValue - 1,
-        currentDateTime.dayOfMonth
-    ).show()
-}
 
 private fun openCompanyContact(context: Context, phone: String, isWhatsapp: Boolean) {
     val digits = phone.filter { it.isDigit() }

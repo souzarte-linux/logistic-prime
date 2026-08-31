@@ -404,7 +404,7 @@ class PartMaintenanceViewModel(
         }
     }
 
-    fun savePartMaintenance() {
+    fun savePartMaintenance(onSuccess: () -> Unit = {}) {
         val state = _uiState.value
         if (state.partName.isBlank()) {
             _uiState.update { it.copy(error = "Informe o nome da peça.") }
@@ -489,13 +489,14 @@ class PartMaintenanceViewModel(
                     )
                 }
                 loadData()
+                onSuccess()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSaving = false, error = "Erro ao salvar manutenção: ${e.message}") }
             }
         }
     }
 
-    fun deletePartMaintenance(partId: String) {
+    fun deletePartMaintenance(partId: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val part = _uiState.value.parts.firstOrNull { it.id == partId }
@@ -518,6 +519,7 @@ class PartMaintenanceViewModel(
                     )
                 }
                 loadData()
+                onSuccess()
             } else {
                 _uiState.update { it.copy(isLoading = false, error = "Erro ao excluir peça.") }
             }
