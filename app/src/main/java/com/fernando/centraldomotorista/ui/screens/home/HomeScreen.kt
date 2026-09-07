@@ -96,6 +96,7 @@ fun HomeScreen(
     var isCadastroExpanded by remember { mutableStateOf(true) }
     var isSpeedDialOpen by remember { mutableStateOf(false) }
     var showLogoutConfirmation by remember { mutableStateOf(false) }
+    var showNotificationsModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.actionMessage) {
         uiState.actionMessage?.let { msg ->
@@ -404,13 +405,7 @@ fun HomeScreen(
                     actions = {
                         // Sino com badge de notificações não lidas
                         Box(modifier = Modifier.padding(end = 4.dp)) {
-                            IconButton(onClick = {
-                                Toast.makeText(
-                                    context,
-                                    "Você tem ${uiState.notificacoesNaoLidas} notificações não lidas",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }) {
+                            IconButton(onClick = { showNotificationsModal = true }) {
                                 Icon(
                                     imageVector = Icons.Default.Notifications,
                                     contentDescription = "Notificações",
@@ -602,6 +597,7 @@ fun HomeScreen(
 
             // B. Card de Lucro Líquido Hoje
             item {
+                val isLucroNegativo = uiState.lucroHoje < BigDecimal.ZERO
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -620,8 +616,8 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "LUCRO LÍQUIDO HOJE",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = if (isLucroNegativo) "SALDO DO DIA (A RECUPERAR)" else "LUCRO LÍQUIDO HOJE",
+                                color = if (isLucroNegativo) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
@@ -656,7 +652,7 @@ fun HomeScreen(
                         // Valor Grande em Destaque
                         Text(
                             text = uiState.lucroHoje.formatCurrency(),
-                            color = OrangeNeon,
+                            color = if (isLucroNegativo) RedAlert else OrangeNeon,
                             fontSize = 38.sp,
                             fontWeight = FontWeight.Black
                         )
@@ -664,16 +660,17 @@ fun HomeScreen(
                         // Termômetro de Meta do Dia
                         val metaVal = uiState.metaDiaria
                         val lucroVal = uiState.lucroHoje
-                        val rawPercent = if (metaVal > BigDecimal.ZERO) (lucroVal.toFloat() / metaVal.toFloat()) else 0f
+                        val rawPercent = if (metaVal > BigDecimal.ZERO && !isLucroNegativo) (lucroVal.toFloat() / metaVal.toFloat()) else 0f
                         val clampedProgress = rawPercent.coerceIn(0f, 1f)
                         val animatedProgress by animateFloatAsState(
                             targetValue = clampedProgress,
                             animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
                             label = "thermometerProgress"
                         )
-                        val percentText = (rawPercent * 100).toInt().coerceAtLeast(0)
+                        val percentText = if (isLucroNegativo) "0" else (rawPercent * 100).toInt().coerceAtLeast(0).toString()
 
                         val thermometerColor = when {
+                            isLucroNegativo -> RedAlert
                             clampedProgress >= 0.85f -> GreenNeon                     // Verde
                             clampedProgress >= 0.55f -> Color(0xFFFFD600)            // Amarelo
                             clampedProgress >= 0.25f -> Color(0xFFFF8A00)            // Amarelo-Alaranjado
@@ -697,7 +694,7 @@ fun HomeScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = "$percentText% atingido",
+                                    text = if (isLucroNegativo) "Custos superam ganhos" else "$percentText% atingido",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = thermometerColor
@@ -762,8 +759,8 @@ fun HomeScreen(
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = if (uiState.faltamParaMeta <= BigDecimal.ZERO) "Meta Atingida! 🎉" else uiState.faltamParaMeta.formatCurrency(),
-                                    color = if (uiState.faltamParaMeta <= BigDecimal.ZERO) GreenNeon else OrangeNeon.copy(alpha = 0.9f),
+                                    text = if (uiState.faltamParaMeta <= BigDecimal.ZERO && !isLucroNegativo) "Meta Atingida! 🎉" else uiState.faltamParaMeta.formatCurrency(),
+                                    color = if (uiState.faltamParaMeta <= BigDecimal.ZERO && !isLucroNegativo) GreenNeon else if (isLucroNegativo) RedAlert else OrangeNeon.copy(alpha = 0.9f),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -1131,6 +1128,171 @@ fun HomeScreen(
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(16.dp)
         )
+    }
+
+    // Modal Bottom Sheet de Notificações
+    if (showNotificationsModal) {
+        ModalBottomSheet(
+            onDismissRequest = { showNotificationsModal = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = "Notificações",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    if (uiState.notificacoes.isNotEmpty()) {
+                        Surface(
+                            color = RedAlert.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(100.dp)
+                        ) {
+                            Text(
+                                text = "${uiState.notificacoes.size} pendentes",
+                                color = RedAlert,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                if (uiState.notificacoes.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = GreenNeon,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = "Tudo em dia!",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Você não possui notificações pendentes no momento.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        uiState.notificacoes.forEach { notif ->
+                            val notifTitle = when (notif.type) {
+                                "billing_cycle_closed" -> "Ciclo de faturamento concluído"
+                                "maintenance_due" -> "Alerta de manutenção preventiva"
+                                "payment_received" -> "Pagamento recebido"
+                                else -> "Aviso do sistema"
+                            }
+                            val notifDescription = when (notif.type) {
+                                "billing_cycle_closed" -> "Um ciclo de faturamento foi fechado e está aguardando repasse."
+                                "maintenance_due" -> "Uma ou mais peças do seu veículo atingiram o limite de km."
+                                "payment_received" -> "O repasse de faturamento foi processado com sucesso."
+                                else -> "Notificação referente à sua conta de motorista."
+                            }
+
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(OrangeNeon.copy(alpha = 0.15f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = when (notif.type) {
+                                                "maintenance_due" -> Icons.Default.Build
+                                                "billing_cycle_closed", "payment_received" -> Icons.Default.AttachMoney
+                                                else -> Icons.Default.Notifications
+                                            },
+                                            contentDescription = null,
+                                            tint = OrangeNeon,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = notifTitle,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = notifDescription,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    // Ícone de Check verde para marcar como lida
+                                    IconButton(
+                                        onClick = { viewModel.markNotificationAsRead(notif.id) }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Marcar como lida",
+                                            tint = GreenNeon,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

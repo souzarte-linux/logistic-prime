@@ -139,7 +139,7 @@ private fun EmpresasListView(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -147,7 +147,7 @@ private fun EmpresasListView(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -161,7 +161,7 @@ private fun EmpresasListView(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -175,7 +175,7 @@ private fun EmpresasListView(
                 Icon(Icons.Default.Add, contentDescription = "Adicionar Empresa")
             }
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         val filteredCompanies = remember(uiState.companies, uiState.searchQuery) {
             if (uiState.searchQuery.isBlank()) {
@@ -204,24 +204,24 @@ private fun EmpresasListView(
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = onSearchChanged,
-                    placeholder = { Text("Buscar por nome, bairro, cidade...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Buscar por nome, bairro, cidade...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotBlank()) {
                             IconButton(onClick = { onSearchChanged("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = Color.Gray)
+                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        focusedContainerColor = SurfaceDark,
-                        unfocusedContainerColor = SurfaceDark,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -237,7 +237,7 @@ private fun EmpresasListView(
                 ) {
                     Text(
                         text = "EMPRESAS CADASTRADAS",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -271,7 +271,7 @@ private fun EmpresasListView(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
                             modifier = Modifier
@@ -297,14 +297,14 @@ private fun EmpresasListView(
                                 text = if (uiState.companies.isEmpty()) "Nenhuma empresa cadastrada" else "Nenhum resultado encontrado",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = if (uiState.companies.isEmpty())
                                     "Cadastre as oficinas, auto peças, parceiros e prestadoras de serviço onde você realiza manutenções ou serviços."
                                 else "Tente buscar por outro nome ou endereço.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
 
@@ -314,7 +314,7 @@ private fun EmpresasListView(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
-                                    color = Color.LightGray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
                                 LazyRow(
@@ -324,9 +324,9 @@ private fun EmpresasListView(
                                     items(POPULAR_COMPANIES) { companyName ->
                                         SuggestionChip(
                                             onClick = { onSelectSuggestion(companyName) },
-                                            label = { Text(companyName, fontSize = 12.sp, color = Color.White) },
+                                            label = { Text(companyName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) },
                                             colors = SuggestionChipDefaults.suggestionChipColors(
-                                                containerColor = SurfaceDarkAlt
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                                             ),
                                             border = SuggestionChipDefaults.suggestionChipBorder(
                                                 enabled = true,
@@ -349,8 +349,8 @@ private fun EmpresasListView(
                         .clip(RoundedCornerShape(14.dp))
                         .clickable { onSelectCompany(company) },
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Row(
                         modifier = Modifier
@@ -391,7 +391,7 @@ private fun EmpresasListView(
                                 text = company.name,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -422,13 +422,13 @@ private fun EmpresasListView(
                                     Icon(
                                         imageVector = Icons.Default.Place,
                                         contentDescription = null,
-                                        tint = Color.Gray,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(13.dp)
                                     )
                                     Text(
                                         text = fullDisplayAddress,
                                         fontSize = 12.sp,
-                                        color = Color.LightGray,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -469,7 +469,7 @@ private fun EmpresasListView(
                                     Text(
                                         text = EmpresasViewModel.formatPhone(company.phone),
                                         fontSize = 11.sp,
-                                        color = Color.Gray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -479,7 +479,7 @@ private fun EmpresasListView(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "Ver Detalhes",
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -516,7 +516,7 @@ private fun CompanyDetailsView(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -524,7 +524,7 @@ private fun CompanyDetailsView(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -545,11 +545,11 @@ private fun CompanyDetailsView(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -563,7 +563,7 @@ private fun CompanyDetailsView(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.2f))
             ) {
                 Row(
@@ -593,12 +593,12 @@ private fun CompanyDetailsView(
                             text = company.name,
                             fontWeight = FontWeight.Black,
                             fontSize = 18.sp,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Empresa / Prestadora Parceira",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -609,7 +609,7 @@ private fun CompanyDetailsView(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
                     modifier = Modifier
@@ -660,8 +660,8 @@ private fun CompanyDetailsView(
                         Button(
                             onClick = { openCompanyAddress(context, company) },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = SurfaceDarkAlt,
-                                contentColor = Color.White
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface
                             ),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -671,7 +671,7 @@ private fun CompanyDetailsView(
                             Text("Abrir no Google Maps", fontWeight = FontWeight.SemiBold)
                         }
                     } else {
-                        Text("Nenhum endereço cadastrado.", color = Color.Gray, fontSize = 13.sp)
+                        Text("Nenhum endereço cadastrado.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     }
                 }
             }
@@ -681,7 +681,7 @@ private fun CompanyDetailsView(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
                     modifier = Modifier
@@ -711,12 +711,12 @@ private fun CompanyDetailsView(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text("Telefone / Celular", fontSize = 11.sp, color = Color.Gray)
+                                    Text("Telefone / Celular", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
                                         text = EmpresasViewModel.formatPhone(company.phone),
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = Color.White
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 if (company.isWhatsapp) {
@@ -766,8 +766,8 @@ private fun CompanyDetailsView(
                             DetailItem(label = "Site Oficial", value = company.website)
                             OutlinedButton(
                                 onClick = { openBrowserUrl(context, company.website) },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -777,7 +777,7 @@ private fun CompanyDetailsView(
                             }
                         }
                     } else {
-                        Text("Nenhum contato cadastrado.", color = Color.Gray, fontSize = 13.sp)
+                        Text("Nenhum contato cadastrado.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     }
                 }
             }
@@ -787,7 +787,7 @@ private fun CompanyDetailsView(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(
                         modifier = Modifier
@@ -837,8 +837,8 @@ private fun CompanyDetailsView(
     if (showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Excluir Empresa?", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("Tem certeza que deseja excluir '${company.name}'? O histórico de manutenções anteriores não será apagado.", color = Color.LightGray) },
+            title = { Text("Excluir Empresa?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+            text = { Text("Tem certeza que deseja excluir '${company.name}'? O histórico de manutenções anteriores não será apagado.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -852,10 +852,10 @@ private fun CompanyDetailsView(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Cancelar", color = Color.White)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }
@@ -900,7 +900,7 @@ private fun CompanyFormView(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -908,16 +908,16 @@ private fun CompanyFormView(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -949,10 +949,10 @@ private fun CompanyFormView(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -973,10 +973,10 @@ private fun CompanyFormView(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -1016,10 +1016,10 @@ private fun CompanyFormView(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -1042,10 +1042,10 @@ private fun CompanyFormView(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(0.68f)
@@ -1063,10 +1063,10 @@ private fun CompanyFormView(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(0.32f)
@@ -1087,7 +1087,7 @@ private fun CompanyFormView(
                 supportingText = {
                     Text(
                         text = "${uiState.formData.complement.length}/500",
-                        color = if (uiState.formData.complement.length >= 500) RedAlert else Color.Gray,
+                        color = if (uiState.formData.complement.length >= 500) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.End
@@ -1096,10 +1096,10 @@ private fun CompanyFormView(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -1118,10 +1118,10 @@ private fun CompanyFormView(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -1144,10 +1144,10 @@ private fun CompanyFormView(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(0.72f)
@@ -1166,10 +1166,10 @@ private fun CompanyFormView(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(0.28f)
@@ -1206,10 +1206,10 @@ private fun CompanyFormView(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
@@ -1221,11 +1221,11 @@ private fun CompanyFormView(
                         .clip(RoundedCornerShape(12.dp))
                         .clickable { onIsWhatsappChanged(!uiState.formData.isWhatsapp) }
                         .padding(top = 6.dp),
-                    color = if (uiState.formData.isWhatsapp) WhatsAppGreen.copy(alpha = 0.15f) else SurfaceDarkAlt,
+                    color = if (uiState.formData.isWhatsapp) WhatsAppGreen.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
-                        if (uiState.formData.isWhatsapp) WhatsAppGreen else Color.DarkGray
+                        if (uiState.formData.isWhatsapp) WhatsAppGreen else MaterialTheme.colorScheme.outline
                     )
                 ) {
                     Row(
@@ -1236,21 +1236,21 @@ private fun CompanyFormView(
                         Icon(
                             imageVector = Icons.Default.ChatBubble,
                             contentDescription = "WhatsApp",
-                            tint = if (uiState.formData.isWhatsapp) WhatsAppGreen else Color.Gray,
+                            tint = if (uiState.formData.isWhatsapp) WhatsAppGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
                             text = "WhatsApp",
                             fontSize = 12.sp,
                             fontWeight = if (uiState.formData.isWhatsapp) FontWeight.Bold else FontWeight.Normal,
-                            color = if (uiState.formData.isWhatsapp) WhatsAppGreen else Color.LightGray
+                            color = if (uiState.formData.isWhatsapp) WhatsAppGreen else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Checkbox(
                             checked = uiState.formData.isWhatsapp,
                             onCheckedChange = { onIsWhatsappChanged(it) },
                             colors = CheckboxDefaults.colors(
                                 checkedColor = WhatsAppGreen,
-                                uncheckedColor = Color.Gray,
+                                uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 checkmarkColor = Color.Black
                             ),
                             modifier = Modifier.size(20.dp)
@@ -1272,10 +1272,10 @@ private fun CompanyFormView(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -1295,10 +1295,10 @@ private fun CompanyFormView(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -1340,8 +1340,8 @@ private fun CompanyFormView(
 
                 OutlinedButton(
                     onClick = onCancel,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1362,14 +1362,14 @@ private fun CompanyFormView(
             title = {
                 Text(
                     text = "Descartar alterações?",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
                     text = "Você possui dados alterados que ainda não foram salvos. Deseja realmente sair e perder as modificações?",
-                    color = Color.LightGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -1382,10 +1382,10 @@ private fun CompanyFormView(
             },
             dismissButton = {
                 TextButton(onClick = onDismissDiscard) {
-                    Text("Continuar Editando", color = Color.White)
+                    Text("Continuar Editando", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }
@@ -1396,12 +1396,12 @@ private fun CompanyFormView(
 @Composable
 private fun DetailItem(label: String, value: String) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(text = label, fontSize = 11.sp, color = Color.Gray)
+        Text(text = label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text = value,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }

@@ -62,7 +62,7 @@ fun BandeirasScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -70,7 +70,7 @@ fun BandeirasScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -84,7 +84,7 @@ fun BandeirasScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -98,7 +98,7 @@ fun BandeirasScreen(
                 Icon(Icons.Default.Add, contentDescription = "Adicionar Bandeira")
             }
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         val filteredBrands = remember(uiState.brands, uiState.searchQuery) {
             if (uiState.searchQuery.isBlank()) {
@@ -123,24 +123,24 @@ fun BandeirasScreen(
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    placeholder = { Text("Buscar bandeira por nome...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Buscar bandeira por nome...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotBlank()) {
                             IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = Color.Gray)
+                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        focusedContainerColor = SurfaceDark,
-                        unfocusedContainerColor = SurfaceDark,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -156,7 +156,7 @@ fun BandeirasScreen(
                 ) {
                     Text(
                         text = "BANDEIRAS CADASTRADAS",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -190,7 +190,7 @@ fun BandeirasScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
                             modifier = Modifier
@@ -216,14 +216,14 @@ fun BandeirasScreen(
                                 text = if (uiState.brands.isEmpty()) "Nenhuma bandeira cadastrada" else "Nenhum resultado encontrado",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = if (uiState.brands.isEmpty())
                                     "Cadastre as bandeiras e formas de pagamento dos seus cartões de abastecimento e despesas."
                                 else "Tente buscar por outro nome.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
 
@@ -233,7 +233,7 @@ fun BandeirasScreen(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
-                                    color = Color.LightGray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
                                 LazyRow(
@@ -243,9 +243,9 @@ fun BandeirasScreen(
                                     items(POPULAR_BRANDS) { brandName ->
                                         SuggestionChip(
                                             onClick = { viewModel.openAddDialog(brandName) },
-                                            label = { Text(brandName, fontSize = 12.sp, color = Color.White) },
+                                            label = { Text(brandName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) },
                                             colors = SuggestionChipDefaults.suggestionChipColors(
-                                                containerColor = SurfaceDarkAlt
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                                             ),
                                             border = SuggestionChipDefaults.suggestionChipBorder(
                                                 enabled = true,
@@ -268,8 +268,8 @@ fun BandeirasScreen(
                         .clip(RoundedCornerShape(14.dp))
                         .clickable { viewModel.startEditing(brand) },
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ) {
                     Row(
                         modifier = Modifier
@@ -310,14 +310,14 @@ fun BandeirasScreen(
                                 text = brand.name,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = "Bandeira de Cartão / Meio de Pagamento",
                                 fontSize = 11.sp,
-                                color = Color.LightGray.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
@@ -325,7 +325,7 @@ fun BandeirasScreen(
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowRight,
                             contentDescription = "Editar",
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -341,8 +341,8 @@ fun BandeirasScreen(
 
         ModalBottomSheet(
             onDismissRequest = { viewModel.closeForm() },
-            containerColor = SurfaceDark,
-            contentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ) {
             Column(
                 modifier = Modifier
@@ -376,10 +376,10 @@ fun BandeirasScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.Gray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -418,8 +418,8 @@ fun BandeirasScreen(
         if (showDeleteConfirmDialog && uiState.editingBrandId != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = false },
-                title = { Text("Excluir Bandeira?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Tem certeza que deseja excluir '${uiState.name}'? Cartões existentes com esta bandeira não serão apagados.", color = Color.LightGray) },
+                title = { Text("Excluir Bandeira?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+                text = { Text("Tem certeza que deseja excluir '${uiState.name}'? Cartões existentes com esta bandeira não serão apagados.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -433,10 +433,10 @@ fun BandeirasScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                        Text("Cancelar", color = Color.White)
+                        Text("Cancelar", color = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                containerColor = SurfaceDark
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
     }

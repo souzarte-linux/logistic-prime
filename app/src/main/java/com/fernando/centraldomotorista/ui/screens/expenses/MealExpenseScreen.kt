@@ -36,9 +36,6 @@ import com.fernando.centraldomotorista.ui.utils.CurrencyVisualTransformation
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-private val FieldBackground = Color(0xFF242427)
-private val FieldBorder = Color(0xFF333338)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealExpenseScreen(
@@ -51,6 +48,9 @@ fun MealExpenseScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    val fieldBackground = MaterialTheme.colorScheme.surfaceVariant
+    val fieldBorder = MaterialTheme.colorScheme.outline
 
     var companyMenuExpanded by remember { mutableStateOf(false) }
     var companySearchQuery by remember { mutableStateOf("") }
@@ -89,13 +89,13 @@ fun MealExpenseScreen(
     }
 
     Scaffold(
-        containerColor = BackgroundDark,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(BackgroundDark)
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -137,7 +137,7 @@ fun MealExpenseScreen(
                     Icon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = "Notificações",
-                        tint = Color.White.copy(alpha = 0.8f),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                         modifier = Modifier.size(22.dp)
                     )
                     Box(
@@ -173,7 +173,7 @@ fun MealExpenseScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color(0xFFC5C5C5)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Box(modifier = Modifier.fillMaxWidth()) {
@@ -181,8 +181,8 @@ fun MealExpenseScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
-                            .background(FieldBackground, RoundedCornerShape(12.dp))
-                            .border(1.dp, FieldBorder, RoundedCornerShape(12.dp))
+                            .background(fieldBackground, RoundedCornerShape(12.dp))
+                            .border(1.dp, fieldBorder, RoundedCornerShape(12.dp))
                             .clickable { companyMenuExpanded = true }
                             .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -190,13 +190,13 @@ fun MealExpenseScreen(
                     ) {
                         Text(
                             text = selectedCompany?.name ?: "Ex: Restaurante do Silva",
-                            color = if (selectedCompany != null) Color.White else Color.Gray,
+                            color = if (selectedCompany != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp
                         )
                         Icon(
                             imageVector = Icons.Default.ArrowDropDown,
                             contentDescription = null,
-                            tint = Color.Gray
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -204,19 +204,19 @@ fun MealExpenseScreen(
                         expanded = companyMenuExpanded,
                         onDismissRequest = { companyMenuExpanded = false },
                         modifier = Modifier
-                            .background(SurfaceDark)
+                            .background(MaterialTheme.colorScheme.surface)
                             .fillMaxWidth(0.9f)
                     ) {
                         OutlinedTextField(
                             value = companySearchQuery,
                             onValueChange = { companySearchQuery = it },
-                            placeholder = { Text("Buscar empresa...", color = Color.Gray) },
+                            placeholder = { Text("Buscar empresa...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -249,10 +249,10 @@ fun MealExpenseScreen(
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text(text = company.name, color = Color.White, fontWeight = FontWeight.SemiBold)
+                                        Text(text = company.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                                         val address = listOfNotNull(company.neighborhood, company.city).joinToString(" - ")
                                         if (address.isNotBlank()) {
-                                            Text(text = address, color = Color.Gray, fontSize = 11.sp)
+                                            Text(text = address, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                                         }
                                     }
                                 },
@@ -265,7 +265,7 @@ fun MealExpenseScreen(
 
                         if (filteredCompanies.isEmpty() && companySearchQuery.isNotBlank()) {
                             DropdownMenuItem(
-                                text = { Text("Nenhuma empresa encontrada com '$companySearchQuery'", color = Color.Gray, fontSize = 12.sp) },
+                                text = { Text("Nenhuma empresa encontrada com '$companySearchQuery'", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) },
                                 onClick = {}
                             )
                         }
@@ -280,23 +280,23 @@ fun MealExpenseScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color(0xFFC5C5C5)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 OutlinedTextField(
                     value = uiState.title,
                     onValueChange = { viewModel.onTitleChanged(it) },
-                    placeholder = { Text("Ex: Almoço, lanche...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Ex: Almoço, lanche...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = FieldBackground,
-                        unfocusedContainerColor = FieldBackground,
+                        focusedContainerColor = fieldBackground,
+                        unfocusedContainerColor = fieldBackground,
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = FieldBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = fieldBorder,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -312,7 +312,7 @@ fun MealExpenseScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color(0xFFC5C5C5)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 val mealRows = listOf(
@@ -331,10 +331,10 @@ fun MealExpenseScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(46.dp)
-                                    .background(FieldBackground, RoundedCornerShape(12.dp))
+                                    .background(fieldBackground, RoundedCornerShape(12.dp))
                                     .border(
                                         width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) OrangeNeon else FieldBorder,
+                                        color = if (isSelected) OrangeNeon else fieldBorder,
                                         shape = RoundedCornerShape(12.dp)
                                     )
                                     .clickable { viewModel.onMealTypeSelected(type) }
@@ -347,7 +347,7 @@ fun MealExpenseScreen(
                                     onClick = { viewModel.onMealTypeSelected(type) },
                                     colors = RadioButtonDefaults.colors(
                                         selectedColor = OrangeNeon,
-                                        unselectedColor = Color.Gray
+                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
                                     ),
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -356,7 +356,7 @@ fun MealExpenseScreen(
                                     text = type,
                                     fontSize = 13.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) Color.White else Color(0xFFC0C0C0)
+                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -371,24 +371,24 @@ fun MealExpenseScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color(0xFFC5C5C5)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 OutlinedTextField(
                     value = uiState.amountText,
                     onValueChange = { viewModel.onAmountChanged(it) },
-                    placeholder = { Text("R$ 0,00", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("R$ 0,00", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     visualTransformation = CurrencyVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = FieldBackground,
-                        unfocusedContainerColor = FieldBackground,
+                        focusedContainerColor = fieldBackground,
+                        unfocusedContainerColor = fieldBackground,
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = FieldBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = fieldBorder,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -404,7 +404,7 @@ fun MealExpenseScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color(0xFFC5C5C5)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 val formattedDateTime = remember(uiState.dateTime) {
@@ -415,8 +415,8 @@ fun MealExpenseScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp)
-                        .background(FieldBackground, RoundedCornerShape(12.dp))
-                        .border(1.dp, FieldBorder, RoundedCornerShape(12.dp))
+                        .background(fieldBackground, RoundedCornerShape(12.dp))
+                        .border(1.dp, fieldBorder, RoundedCornerShape(12.dp))
                         .clickable {
                             val current = uiState.dateTime
                             DatePickerDialog(
@@ -445,13 +445,13 @@ fun MealExpenseScreen(
                 ) {
                     Text(
                         text = formattedDateTime,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp
                     )
                     Icon(
                         imageVector = Icons.Default.DateRange,
                         contentDescription = "Selecionar Data e Hora",
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -464,22 +464,22 @@ fun MealExpenseScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color(0xFFC5C5C5)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 OutlinedTextField(
                     value = uiState.notes,
                     onValueChange = { viewModel.onNotesChanged(it) },
-                    placeholder = { Text("Descreva os itens consumidos...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Descreva os itens consumidos...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     minLines = 3,
                     maxLines = 4,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = FieldBackground,
-                        unfocusedContainerColor = FieldBackground,
+                        focusedContainerColor = fieldBackground,
+                        unfocusedContainerColor = fieldBackground,
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = FieldBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = fieldBorder,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -495,7 +495,7 @@ fun MealExpenseScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color(0xFFC5C5C5)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Row(
@@ -515,10 +515,10 @@ fun MealExpenseScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp)
-                                .background(FieldBackground, RoundedCornerShape(12.dp))
+                                .background(fieldBackground, RoundedCornerShape(12.dp))
                                 .border(
                                     width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) OrangeNeon else FieldBorder,
+                                    color = if (isSelected) OrangeNeon else fieldBorder,
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable {
@@ -536,14 +536,14 @@ fun MealExpenseScreen(
                                 Icon(
                                     imageVector = icon,
                                     contentDescription = label,
-                                    tint = if (isSelected) OrangeNeon else Color(0xFF9E9E9E),
+                                    tint = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
                                     text = label,
                                     fontSize = 13.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) OrangeNeon else Color(0xFFC0C0C0)
+                                    color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -560,7 +560,7 @@ fun MealExpenseScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(SurfaceDarkAlt, RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                             .clickable { showCardModal = true }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -574,7 +574,7 @@ fun MealExpenseScreen(
                         )
                         Text(
                             text = "Alterar",
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
                     }
@@ -600,7 +600,7 @@ fun MealExpenseScreen(
                     containerColor = OrangeNeon,
                     contentColor = Color.Black,
                     disabledContainerColor = OrangeNeon.copy(alpha = 0.5f),
-                    disabledContentColor = Color.DarkGray
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
                 if (uiState.isSaving) {
@@ -642,11 +642,11 @@ fun MealExpenseScreen(
     if (uiState.isAddCompanyDialogOpen) {
         AlertDialog(
             onDismissRequest = { viewModel.closeAddCompanyDialog() },
-            containerColor = SurfaceDark,
+            containerColor = MaterialTheme.colorScheme.surface,
             title = {
                 Text(
                     text = "Nova Empresa",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -654,7 +654,7 @@ fun MealExpenseScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "Cadastre o nome do restaurante, lanchonete ou empresa fornecedora:",
-                        color = Color.LightGray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp
                     )
                     OutlinedTextField(
@@ -666,10 +666,10 @@ fun MealExpenseScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -688,7 +688,7 @@ fun MealExpenseScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.closeAddCompanyDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )

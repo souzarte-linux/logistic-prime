@@ -26,8 +26,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
-import com.fernando.centraldomotorista.ui.theme.SurfaceDark
-import com.fernando.centraldomotorista.ui.theme.SurfaceDarkAlt
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.utils.CurrencyVisualTransformation
 import java.math.BigDecimal
@@ -76,7 +74,7 @@ fun VolumososModal(
                 .fillMaxWidth(0.92f)
                 .fillMaxHeight(0.85f),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier
@@ -105,28 +103,28 @@ fun VolumososModal(
                                 text = "VALORES INDIVIDUAIS",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 16.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "$count ${if (count == 1) "pacote volumoso" else "pacotes volumosos"}",
                                 fontSize = 12.sp,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Fechar", tint = Color.LightGray)
+                        Icon(Icons.Default.Close, contentDescription = "Fechar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
-                HorizontalDivider(color = Color.DarkGray)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Resumo do Total em tempo real
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(
                         modifier = Modifier
@@ -137,7 +135,7 @@ fun VolumososModal(
                     ) {
                         Text(
                             text = "Total Volumosos:",
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
@@ -183,16 +181,16 @@ fun VolumososModal(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
 
-                HorizontalDivider(color = Color.DarkGray)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Botões de Ação
                 Row(
@@ -205,7 +203,7 @@ fun VolumososModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
                     ) {
                         Text("Cancelar", fontWeight = FontWeight.Bold)
                     }

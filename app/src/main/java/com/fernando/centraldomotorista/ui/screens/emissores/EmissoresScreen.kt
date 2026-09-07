@@ -63,7 +63,7 @@ fun EmissoresScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -71,7 +71,7 @@ fun EmissoresScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -85,7 +85,7 @@ fun EmissoresScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -99,7 +99,7 @@ fun EmissoresScreen(
                 Icon(Icons.Default.Add, contentDescription = "Adicionar Emissor")
             }
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         val filteredOperators = remember(uiState.operators, uiState.searchQuery) {
             if (uiState.searchQuery.isBlank()) {
@@ -124,24 +124,24 @@ fun EmissoresScreen(
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    placeholder = { Text("Buscar emissor por nome...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Buscar emissor por nome...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotBlank()) {
                             IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = Color.Gray)
+                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        focusedContainerColor = SurfaceDark,
-                        unfocusedContainerColor = SurfaceDark,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -157,7 +157,7 @@ fun EmissoresScreen(
                 ) {
                     Text(
                         text = "INSTITUIÇÕES CADASTRADAS",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -191,7 +191,7 @@ fun EmissoresScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
                             modifier = Modifier
@@ -217,14 +217,14 @@ fun EmissoresScreen(
                                 text = if (uiState.operators.isEmpty()) "Nenhum emissor cadastrado" else "Nenhum resultado encontrado",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = if (uiState.operators.isEmpty())
                                     "Cadastre os bancos e operadoras para vincular aos seus cartões de crédito e débito."
                                 else "Tente buscar por outro termo.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
 
@@ -234,7 +234,7 @@ fun EmissoresScreen(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
-                                    color = Color.LightGray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
                                 LazyRow(
@@ -244,9 +244,9 @@ fun EmissoresScreen(
                                     items(POPULAR_EMISSORES) { bankName ->
                                         SuggestionChip(
                                             onClick = { viewModel.openAddDialog(bankName) },
-                                            label = { Text(bankName, fontSize = 12.sp, color = Color.White) },
+                                            label = { Text(bankName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) },
                                             colors = SuggestionChipDefaults.suggestionChipColors(
-                                                containerColor = SurfaceDarkAlt
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                                             ),
                                             border = SuggestionChipDefaults.suggestionChipBorder(
                                                 enabled = true,
@@ -269,8 +269,8 @@ fun EmissoresScreen(
                         .clip(RoundedCornerShape(14.dp))
                         .clickable { viewModel.startEditing(operator) },
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ) {
                     Row(
                         modifier = Modifier
@@ -308,17 +308,17 @@ fun EmissoresScreen(
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             Text(
-                                text = operator.name,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                 text = operator.name,
+                                 fontWeight = FontWeight.Bold,
+                                 fontSize = 15.sp,
+                                 color = MaterialTheme.colorScheme.onSurface,
+                                 maxLines = 1,
+                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Instituição Emissora de Cartões",
-                                fontSize = 11.sp,
-                                color = Color.LightGray.copy(alpha = 0.7f)
+                                 text = "Instituição Emissora de Cartões",
+                                 fontSize = 11.sp,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
@@ -326,7 +326,7 @@ fun EmissoresScreen(
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowRight,
                             contentDescription = "Editar",
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -342,8 +342,8 @@ fun EmissoresScreen(
 
         ModalBottomSheet(
             onDismissRequest = { viewModel.closeForm() },
-            containerColor = SurfaceDark,
-            contentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ) {
             Column(
                 modifier = Modifier
@@ -377,10 +377,10 @@ fun EmissoresScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.Gray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -419,8 +419,8 @@ fun EmissoresScreen(
         if (showDeleteConfirmDialog && uiState.editingOperatorId != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = false },
-                title = { Text("Excluir Emissor?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Tem certeza que deseja excluir '${uiState.name}'? Cartões existentes não serão apagados.", color = Color.LightGray) },
+                title = { Text("Excluir Emissor?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+                text = { Text("Tem certeza que deseja excluir '${uiState.name}'? Cartões existentes não serão apagados.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -434,10 +434,10 @@ fun EmissoresScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                        Text("Cancelar", color = Color.White)
+                        Text("Cancelar", color = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                containerColor = SurfaceDark
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
     }

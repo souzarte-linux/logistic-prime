@@ -96,7 +96,7 @@ fun LancarManutencaoScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -104,7 +104,7 @@ fun LancarManutencaoScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -120,11 +120,11 @@ fun LancarManutencaoScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -176,10 +176,10 @@ fun LancarManutencaoScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
@@ -189,18 +189,18 @@ fun LancarManutencaoScreen(
                     ExposedDropdownMenu(
                         expanded = productDropdownExpanded,
                         onDismissRequest = { productDropdownExpanded = false },
-                        modifier = Modifier.background(SurfaceDark)
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                     ) {
                         OutlinedTextField(
                             value = productSearchQuery,
                             onValueChange = { productSearchQuery = it },
-                            placeholder = { Text("Buscar peça ou produto...", fontSize = 12.sp) },
+                            placeholder = { Text("Buscar peça ou produto...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -208,7 +208,7 @@ fun LancarManutencaoScreen(
                         )
 
                         DropdownMenuItem(
-                            text = { Text("(Nenhum / Digitação Manual)", color = Color.Gray) },
+                            text = { Text("(Nenhum / Digitação Manual)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                             onClick = {
                                 viewModel.clearSelectedProduct()
                                 productDropdownExpanded = false
@@ -233,7 +233,7 @@ fun LancarManutencaoScreen(
                                     Column {
                                         Text(
                                             text = "$typeName — ${product.brand}${if (!product.model.isNullOrBlank()) " ${product.model}" else ""}",
-                                            color = Color.White,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
@@ -281,10 +281,10 @@ fun LancarManutencaoScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -306,10 +306,10 @@ fun LancarManutencaoScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
@@ -326,10 +326,10 @@ fun LancarManutencaoScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
@@ -355,10 +355,10 @@ fun LancarManutencaoScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
@@ -378,10 +378,10 @@ fun LancarManutencaoScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
@@ -391,7 +391,7 @@ fun LancarManutencaoScreen(
             // 5. Empresa / Oficina (opcional) — Dropdown + Botão "+"
             Text(
                 text = "EMPRESA / OFICINA ONDE FOI REALIZADA",
-                color = Color.LightGray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp,
                 letterSpacing = 0.8.sp,
@@ -425,10 +425,10 @@ fun LancarManutencaoScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
@@ -438,10 +438,10 @@ fun LancarManutencaoScreen(
                     ExposedDropdownMenu(
                         expanded = companyDropdownExpanded,
                         onDismissRequest = { companyDropdownExpanded = false },
-                        modifier = Modifier.background(SurfaceDark)
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("(Nenhuma empresa vinculada)", color = Color.Gray) },
+                            text = { Text("(Nenhuma empresa vinculada)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                             onClick = {
                                 viewModel.onCompanySelected(null)
                                 companyDropdownExpanded = false
@@ -451,11 +451,11 @@ fun LancarManutencaoScreen(
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text(company.name, color = Color.White, fontWeight = FontWeight.SemiBold)
+                                        Text(company.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                                         if (!company.street.isNullOrBlank()) {
                                             Text(
                                                 text = "${company.street}, ${company.number ?: ""}",
-                                                color = Color.LightGray,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontSize = 11.sp
                                             )
                                         }
@@ -484,7 +484,7 @@ fun LancarManutencaoScreen(
                 }
             }
 
-            HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
             // SEÇÃO 2: IMPACTO FINANCEIRO & PAGAMENTO (EXPENSES)
             Text(
@@ -511,10 +511,10 @@ fun LancarManutencaoScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = GreenNeon,
                     focusedLabelColor = GreenNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     focusedTextColor = GreenNeon,
-                    unfocusedTextColor = Color.White
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -542,10 +542,10 @@ fun LancarManutencaoScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
@@ -572,10 +572,10 @@ fun LancarManutencaoScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -600,10 +600,10 @@ fun LancarManutencaoScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.DarkGray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -612,7 +612,7 @@ fun LancarManutencaoScreen(
             // 10. Forma de Pagamento (Segmented Buttons: PIX / Cartão / Dinheiro)
             Text(
                 text = "FORMA DE PAGAMENTO",
-                color = Color.LightGray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp,
                 letterSpacing = 0.8.sp
@@ -654,7 +654,7 @@ fun LancarManutencaoScreen(
                 val cardObj = uiState.availableCards.firstOrNull { it.id == cardData.cardId }
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = SurfaceDarkAlt,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showCardModal = true }
@@ -667,14 +667,14 @@ fun LancarManutencaoScreen(
                         Column {
                             Text(
                                 text = "💳 ${cardObj?.nickname ?: cardData.cardBrand ?: "Cartão de Crédito"}",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )
                             val parcelasText = if (cardData.isInstallment) "${cardData.installmentTotal}x parcelado" else "À vista"
                             Text(
                                 text = "$parcelasText • Venc: Dia ${cardData.cardDueDay}",
-                                color = Color.LightGray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp
                             )
                         }
@@ -723,8 +723,8 @@ fun LancarManutencaoScreen(
             OutlinedButton(
                 onClick = onNavigateBack,
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.LightGray),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
@@ -758,8 +758,8 @@ fun LancarManutencaoScreen(
     if (showDeleteConfirmDialog && uiState.editingPartId != null) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Excluir Monitoramento", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("Tem certeza que deseja excluir o monitoramento de '${uiState.partName}' e a despesa associada?", color = Color.LightGray) },
+            title = { Text("Excluir Monitoramento", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+            text = { Text("Tem certeza que deseja excluir o monitoramento de '${uiState.partName}' e a despesa associada?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -775,10 +775,10 @@ fun LancarManutencaoScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Cancelar", color = Color.White)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurface)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -790,7 +790,7 @@ fun LancarManutencaoScreen(
 
         AlertDialog(
             onDismissRequest = { viewModel.closeAddProductDialog() },
-            title = { Text("Adicionar Produto / Marca", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Adicionar Produto / Marca", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier
@@ -820,9 +820,11 @@ fun LancarManutencaoScreen(
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = quickTypeDropdownExpanded) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    unfocusedBorderColor = Color.DarkGray
+                                    focusedLabelColor = OrangeNeon,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier
@@ -832,11 +834,11 @@ fun LancarManutencaoScreen(
                             ExposedDropdownMenu(
                                 expanded = quickTypeDropdownExpanded,
                                 onDismissRequest = { quickTypeDropdownExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 uiState.partTypes.forEach { type ->
                                     DropdownMenuItem(
-                                        text = { Text(type.name, color = Color.White) },
+                                        text = { Text(type.name, color = MaterialTheme.colorScheme.onSurface) },
                                         onClick = {
                                             viewModel.onQuickProductTypeChanged(type.id)
                                             quickTypeDropdownExpanded = false
@@ -869,9 +871,11 @@ fun LancarManutencaoScreen(
                         keyboardActions = KeyboardActions(onNext = { dialogFocusManager.moveFocus(FocusDirection.Down) }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
+                            focusedLabelColor = OrangeNeon,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -887,9 +891,11 @@ fun LancarManutencaoScreen(
                         keyboardActions = KeyboardActions(onNext = { dialogFocusManager.moveFocus(FocusDirection.Down) }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
+                            focusedLabelColor = OrangeNeon,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -909,9 +915,11 @@ fun LancarManutencaoScreen(
                         }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
+                            focusedLabelColor = OrangeNeon,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -929,10 +937,10 @@ fun LancarManutencaoScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.closeAddProductDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -942,7 +950,7 @@ fun LancarManutencaoScreen(
         val dialogKeyboardController = LocalSoftwareKeyboardController.current
         AlertDialog(
             onDismissRequest = { viewModel.closeAddTypeDialog() },
-            title = { Text("Novo Tipo de Peça", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Novo Tipo de Peça", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = quickTypeName,
@@ -954,9 +962,11 @@ fun LancarManutencaoScreen(
                     keyboardActions = KeyboardActions(onDone = { dialogKeyboardController?.hide() }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -973,10 +983,10 @@ fun LancarManutencaoScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.closeAddTypeDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -986,10 +996,10 @@ fun LancarManutencaoScreen(
         val dialogKeyboardController = LocalSoftwareKeyboardController.current
         AlertDialog(
             onDismissRequest = { viewModel.closeAddCompanyDialog() },
-            title = { Text("Nova Empresa / Oficina", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Nova Empresa / Oficina", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Cadastre o nome da empresa para vinculá-la a esta peça:", color = Color.LightGray, fontSize = 13.sp)
+                    Text("Cadastre o nome da empresa para vinculá-la a esta peça:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     OutlinedTextField(
                         value = quickCompanyName,
                         onValueChange = { quickCompanyName = it },
@@ -1003,9 +1013,11 @@ fun LancarManutencaoScreen(
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
+                            focusedLabelColor = OrangeNeon,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -1023,10 +1035,10 @@ fun LancarManutencaoScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.closeAddCompanyDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }
@@ -1043,8 +1055,8 @@ private fun PaymentOptionButton(
         onClick = onClick,
         modifier = modifier.height(44.dp),
         shape = RoundedCornerShape(10.dp),
-        color = if (isSelected) OrangeNeon else SurfaceDarkAlt,
-        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray)
+        color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant,
+        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -1054,13 +1066,13 @@ private fun PaymentOptionButton(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isSelected) Color.Black else Color.White,
+                tint = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = title,
-                color = if (isSelected) Color.Black else Color.White,
+                color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
             )

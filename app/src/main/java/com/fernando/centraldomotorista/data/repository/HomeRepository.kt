@@ -24,7 +24,8 @@ data class HomeData(
     val kmUltrapassado: BigDecimal,
     val contasAReceber: BigDecimal,
     val rotasRecentes: List<Route>,
-    val notificacoesNaoLidas: Int
+    val notificacoesNaoLidas: Int,
+    val notificacoes: List<AppNotification> = emptyList()
 )
 
 class HomeRepository(
@@ -169,8 +170,19 @@ class HomeRepository(
                 kmUltrapassado = kmUltrapassado,
                 contasAReceber = contasAReceber,
                 rotasRecentes = rotasRecentes,
-                notificacoesNaoLidas = unreadNotifications.size
+                notificacoesNaoLidas = unreadNotifications.size,
+                notificacoes = unreadNotifications
             )
+        }
+    }
+
+    suspend fun markNotificationAsRead(notificationId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            notificationApi.updateNotification("eq.$notificationId", mapOf("read" to true))
+            true
+        } catch (e: Exception) {
+            Log.e("HomeRepository", "Erro ao marcar notificação como lida: ${e.message}", e)
+            false
         }
     }
 }

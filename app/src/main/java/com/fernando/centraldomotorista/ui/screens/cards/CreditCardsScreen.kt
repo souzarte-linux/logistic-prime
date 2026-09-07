@@ -69,7 +69,7 @@ fun CreditCardsScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -77,11 +77,11 @@ fun CreditCardsScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         floatingActionButton = {
@@ -94,7 +94,7 @@ fun CreditCardsScreen(
                 Icon(Icons.Default.Add, contentDescription = "Adicionar Cartão")
             }
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -112,7 +112,7 @@ fun CreditCardsScreen(
                 ) {
                     Text(
                         text = "MEUS CARTÕES (${uiState.cards.size})",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         letterSpacing = 1.sp
@@ -128,7 +128,7 @@ fun CreditCardsScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
                             modifier = Modifier
@@ -140,18 +140,18 @@ fun CreditCardsScreen(
                             Icon(
                                 imageVector = Icons.Default.CreditCard,
                                 contentDescription = null,
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(48.dp)
                             )
                             Text(
                                 text = if (uiState.isLoading) "Carregando cartões..." else "Nenhum cartão cadastrado.",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp
                             )
                             Text(
                                 text = "Cadastre seus cartões para controlar vencimentos e parcelamentos de combustível e manutenção.",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
@@ -208,7 +208,7 @@ fun CreditCardItem(
             .fillMaxWidth()
             .clickable { onEdit() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (card.active) SurfaceDark else SurfaceDark.copy(alpha = 0.5f)),
+        colors = CardDefaults.cardColors(containerColor = if (card.active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)),
         border = if (card.active) androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.3f)) else null
     ) {
         Column(
@@ -227,7 +227,7 @@ fun CreditCardItem(
                     Icon(
                         imageVector = Icons.Default.CreditCard,
                         contentDescription = null,
-                        tint = if (card.active) OrangeNeon else Color.Gray,
+                        tint = if (card.active) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(28.dp)
                     )
                     Column {
@@ -236,7 +236,7 @@ fun CreditCardItem(
                                 text = card.nickname,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
-                                color = if (card.active) Color.White else Color.Gray
+                                color = if (card.active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
@@ -249,7 +249,7 @@ fun CreditCardItem(
                         Text(
                             text = "$brandName • $operatorName",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -257,12 +257,12 @@ fun CreditCardItem(
                 // Badge Tipo
                 val typeLabel = CARD_TYPES.firstOrNull { it.first == card.cardType }?.second ?: card.cardType.replaceFirstChar { it.uppercase() }
                 Surface(
-                    color = if (card.active) GreenNeon.copy(alpha = 0.15f) else Color.DarkGray,
+                    color = if (card.active) GreenNeon.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
                         text = typeLabel.uppercase(),
-                        color = if (card.active) GreenNeon else Color.LightGray,
+                        color = if (card.active) GreenNeon else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -274,7 +274,7 @@ fun CreditCardItem(
             val firstFourDisplay = card.firstFour?.let { "$it " } ?: "•••• "
             Text(
                 text = "$firstFourDisplay•••• •••• ${card.lastFour}",
-                color = Color.LightGray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 letterSpacing = 2.sp,
                 fontWeight = FontWeight.Medium
@@ -286,20 +286,20 @@ fun CreditCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("FECHAMENTO", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                    Text("Dia ${card.closingDay}", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("FECHAMENTO", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                    Text("Dia ${card.closingDay}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                 }
                 Column {
-                    Text("VENCIMENTO", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                    Text("VENCIMENTO", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                     Text("Dia ${card.dueDay}", fontSize = 13.sp, color = OrangeNeon, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("TITULAR", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                    Text(card.holderName.uppercase(), fontSize = 12.sp, color = Color.LightGray, maxLines = 1)
+                    Text("TITULAR", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                    Text(card.holderName.uppercase(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
             }
 
-            HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.4f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             // Switch Ativo / Inativo e Botão Excluir
             Row(
@@ -317,14 +317,14 @@ fun CreditCardItem(
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = OrangeNeon,
                             checkedTrackColor = OrangeNeon.copy(alpha = 0.3f),
-                            uncheckedThumbColor = Color.Gray,
-                            uncheckedTrackColor = SurfaceDarkAlt
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                     Text(
                         text = if (card.active) "Cartão Ativo" else "Cartão Inativo",
                         fontSize = 12.sp,
-                        color = if (card.active) GreenNeon else Color.Gray,
+                        color = if (card.active) GreenNeon else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -339,8 +339,8 @@ fun CreditCardItem(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Excluir Cartão", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("Deseja realmente remover o cartão \"${card.nickname}\"?", color = Color.LightGray) },
+            title = { Text("Excluir Cartão", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+            text = { Text("Deseja realmente remover o cartão \"${card.nickname}\"?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -354,10 +354,10 @@ fun CreditCardItem(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }
@@ -381,7 +381,7 @@ fun AddCreditCardDialog(
         title = {
             Text(
                 text = if (uiState.editingCardId != null) "Editar Cartão de Crédito" else "Novo Cartão de Crédito",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold
             )
         },
@@ -401,9 +401,10 @@ fun AddCreditCardDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -420,9 +421,10 @@ fun AddCreditCardDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
                             focusedLabelColor = OrangeNeon,
-                            unfocusedBorderColor = Color.DarkGray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -444,9 +446,10 @@ fun AddCreditCardDialog(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -460,9 +463,10 @@ fun AddCreditCardDialog(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -490,20 +494,22 @@ fun AddCreditCardDialog(
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandMenuExpanded) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    unfocusedBorderColor = Color.DarkGray
+                                    focusedLabelColor = OrangeNeon,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.menuAnchor().fillMaxWidth()
                             )
                             ExposedDropdownMenu(
                                 expanded = brandMenuExpanded,
                                 onDismissRequest = { brandMenuExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 uiState.brands.forEach { brand ->
                                     DropdownMenuItem(
-                                        text = { Text(brand.name, color = Color.White) },
+                                        text = { Text(brand.name, color = MaterialTheme.colorScheme.onSurface) },
                                         onClick = {
                                             viewModel.onBrandSelected(brand.id)
                                             brandMenuExpanded = false
@@ -542,20 +548,22 @@ fun AddCreditCardDialog(
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = issuerMenuExpanded) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    unfocusedBorderColor = Color.DarkGray
+                                    focusedLabelColor = OrangeNeon,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.menuAnchor().fillMaxWidth()
                             )
                             ExposedDropdownMenu(
                                 expanded = issuerMenuExpanded,
                                 onDismissRequest = { issuerMenuExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 uiState.operators.forEach { op ->
                                     DropdownMenuItem(
-                                        text = { Text(op.name, color = Color.White) },
+                                        text = { Text(op.name, color = MaterialTheme.colorScheme.onSurface) },
                                         onClick = {
                                             viewModel.onIssuerSelected(op.id)
                                             issuerMenuExpanded = false
@@ -588,20 +596,22 @@ fun AddCreditCardDialog(
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                unfocusedBorderColor = Color.DarkGray
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.menuAnchor().fillMaxWidth()
                         )
                         ExposedDropdownMenu(
                             expanded = typeMenuExpanded,
                             onDismissRequest = { typeMenuExpanded = false },
-                            modifier = Modifier.background(SurfaceDark)
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                         ) {
                             CARD_TYPES.forEach { (typeKey, typeName) ->
                                 DropdownMenuItem(
-                                    text = { Text(typeName, color = Color.White) },
+                                    text = { Text(typeName, color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = {
                                         viewModel.onCardTypeChanged(typeKey)
                                         typeMenuExpanded = false
@@ -626,9 +636,11 @@ fun AddCreditCardDialog(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                unfocusedBorderColor = Color.DarkGray
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -640,9 +652,11 @@ fun AddCreditCardDialog(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                unfocusedBorderColor = Color.DarkGray
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -668,10 +682,10 @@ fun AddCreditCardDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancelar", color = Color.Gray)
+                Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        containerColor = SurfaceDark
+        containerColor = MaterialTheme.colorScheme.surface
     )
 
     // Dialog Simples para Nova Bandeira
@@ -679,7 +693,7 @@ fun AddCreditCardDialog(
         var brandName by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showNewBrandDialog = false },
-            title = { Text("Cadastrar Nova Bandeira", color = Color.White) },
+            title = { Text("Cadastrar Nova Bandeira", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = brandName,
@@ -688,9 +702,11 @@ fun AddCreditCardDialog(
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -707,9 +723,9 @@ fun AddCreditCardDialog(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showNewBrandDialog = false }) { Text("Cancelar", color = Color.Gray) }
+                TextButton(onClick = { showNewBrandDialog = false }) { Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -718,7 +734,7 @@ fun AddCreditCardDialog(
         var operatorName by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showNewOperatorDialog = false },
-            title = { Text("Cadastrar Novo Emissor", color = Color.White) },
+            title = { Text("Cadastrar Novo Emissor", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = operatorName,
@@ -727,9 +743,11 @@ fun AddCreditCardDialog(
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -746,9 +764,9 @@ fun AddCreditCardDialog(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showNewOperatorDialog = false }) { Text("Cancelar", color = Color.Gray) }
+                TextButton(onClick = { showNewOperatorDialog = false }) { Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }

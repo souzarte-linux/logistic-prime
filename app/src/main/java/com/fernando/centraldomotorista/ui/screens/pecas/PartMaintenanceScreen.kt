@@ -102,7 +102,7 @@ fun PartMaintenanceScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -110,7 +110,7 @@ fun PartMaintenanceScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -127,12 +127,12 @@ fun PartMaintenanceScreen(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Atualizar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -149,7 +149,7 @@ fun PartMaintenanceScreen(
                 Icon(Icons.Default.Add, contentDescription = "Lançar Peça / Manutenção")
             }
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         val filteredParts = remember(uiState.parts, uiState.searchQuery) {
             if (uiState.searchQuery.isBlank()) {
@@ -174,22 +174,24 @@ fun PartMaintenanceScreen(
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    placeholder = { Text("Buscar peça ou manutenção...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Buscar peça ou manutenção...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotBlank()) {
                             IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = Color.Gray)
+                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -199,7 +201,7 @@ fun PartMaintenanceScreen(
             // 2. Banner com Hodômetro Atual do Veículo
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -213,7 +215,7 @@ fun PartMaintenanceScreen(
                         Column {
                             Text(
                                 text = "HODÔMETRO ATUAL",
-                                color = Color.LightGray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
@@ -241,7 +243,7 @@ fun PartMaintenanceScreen(
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth(),
                         color = OrangeNeon,
-                        trackColor = SurfaceDark
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
             }
@@ -250,7 +252,7 @@ fun PartMaintenanceScreen(
             if (!uiState.isLoading && filteredParts.isEmpty()) {
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -264,18 +266,18 @@ fun PartMaintenanceScreen(
                             Icon(
                                 imageVector = Icons.Default.Build,
                                 contentDescription = null,
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(48.dp)
                             )
                             Text(
                                 text = if (uiState.searchQuery.isBlank()) "Nenhuma peça em monitoramento." else "Nenhuma peça encontrada.",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp
                             )
                             Text(
                                 text = "Acompanhe a vida útil das peças para saber exatamente quando realizar a próxima troca preventiva.",
-                                color = Color.LightGray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center
                             )
@@ -286,7 +288,7 @@ fun PartMaintenanceScreen(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
-                                    color = Color.LightGray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
                                 LazyRow(
@@ -299,9 +301,9 @@ fun PartMaintenanceScreen(
                                                 viewModel.openAddDialog(partName)
                                                 onNavigateToLancarManutencao()
                                             },
-                                            label = { Text(partName, fontSize = 12.sp, color = Color.White) },
+                                            label = { Text(partName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) },
                                             colors = SuggestionChipDefaults.suggestionChipColors(
-                                                containerColor = SurfaceDarkAlt
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                                             ),
                                             border = SuggestionChipDefaults.suggestionChipBorder(
                                                 enabled = true,
@@ -402,8 +404,8 @@ fun PartMaintenanceCard(
             .clip(RoundedCornerShape(14.dp))
             .clickable { onEdit() },
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     ) {
         Column(
             modifier = Modifier
@@ -437,7 +439,7 @@ fun PartMaintenanceCard(
                         text = part.partName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     if (product != null) {
@@ -452,14 +454,14 @@ fun PartMaintenanceCard(
                     Text(
                         text = "Vida útil total: ${part.lifeKm} KM",
                         fontSize = 12.sp,
-                        color = Color.LightGray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 Icon(
                     imageVector = Icons.Default.Edit,
                     contentDescription = "Editar",
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -468,7 +470,7 @@ fun PartMaintenanceCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SurfaceDarkAlt, RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -478,13 +480,13 @@ fun PartMaintenanceCard(
                         text = "ÚLTIMA TROCA",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "${part.lastChangeKm} KM",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -494,13 +496,13 @@ fun PartMaintenanceCard(
                             text = "ODÔMETRO ATUAL",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = "$currentOdometerKm KM",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -525,8 +527,8 @@ fun PartMaintenanceCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SurfaceDarkAlt.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.04f), RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -556,7 +558,7 @@ fun PartMaintenanceCard(
                                 text = "Restam $remainingKm KM",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.LightGray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
                             val overdueKm = currentOdometerKm - nextDueKm
@@ -571,7 +573,7 @@ fun PartMaintenanceCard(
                         Text(
                             text = "0% de uso",
                             fontSize = 11.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -581,7 +583,7 @@ fun PartMaintenanceCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
-                        .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                         .clip(RoundedCornerShape(4.dp))
                 ) {
                     Box(
@@ -600,19 +602,19 @@ fun PartMaintenanceCard(
                     Text(
                         text = "0% (${part.lastChangeKm} KM)",
                         fontSize = 9.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "100% (${nextDueKm} KM)",
                         fontSize = 9.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
             // Empresa Vinculada + Ações Rápidas
             if (company != null) {
-                HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.4f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -635,7 +637,7 @@ fun PartMaintenanceCard(
                                 text = company.name,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -649,7 +651,7 @@ fun PartMaintenanceCard(
                                 Text(
                                     text = companyAddr,
                                     fontSize = 11.sp,
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -684,8 +686,8 @@ fun PartMaintenanceCard(
                             FilledTonalIconButton(
                                 onClick = { onOpenMap(company) },
                                 colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = Color.White.copy(alpha = 0.1f),
-                                    contentColor = Color.White
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
                                 modifier = Modifier.size(36.dp)
                             ) {

@@ -84,7 +84,7 @@ fun FuelExpenseScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -92,14 +92,18 @@ fun FuelExpenseScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -113,7 +117,7 @@ fun FuelExpenseScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -122,7 +126,7 @@ fun FuelExpenseScreen(
                         // 1. Posto de Abastecimento (Dropdown + Botão "+")
                         Text(
                             text = "POSTO DE ABASTECIMENTO",
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             letterSpacing = 0.8.sp
@@ -150,23 +154,23 @@ fun FuelExpenseScreen(
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = stationMenuExpanded) },
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = OrangeNeon,
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        unfocusedBorderColor = Color.DarkGray
+                                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                                     ),
                                     modifier = Modifier.menuAnchor().fillMaxWidth()
                                 )
                                 ExposedDropdownMenu(
                                     expanded = stationMenuExpanded,
                                     onDismissRequest = { stationMenuExpanded = false },
-                                    modifier = Modifier.background(SurfaceDark)
+                                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                                 ) {
                                     uiState.gasStations.forEach { station ->
                                         DropdownMenuItem(
                                             text = {
                                                 Column {
-                                                    Text(station.name, color = Color.White, fontWeight = FontWeight.Bold)
-                                                    Text("${station.brand}${station.address?.let { " • $it" } ?: ""}", color = Color.Gray, fontSize = 11.sp)
+                                                    Text(station.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                                                    Text("${station.brand}${station.address?.let { " • $it" } ?: ""}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                                                 }
                                             },
                                             onClick = {
@@ -209,20 +213,20 @@ fun FuelExpenseScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.menuAnchor().fillMaxWidth()
                             )
                             ExposedDropdownMenu(
                                 expanded = fuelMenuExpanded,
                                 onDismissRequest = { fuelMenuExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 availableFuels.forEach { fuel ->
                                     DropdownMenuItem(
-                                        text = { Text(fuel, color = Color.White) },
+                                        text = { Text(fuel, color = MaterialTheme.colorScheme.onSurface) },
                                         onClick = {
                                             viewModel.onFuelTypeSelected(fuel)
                                             fuelMenuExpanded = false
@@ -248,9 +252,9 @@ fun FuelExpenseScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -266,9 +270,9 @@ fun FuelExpenseScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -286,9 +290,9 @@ fun FuelExpenseScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -296,7 +300,7 @@ fun FuelExpenseScreen(
                         // 5. Completou o Tanque? (Toggle)
                         Text(
                             text = "COMPLETOU O TANQUE?",
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             letterSpacing = 0.8.sp
@@ -309,8 +313,8 @@ fun FuelExpenseScreen(
                             Button(
                                 onClick = { viewModel.onFullTankChanged(true) },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (uiState.isFullTank) OrangeNeon else SurfaceDarkAlt,
-                                    contentColor = if (uiState.isFullTank) Color.Black else Color.White
+                                    containerColor = if (uiState.isFullTank) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (uiState.isFullTank) Color.Black else MaterialTheme.colorScheme.onSurface
                                 ),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier
@@ -324,8 +328,8 @@ fun FuelExpenseScreen(
                             Button(
                                 onClick = { viewModel.onFullTankChanged(false) },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (!uiState.isFullTank) OrangeNeon else SurfaceDarkAlt,
-                                    contentColor = if (!uiState.isFullTank) Color.Black else Color.White
+                                    containerColor = if (!uiState.isFullTank) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (!uiState.isFullTank) Color.Black else MaterialTheme.colorScheme.onSurface
                                 ),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier
@@ -349,9 +353,9 @@ fun FuelExpenseScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = GreenNeon,
                                 focusedLabelColor = GreenNeon,
-                                unfocusedBorderColor = Color.DarkGray,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                                 focusedTextColor = GreenNeon,
-                                unfocusedTextColor = Color.White
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -374,9 +378,9 @@ fun FuelExpenseScreen(
                             },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                unfocusedBorderColor = Color.DarkGray
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -397,9 +401,9 @@ fun FuelExpenseScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -415,9 +419,9 @@ fun FuelExpenseScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -425,7 +429,7 @@ fun FuelExpenseScreen(
                         // 10. Forma de Pagamento (PIX / Cartão / Dinheiro)
                         Text(
                             text = "FORMA DE PAGAMENTO",
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             letterSpacing = 0.8.sp
@@ -470,7 +474,7 @@ fun FuelExpenseScreen(
                         if (uiState.paymentMethod == "cartao" && uiState.cardPaymentData != null) {
                             val cardData = uiState.cardPaymentData!!
                             Card(
-                                colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -491,7 +495,7 @@ fun FuelExpenseScreen(
                                         Text(
                                             text = "${cardData.cardBrand ?: "Bandeira"} • ${cardData.cardOperator ?: "Emissor"} • ${if (cardData.isInstallment) "${cardData.installmentTotal}x" else "À vista"}",
                                             fontSize = 11.sp,
-                                            color = Color.LightGray
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                     Text("Alterar", color = OrangeNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -560,8 +564,8 @@ fun PaymentOptionButton(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isSelected) OrangeNeon else SurfaceDarkAlt,
-            contentColor = if (isSelected) Color.Black else Color.White
+            containerColor = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface
         ),
         shape = RoundedCornerShape(10.dp),
         modifier = modifier.height(44.dp),

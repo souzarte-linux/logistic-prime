@@ -89,7 +89,7 @@ fun NewRouteScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -97,14 +97,18 @@ fun NewRouteScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -119,7 +123,7 @@ fun NewRouteScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -140,7 +144,7 @@ fun NewRouteScreen(
                                 text = "PLATAFORMA",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 13.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
@@ -162,9 +166,9 @@ fun NewRouteScreen(
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = platformMenuExpanded) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    unfocusedBorderColor = Color.DarkGray
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
                                 ),
                                 modifier = Modifier
                                     .menuAnchor()
@@ -173,16 +177,16 @@ fun NewRouteScreen(
                             ExposedDropdownMenu(
                                 expanded = platformMenuExpanded,
                                 onDismissRequest = { platformMenuExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 uiState.platforms.forEach { platform ->
                                     DropdownMenuItem(
                                         text = {
                                             Column {
-                                                Text(platform.name, color = Color.White, fontWeight = FontWeight.Bold)
+                                                Text(platform.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                                                 Text(
                                                     "${platform.segment.replaceFirstChar { it.uppercase() }} • Ciclo: ${platform.cycle}",
-                                                    color = Color.Gray,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     fontSize = 11.sp
                                                 )
                                             }
@@ -215,9 +219,9 @@ fun NewRouteScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -236,9 +240,9 @@ fun NewRouteScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -265,9 +269,9 @@ fun NewRouteScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier
                                     .menuAnchor()
@@ -276,11 +280,11 @@ fun NewRouteScreen(
                             ExposedDropdownMenu(
                                 expanded = productTypeMenuExpanded,
                                 onDismissRequest = { productTypeMenuExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 AVAILABLE_PRODUCT_TYPES.forEach { option ->
                                     DropdownMenuItem(
-                                        text = { Text(option.label, color = Color.White) },
+                                        text = { Text(option.label, color = MaterialTheme.colorScheme.onSurface) },
                                         onClick = {
                                             viewModel.onProductTypeSelected(option.code)
                                             productTypeMenuExpanded = false
@@ -290,11 +294,11 @@ fun NewRouteScreen(
                             }
                         }
 
-                        HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 4.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                         // 4. SEÇÃO PACOTINHOS
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -311,7 +315,7 @@ fun NewRouteScreen(
                                         text = "PACOTINHOS",
                                         fontWeight = FontWeight.Black,
                                         fontSize = 13.sp,
-                                        color = Color.White
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
 
@@ -323,16 +327,16 @@ fun NewRouteScreen(
                                         value = uiState.smallPackagesCountText,
                                         onValueChange = { viewModel.onSmallPackagesCountChanged(it) },
                                         label = { Text("Quant.") },
-                                        placeholder = { Text("Quant.", color = Color.Gray) },
+                                        placeholder = { Text("Quant.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                                         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = OrangeNeon,
                                             focusedLabelColor = OrangeNeon,
-                                            unfocusedBorderColor = Color.DarkGray,
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White
+                                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                         ),
                                         modifier = Modifier.weight(1f)
                                     )
@@ -341,7 +345,7 @@ fun NewRouteScreen(
                                         value = uiState.smallPackagesUnitPriceText,
                                         onValueChange = { viewModel.onSmallPackagesUnitPriceChanged(it) },
                                         label = { Text("Valor Und.") },
-                                        placeholder = { Text("Valor", color = Color.Gray) },
+                                        placeholder = { Text("Valor", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                         singleLine = true,
                                         visualTransformation = CurrencyVisualTransformation(),
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
@@ -349,9 +353,9 @@ fun NewRouteScreen(
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = OrangeNeon,
                                             focusedLabelColor = OrangeNeon,
-                                            unfocusedBorderColor = Color.DarkGray,
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White
+                                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                         ),
                                         modifier = Modifier.weight(1f)
                                     )
@@ -364,7 +368,7 @@ fun NewRouteScreen(
                                 ) {
                                     Text(
                                         text = "Valor Total Pacotinhos:",
-                                        color = Color.LightGray,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -380,7 +384,7 @@ fun NewRouteScreen(
 
                         // 5. SEÇÃO VOLUMOSOS
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -397,7 +401,7 @@ fun NewRouteScreen(
                                         text = "VOLUMOSOS",
                                         fontWeight = FontWeight.Black,
                                         fontSize = 13.sp,
-                                        color = Color.White
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
 
@@ -412,9 +416,9 @@ fun NewRouteScreen(
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = OrangeNeon,
                                         focusedLabelColor = OrangeNeon,
-                                        unfocusedBorderColor = Color.DarkGray,
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                     ),
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -422,7 +426,7 @@ fun NewRouteScreen(
                                 // Radio Buttons: Valor Único vs Valor Individual
                                 Text(
                                     text = "FORMA DE PRECIFICAÇÃO",
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.8.sp
@@ -435,8 +439,8 @@ fun NewRouteScreen(
                                     Button(
                                         onClick = { viewModel.onLargePackagePricingModeChanged(false) },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (!uiState.isLargePackageIndividualValue) OrangeNeon else SurfaceDark,
-                                            contentColor = if (!uiState.isLargePackageIndividualValue) Color.Black else Color.White
+                                            containerColor = if (!uiState.isLargePackageIndividualValue) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = if (!uiState.isLargePackageIndividualValue) Color.Black else MaterialTheme.colorScheme.onSurface
                                         ),
                                         shape = RoundedCornerShape(10.dp),
                                         modifier = Modifier
@@ -458,8 +462,8 @@ fun NewRouteScreen(
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (uiState.isLargePackageIndividualValue) OrangeNeon else SurfaceDark,
-                                            contentColor = if (uiState.isLargePackageIndividualValue) Color.Black else Color.White
+                                            containerColor = if (uiState.isLargePackageIndividualValue) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = if (uiState.isLargePackageIndividualValue) Color.Black else MaterialTheme.colorScheme.onSurface
                                         ),
                                         shape = RoundedCornerShape(10.dp),
                                         modifier = Modifier
@@ -485,9 +489,9 @@ fun NewRouteScreen(
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = OrangeNeon,
                                             focusedLabelColor = OrangeNeon,
-                                            unfocusedBorderColor = Color.DarkGray,
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White
+                                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                         ),
                                         modifier = Modifier.fillMaxWidth()
                                     )
@@ -495,7 +499,7 @@ fun NewRouteScreen(
                                     // Botão / Resumo de Valores Individuais
                                     val count = uiState.largePackagesCountText.toIntOrNull() ?: 0
                                     Card(
-                                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                         shape = RoundedCornerShape(10.dp),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -519,12 +523,12 @@ fun NewRouteScreen(
                                                     text = "Configuração Individual",
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 12.sp,
-                                                    color = Color.White
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
                                                     text = "${uiState.largePackagesIndividualPrices.size} itens configurados",
                                                     fontSize = 11.sp,
-                                                    color = Color.LightGray
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                             Text(
@@ -544,7 +548,7 @@ fun NewRouteScreen(
                                 ) {
                                     Text(
                                         text = "Valor Total Volumosos:",
-                                        color = Color.LightGray,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -575,9 +579,9 @@ fun NewRouteScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -594,9 +598,9 @@ fun NewRouteScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -607,7 +611,7 @@ fun NewRouteScreen(
                             value = uiState.notesText,
                             onValueChange = { viewModel.onNotesChanged(it) },
                             label = { Text("Observação (Opcional)") },
-                            placeholder = { Text("Ex: Atraso no carregamento, pedágio, etc.", color = Color.Gray) },
+                            placeholder = { Text("Ex: Atraso no carregamento, pedágio, etc.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Notes,
@@ -622,16 +626,16 @@ fun NewRouteScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         // 7. CARD CONSOLIDADO DE TOTAIS
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(14.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.4f)),
                             modifier = Modifier.fillMaxWidth()
@@ -647,7 +651,7 @@ fun NewRouteScreen(
                                 ) {
                                     Text(
                                         text = "QUANTIDADE TOTAL DE PACOTES",
-                                        color = Color.LightGray,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.8.sp,
@@ -669,7 +673,7 @@ fun NewRouteScreen(
                                     }
                                 }
 
-                                HorizontalDivider(color = Color.DarkGray)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -678,7 +682,7 @@ fun NewRouteScreen(
                                 ) {
                                     Text(
                                         text = "VALOR TOTAL DA ROTA",
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Black,
                                         letterSpacing = 0.5.sp,
@@ -697,7 +701,7 @@ fun NewRouteScreen(
                             }
                         }
 
-                        HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 4.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                         // 8. Horário de Início e Fim + Minutos de Pausa + Odômetro + Distância Total
                         Row(
@@ -714,7 +718,7 @@ fun NewRouteScreen(
                                 text = "HORÁRIOS & TEMPO DE PAUSA",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 13.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
@@ -738,9 +742,9 @@ fun NewRouteScreen(
                                 },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    unfocusedBorderColor = Color.DarkGray
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
@@ -767,9 +771,9 @@ fun NewRouteScreen(
                                 },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    unfocusedBorderColor = Color.DarkGray
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
@@ -787,7 +791,7 @@ fun NewRouteScreen(
                             label = { Text("Minutos de Pausa") },
                             placeholder = {
                                 if (!isBreakMinutesFocused) {
-                                    Text("0 Minutos", color = Color.Gray)
+                                    Text("0 Minutos", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             },
                             singleLine = true,
@@ -801,9 +805,9 @@ fun NewRouteScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -827,12 +831,12 @@ fun NewRouteScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                disabledTextColor = Color.White,
-                                disabledBorderColor = Color.DarkGray,
-                                disabledLabelColor = Color.LightGray
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -854,9 +858,9 @@ fun NewRouteScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -873,9 +877,9 @@ fun NewRouteScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
@@ -899,9 +903,9 @@ fun NewRouteScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )

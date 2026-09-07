@@ -110,7 +110,7 @@ fun GasStationScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -118,14 +118,14 @@ fun GasStationScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -140,7 +140,7 @@ fun GasStationScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -186,7 +186,7 @@ fun GasStationScreen(
                                 }
                                 if (uiState.editingStationId != null) {
                                     TextButton(onClick = { viewModel.cancelEditing() }) {
-                                        Text("Cancelar", color = Color.Gray, fontSize = 12.sp)
+                                        Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                     }
                                 }
                             }
@@ -202,10 +202,10 @@ fun GasStationScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                unfocusedLabelColor = Color.Gray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -220,10 +220,10 @@ fun GasStationScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                unfocusedLabelColor = Color.Gray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -247,10 +247,10 @@ fun GasStationScreen(
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = OrangeNeon,
                                         focusedLabelColor = OrangeNeon,
-                                        unfocusedBorderColor = Color.DarkGray,
-                                        unfocusedLabelColor = Color.Gray,
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                     ),
                                     modifier = Modifier
                                         .menuAnchor()
@@ -259,11 +259,11 @@ fun GasStationScreen(
                                 ExposedDropdownMenu(
                                     expanded = brandMenuExpanded,
                                     onDismissRequest = { brandMenuExpanded = false },
-                                    modifier = Modifier.background(SurfaceDark)
+                                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                                 ) {
                                     uiState.allBrands.forEach { brandOption ->
                                         DropdownMenuItem(
-                                            text = { Text(brandOption, color = Color.White) },
+                                            text = { Text(brandOption, color = MaterialTheme.colorScheme.onSurface) },
                                             onClick = {
                                                 viewModel.onBrandChanged(brandOption)
                                                 brandMenuExpanded = false
@@ -288,7 +288,7 @@ fun GasStationScreen(
                         // Seção Endereço
                         Text(
                             text = "ENDEREÇO",
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             letterSpacing = 0.8.sp,
@@ -312,10 +312,10 @@ fun GasStationScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                unfocusedLabelColor = Color.Gray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -333,10 +333,10 @@ fun GasStationScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    unfocusedLabelColor = Color.Gray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(2.5f)
                             )
@@ -349,10 +349,10 @@ fun GasStationScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    unfocusedLabelColor = Color.Gray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -367,10 +367,10 @@ fun GasStationScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                unfocusedLabelColor = Color.Gray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -387,10 +387,10 @@ fun GasStationScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    unfocusedLabelColor = Color.Gray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(2.5f)
                             )
@@ -403,10 +403,10 @@ fun GasStationScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     focusedLabelColor = OrangeNeon,
-                                    unfocusedBorderColor = Color.DarkGray,
-                                    unfocusedLabelColor = Color.Gray,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier.weight(1f)
                             )
@@ -415,7 +415,7 @@ fun GasStationScreen(
                         // Combustíveis Disponíveis (Checkboxes)
                         Text(
                             text = "COMBUSTÍVEIS DISPONÍVEIS",
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             letterSpacing = 0.8.sp,
@@ -438,12 +438,12 @@ fun GasStationScreen(
                                         colors = CheckboxDefaults.colors(
                                             checkedColor = OrangeNeon,
                                             checkmarkColor = Color.Black,
-                                            uncheckedColor = Color.Gray
+                                            uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     )
                                     Text(
                                         text = fuelType,
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 13.sp,
                                         modifier = Modifier.padding(start = 6.dp)
                                     )
@@ -480,7 +480,7 @@ fun GasStationScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = "POSTOS CADASTRADOS (${uiState.stations.size})",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         letterSpacing = 1.sp
@@ -490,20 +490,20 @@ fun GasStationScreen(
                         value = uiState.searchQuery,
                         onValueChange = { viewModel.onSearchQueryChanged(it) },
                         placeholder = { Text("Buscar por nome, bandeira ou endereço...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                         trailingIcon = {
                             if (uiState.searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Limpar", tint = Color.Gray)
+                                    Icon(Icons.Default.Close, contentDescription = "Limpar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = OrangeNeon,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            unfocusedBorderColor = Color.DarkGray
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -526,12 +526,12 @@ fun GasStationScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Box(modifier = Modifier.padding(24.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text(
                                 text = if (uiState.isLoading) "Carregando postos..." else "Nenhum posto encontrado.",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 13.sp
                             )
                         }
@@ -566,7 +566,7 @@ fun GasStationScreen(
         var brandNameInput by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { viewModel.closeAddBrandDialog() },
-            title = { Text("Nova Bandeira de Posto", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Nova Bandeira de Posto", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = brandNameInput,
@@ -576,9 +576,9 @@ fun GasStationScreen(
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -596,10 +596,10 @@ fun GasStationScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.closeAddBrandDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }
@@ -622,7 +622,7 @@ fun NearbyGasStationsDialog(
                 .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.90f),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = BackgroundDark),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f))
         ) {
             Column(
@@ -650,14 +650,14 @@ fun NearbyGasStationsDialog(
                         Column {
                             Text(
                                 text = "POSTOS PRÓXIMOS (GPS)",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 15.sp,
                                 letterSpacing = 1.sp
                             )
                             Text(
                                 text = if (stations.isEmpty() && !isLoading) "Nenhum posto encontrado num raio de 5km" else "${stations.size} postos encontrados num raio de 5km",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp
                             )
                         }
@@ -670,7 +670,7 @@ fun NearbyGasStationsDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Fechar",
-                            tint = Color.LightGray
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -681,7 +681,7 @@ fun NearbyGasStationsDialog(
                         .fillMaxWidth()
                         .height(260.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     AndroidView(
                         factory = { ctx ->
@@ -735,7 +735,7 @@ fun NearbyGasStationsDialog(
                             CircularProgressIndicator(color = OrangeNeon, strokeWidth = 2.dp)
                             Text(
                                 text = "Buscando postos próximos no OpenStreetMap...",
-                                color = Color.LightGray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
                         }
@@ -749,7 +749,7 @@ fun NearbyGasStationsDialog(
                     ) {
                         Text(
                             text = "Nenhum posto de gasolina localizado nas proximidades.",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp
                         )
                     }
@@ -766,7 +766,7 @@ fun NearbyGasStationsDialog(
                                     .fillMaxWidth()
                                     .clickable { onSelectStation(station) },
                                 shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -809,7 +809,7 @@ fun NearbyGasStationsDialog(
                                         ) {
                                             Text(
                                                 text = station.name,
-                                                color = Color.White,
+                                                color = MaterialTheme.colorScheme.onSurface,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 14.sp,
                                                 maxLines = 1,
@@ -832,7 +832,7 @@ fun NearbyGasStationsDialog(
 
                                         Text(
                                             text = station.fullAddress,
-                                            color = Color.LightGray,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontSize = 11.sp,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis
@@ -844,10 +844,10 @@ fun NearbyGasStationsDialog(
                                                 station.fuelTypes.take(3).forEach { fuel ->
                                                     Text(
                                                         text = fuel,
-                                                        color = Color.Gray,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         fontSize = 9.sp,
                                                         modifier = Modifier
-                                                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                                                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), RoundedCornerShape(3.dp))
                                                             .padding(horizontal = 4.dp, vertical = 1.dp)
                                                     )
                                                 }
@@ -1029,7 +1029,7 @@ fun GasStationCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -1045,7 +1045,7 @@ fun GasStationCard(
                         text = station.name,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (!station.nickname.isNullOrBlank()) {
                         Text(
@@ -1076,10 +1076,10 @@ fun GasStationCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(Icons.Default.Place, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Place, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                     Text(
                         text = station.address,
-                        color = Color.LightGray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -1093,12 +1093,12 @@ fun GasStationCard(
                 ) {
                     station.fuelTypes.take(4).forEach { fuel ->
                         Surface(
-                            color = Color.DarkGray.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
                                 text = fuel,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 10.sp,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
@@ -1107,7 +1107,7 @@ fun GasStationCard(
                 }
             }
 
-            HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.4f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1115,9 +1115,9 @@ fun GasStationCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Editar", color = Color.LightGray, fontSize = 12.sp)
+                    Text("Editar", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 TextButton(onClick = { showDeleteConfirm = true }) {
@@ -1132,8 +1132,8 @@ fun GasStationCard(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Excluir Posto", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("Deseja realmente excluir o posto \"${station.name}\"?", color = Color.LightGray) },
+            title = { Text("Excluir Posto", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+            text = { Text("Deseja realmente excluir o posto \"${station.name}\"?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -1147,10 +1147,10 @@ fun GasStationCard(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }

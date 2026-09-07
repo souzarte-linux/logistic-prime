@@ -71,7 +71,7 @@ fun PartProductsScreen(
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -79,7 +79,7 @@ fun PartProductsScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -93,7 +93,7 @@ fun PartProductsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -107,7 +107,7 @@ fun PartProductsScreen(
                 Icon(Icons.Default.Add, contentDescription = "Novo Produto")
             }
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         val filteredProducts = remember(uiState.partProducts, uiState.selectedFilterTypeId, uiState.searchQuery) {
             uiState.partProducts.filter { prod ->
@@ -132,24 +132,24 @@ fun PartProductsScreen(
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    placeholder = { Text("Buscar marca ou modelo...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Buscar marca ou modelo...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotBlank()) {
                             IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = Color.Gray)
+                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        focusedContainerColor = SurfaceDark,
-                        unfocusedContainerColor = SurfaceDark,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -166,7 +166,7 @@ fun PartProductsScreen(
                     ) {
                         Text(
                             text = "TIPO DE PEÇA",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
@@ -194,13 +194,13 @@ fun PartProductsScreen(
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = OrangeNeon,
                                     selectedLabelColor = Color.Black,
-                                    containerColor = SurfaceDark,
-                                    labelColor = Color.LightGray
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true,
                                     selected = uiState.selectedFilterTypeId == null,
-                                    borderColor = if (uiState.selectedFilterTypeId == null) OrangeNeon else Color.DarkGray
+                                    borderColor = if (uiState.selectedFilterTypeId == null) OrangeNeon else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                 )
                             )
                         }
@@ -237,13 +237,13 @@ fun PartProductsScreen(
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = OrangeNeon,
                                     selectedLabelColor = Color.Black,
-                                    containerColor = SurfaceDark,
-                                    labelColor = Color.LightGray
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true,
                                     selected = isSelected,
-                                    borderColor = if (isSelected) OrangeNeon else Color.DarkGray
+                                    borderColor = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                 )
                             )
                         }
@@ -260,7 +260,7 @@ fun PartProductsScreen(
                 ) {
                     Text(
                         text = "PRODUTOS CADASTRADOS",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -294,7 +294,7 @@ fun PartProductsScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
                             modifier = Modifier
@@ -320,14 +320,14 @@ fun PartProductsScreen(
                                 text = if (uiState.partProducts.isEmpty()) "Nenhum produto cadastrado" else "Nenhum produto com este filtro",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = if (uiState.partProducts.isEmpty())
                                     "Cadastre as marcas e modelos específicos de peças (ex: Mobil Super 20W50, Cobreq Orgânica) com sua vida útil padrão."
                                 else "Selecione outro tipo ou adicione um novo produto.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
                             Button(
@@ -354,8 +354,8 @@ fun PartProductsScreen(
                         .clip(RoundedCornerShape(14.dp))
                         .clickable { viewModel.openEditProductDialog(product) },
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ) {
                     Row(
                         modifier = Modifier
@@ -400,13 +400,13 @@ fun PartProductsScreen(
                                 text = if (!product.model.isNullOrBlank()) "${product.brand} - ${product.model}" else product.brand,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
 
                             Text(
                                 text = "Vida útil padrão: ${product.defaultLifeKm} KM",
                                 fontSize = 12.sp,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
@@ -414,7 +414,7 @@ fun PartProductsScreen(
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Editar",
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -431,9 +431,9 @@ fun PartProductsScreen(
 
         ModalBottomSheet(
             onDismissRequest = { viewModel.closeProductDialog() },
-            containerColor = SurfaceDark,
-            contentColor = Color.White,
-            dragHandle = { BottomSheetDefaults.DragHandle(color = Color.Gray) }
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.onSurfaceVariant) }
         ) {
             Column(
                 modifier = Modifier
@@ -459,7 +459,7 @@ fun PartProductsScreen(
                         Text(
                             text = "Marca, modelo e durabilidade estimada",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     if (isEditing) {
@@ -469,12 +469,12 @@ fun PartProductsScreen(
                     }
                 }
 
-                HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Tipo de Peça (Dropdown + Botão "+")
                 Text(
                     text = "TIPO DE PEÇA *",
-                    color = Color.LightGray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp,
                     letterSpacing = 0.8.sp
@@ -507,10 +507,10 @@ fun PartProductsScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
                                 focusedLabelColor = OrangeNeon,
-                                unfocusedBorderColor = Color.DarkGray,
-                                unfocusedLabelColor = Color.Gray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
@@ -520,11 +520,11 @@ fun PartProductsScreen(
                         ExposedDropdownMenu(
                             expanded = partTypeDropdownExpanded,
                             onDismissRequest = { partTypeDropdownExpanded = false },
-                            modifier = Modifier.background(SurfaceDark)
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                         ) {
                             uiState.partTypes.forEach { type ->
                                 DropdownMenuItem(
-                                    text = { Text(type.name, color = Color.White) },
+                                    text = { Text(type.name, color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = {
                                         viewModel.onFormTypeSelected(type.id)
                                         partTypeDropdownExpanded = false
@@ -561,10 +561,10 @@ fun PartProductsScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -583,10 +583,10 @@ fun PartProductsScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -606,10 +606,10 @@ fun PartProductsScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -649,8 +649,8 @@ fun PartProductsScreen(
         if (showDeleteConfirmDialog && uiState.editingProductId != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = false },
-                title = { Text("Excluir Produto?", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("Tem certeza que deseja excluir '${uiState.brand}'? Os lançamentos de manutenção vinculados manterão seus registros.", color = Color.LightGray) },
+                title = { Text("Excluir Produto?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+                text = { Text("Tem certeza que deseja excluir '${uiState.brand}'? Os lançamentos de manutenção vinculados manterão seus registros.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -665,10 +665,10 @@ fun PartProductsScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                        Text("Cancelar", color = Color.White)
+                        Text("Cancelar", color = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                containerColor = SurfaceDark
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
     }
@@ -678,7 +678,7 @@ fun PartProductsScreen(
         var typeNameInput by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { viewModel.closeAddTypeDialog() },
-            title = { Text("Novo Tipo de Peça", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Novo Tipo de Peça", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = typeNameInput,
@@ -691,9 +691,11 @@ fun PartProductsScreen(
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -712,10 +714,10 @@ fun PartProductsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.closeAddTypeDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -724,9 +726,9 @@ fun PartProductsScreen(
         val currentType = selectedTypeForOptions!!
         AlertDialog(
             onDismissRequest = { showTypeOptionsMenu = false },
-            title = { Text("Tipo: ${currentType.name}", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Tipo: ${currentType.name}", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
-                Text("Deseja renomear ou excluir este tipo de peça?", color = Color.LightGray)
+                Text("Deseja renomear ou excluir este tipo de peça?", color = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             confirmButton = {
                 Button(
@@ -749,7 +751,7 @@ fun PartProductsScreen(
                     Text("Excluir Tipo", color = RedAlert)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -760,7 +762,7 @@ fun PartProductsScreen(
 
         AlertDialog(
             onDismissRequest = { viewModel.closeRenameTypeDialog() },
-            title = { Text("Renomear Tipo de Peça", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Renomear Tipo de Peça", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = renameInput,
@@ -769,9 +771,11 @@ fun PartProductsScreen(
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.DarkGray
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -790,10 +794,10 @@ fun PartProductsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.closeRenameTypeDialog() }) {
-                    Text("Cancelar", color = Color.Gray)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -802,8 +806,8 @@ fun PartProductsScreen(
         val targetType = uiState.typeToDelete!!
         AlertDialog(
             onDismissRequest = { viewModel.closeDeleteTypeDialog() },
-            title = { Text("Excluir Tipo de Peça?", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("Tem certeza que deseja excluir o tipo '${targetType.name}'?", color = Color.LightGray) },
+            title = { Text("Excluir Tipo de Peça?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+            text = { Text("Tem certeza que deseja excluir o tipo '${targetType.name}'?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -816,10 +820,10 @@ fun PartProductsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.closeDeleteTypeDialog() }) {
-                    Text("Cancelar", color = Color.White)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurface)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }

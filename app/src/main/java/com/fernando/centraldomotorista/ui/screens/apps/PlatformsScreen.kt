@@ -71,7 +71,7 @@ fun PlatformsScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -85,7 +85,7 @@ fun PlatformsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -99,7 +99,7 @@ fun PlatformsScreen(
                 Icon(Icons.Default.Add, contentDescription = "Adicionar Plataforma")
             }
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         val filteredPlatforms = remember(uiState.platforms, uiState.searchQuery, uiState.selectedSegmentFilter) {
             uiState.platforms.filter { platform ->
@@ -128,24 +128,24 @@ fun PlatformsScreen(
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    placeholder = { Text("Buscar plataforma, ciclo ou dia...", color = Color.Gray, fontSize = 14.sp) },
+                    placeholder = { Text("Buscar plataforma, ciclo ou dia...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotBlank()) {
                             IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = Color.Gray)
+                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = Color.DarkGray,
-                        focusedContainerColor = SurfaceDark,
-                        unfocusedContainerColor = SurfaceDark,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -165,8 +165,8 @@ fun PlatformsScreen(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = OrangeNeon,
                             selectedLabelColor = Color.Black,
-                            containerColor = SurfaceDark,
-                            labelColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            labelColor = MaterialTheme.colorScheme.onSurface
                         )
                     )
                     FilterChip(
@@ -176,8 +176,8 @@ fun PlatformsScreen(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = BlueInfo,
                             selectedLabelColor = Color.White,
-                            containerColor = SurfaceDark,
-                            labelColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            labelColor = MaterialTheme.colorScheme.onSurface
                         )
                     )
                     FilterChip(
@@ -187,8 +187,8 @@ fun PlatformsScreen(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = GreenNeon,
                             selectedLabelColor = Color.White,
-                            containerColor = SurfaceDark,
-                            labelColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            labelColor = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 }
@@ -214,7 +214,7 @@ fun PlatformsScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
                             modifier = Modifier
@@ -240,14 +240,14 @@ fun PlatformsScreen(
                                 text = if (uiState.platforms.isEmpty()) "Nenhuma plataforma cadastrada" else "Nenhum resultado para a busca",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = if (uiState.platforms.isEmpty())
                                     "Adicione os apps onde você trabalha para organizar repasses e faturamento."
                                 else "Tente buscar por outro termo ou limpe os filtros.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
 
@@ -257,7 +257,7 @@ fun PlatformsScreen(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
-                                    color = Color.LightGray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
                                 LazyRow(
@@ -267,9 +267,9 @@ fun PlatformsScreen(
                                     items(POPULAR_PLATFORMS) { (name, segment, cycle) ->
                                         SuggestionChip(
                                             onClick = { viewModel.openAddDialog(name, segment, cycle) },
-                                            label = { Text(name, fontSize = 12.sp, color = Color.White) },
+                                            label = { Text(name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) },
                                             colors = SuggestionChipDefaults.suggestionChipColors(
-                                                containerColor = SurfaceDarkAlt
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                                             ),
                                             border = SuggestionChipDefaults.suggestionChipBorder(
                                                 enabled = true,
@@ -336,11 +336,11 @@ fun PlatformCardItem(
             .clip(RoundedCornerShape(16.dp))
             .clickable { onEditClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = if (platform.active)
-            androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.06f))
+            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         else
-            androidx.compose.foundation.BorderStroke(1.dp, Color.DarkGray.copy(alpha = 0.4f))
+            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Row(
             modifier = Modifier
@@ -354,7 +354,7 @@ fun PlatformCardItem(
                 modifier = Modifier
                     .size(44.dp)
                     .background(
-                        color = if (platform.active) OrangeNeon.copy(alpha = 0.15f) else Color.DarkGray.copy(alpha = 0.3f),
+                        color = if (platform.active) OrangeNeon.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(12.dp)
                     )
                     .border(
@@ -367,7 +367,7 @@ fun PlatformCardItem(
                 Icon(
                     imageVector = if (isLogistica) Icons.Default.LocalShipping else Icons.Default.TwoWheeler,
                     contentDescription = null,
-                    tint = if (platform.active) OrangeNeon else Color.Gray,
+                    tint = if (platform.active) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -385,7 +385,7 @@ fun PlatformCardItem(
                         text = platform.name,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = if (platform.active) Color.White else Color.Gray,
+                        color = if (platform.active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -411,12 +411,12 @@ fun PlatformCardItem(
                     }
 
                     Surface(
-                        color = Color.White.copy(alpha = 0.08f),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
                             text = "Ciclo: $cycleLabel",
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -433,13 +433,13 @@ fun PlatformCardItem(
                         Icon(
                             imageVector = Icons.Default.Event,
                             contentDescription = null,
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(12.dp)
                         )
                         Text(
                             text = "Repasse: ${platform.paymentDay}",
                             fontSize = 11.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -456,14 +456,14 @@ fun PlatformCardItem(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.Black,
                         checkedTrackColor = OrangeNeon,
-                        uncheckedThumbColor = Color.Gray,
-                        uncheckedTrackColor = SurfaceDarkAlt
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
                 Text(
                     text = if (platform.active) "Ativa" else "Inativa",
                     fontSize = 10.sp,
-                    color = if (platform.active) OrangeNeon else Color.Gray,
+                    color = if (platform.active) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -496,8 +496,8 @@ fun PlatformFormModal(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        contentColor = Color.White
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Column(
             modifier = Modifier
@@ -533,10 +533,10 @@ fun PlatformFormModal(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
                     focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = Color.Gray,
-                    unfocusedLabelColor = Color.Gray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -555,10 +555,10 @@ fun PlatformFormModal(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.Gray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -567,11 +567,11 @@ fun PlatformFormModal(
                 ExposedDropdownMenu(
                     expanded = segmentExpanded,
                     onDismissRequest = { segmentExpanded = false },
-                    modifier = Modifier.background(SurfaceDark)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
                     PLATFORM_SEGMENTS.forEach { (key, label) ->
                         DropdownMenuItem(
-                            text = { Text(label, color = Color.White) },
+                            text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 onSegmentChange(key)
                                 segmentExpanded = false
@@ -595,10 +595,10 @@ fun PlatformFormModal(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.Gray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -607,11 +607,11 @@ fun PlatformFormModal(
                 ExposedDropdownMenu(
                     expanded = cycleExpanded,
                     onDismissRequest = { cycleExpanded = false },
-                    modifier = Modifier.background(SurfaceDark)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
                     PAYMENT_CYCLES.forEach { (key, label) ->
                         DropdownMenuItem(
-                            text = { Text(label, color = Color.White) },
+                            text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 onCycleChange(key)
                                 cycleExpanded = false
@@ -634,10 +634,10 @@ fun PlatformFormModal(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.Gray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -646,11 +646,11 @@ fun PlatformFormModal(
                 ExposedDropdownMenu(
                     expanded = paymentDayExpanded,
                     onDismissRequest = { paymentDayExpanded = false },
-                    modifier = Modifier.background(SurfaceDark)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
                     COMMON_PAYMENT_DAYS.forEach { dayOption ->
                         DropdownMenuItem(
-                            text = { Text(dayOption, color = Color.White) },
+                            text = { Text(dayOption, color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 onPaymentDayChange(dayOption)
                                 paymentDayExpanded = false
@@ -669,15 +669,17 @@ fun PlatformFormModal(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Status da Plataforma", fontWeight = FontWeight.SemiBold, color = Color.White)
-                    Text("Habilitar para novos lançamentos de rota", fontSize = 12.sp, color = Color.Gray)
+                    Text("Status da Plataforma", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Habilitar para novos lançamentos de rota", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(
                     checked = uiState.active,
                     onCheckedChange = onActiveChange,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.Black,
-                        checkedTrackColor = OrangeNeon
+                        checkedTrackColor = OrangeNeon,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
             }
@@ -718,8 +720,8 @@ fun PlatformFormModal(
     if (showDeleteConfirmDialog && uiState.editingPlatformId != null) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Excluir Plataforma?", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("Tem certeza que deseja excluir '${uiState.name}'? Rotas já registradas não serão afetadas.", color = Color.LightGray) },
+            title = { Text("Excluir Plataforma?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+            text = { Text("Tem certeza que deseja excluir '${uiState.name}'? Rotas já registradas não serão afetadas.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -733,10 +735,10 @@ fun PlatformFormModal(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Cancelar", color = Color.White)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }

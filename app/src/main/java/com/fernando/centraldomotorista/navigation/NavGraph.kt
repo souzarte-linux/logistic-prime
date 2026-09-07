@@ -29,9 +29,7 @@ import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.ui.screens.home.HomeScreen
 import com.fernando.centraldomotorista.ui.screens.home.HomeViewModel
 import com.fernando.centraldomotorista.ui.screens.login.LoginScreen
-import com.fernando.centraldomotorista.ui.theme.BackgroundDark
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
-import com.fernando.centraldomotorista.ui.theme.SurfaceDark
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.auth.BiometricAuthHelper
@@ -163,8 +161,8 @@ fun CentralDoMotoristaApp(
                                 selectedIconColor = OrangeNeon,
                                 selectedTextColor = OrangeNeon,
                                 indicatorColor = OrangeNeon.copy(alpha = 0.15f),
-                                unselectedIconColor = Color.Gray,
-                                unselectedTextColor = Color.Gray
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
                     }
@@ -412,16 +410,16 @@ fun PlaceholderActionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title, fontWeight = FontWeight.Bold, color = Color.White) },
+                title = { Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(
             modifier = Modifier
@@ -431,7 +429,7 @@ fun PlaceholderActionScreen(
             contentAlignment = Alignment.Center
         ) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -450,12 +448,12 @@ fun PlaceholderActionScreen(
                         text = "Em breve!",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.LightGray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Button(
                         onClick = onBack,
@@ -476,13 +474,13 @@ fun GenericScreenPlaceholder(title: String) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundDark),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }

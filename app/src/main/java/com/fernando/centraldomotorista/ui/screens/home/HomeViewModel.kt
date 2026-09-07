@@ -3,6 +3,7 @@ package com.fernando.centraldomotorista.ui.screens.home
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fernando.centraldomotorista.data.model.AppNotification
 import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Profile
 import com.fernando.centraldomotorista.data.model.Route
@@ -30,6 +31,7 @@ data class HomeUiState(
     val contasAReceber: BigDecimal = BigDecimal.ZERO,
     val rotasRecentes: List<Route> = emptyList(),
     val notificacoesNaoLidas: Int = 0,
+    val notificacoes: List<AppNotification> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,
     val actionMessage: String? = null
@@ -94,6 +96,7 @@ class HomeViewModel(
                         contasAReceber = data.contasAReceber,
                         rotasRecentes = data.rotasRecentes,
                         notificacoesNaoLidas = data.notificacoesNaoLidas,
+                        notificacoes = data.notificacoes,
                         loading = false,
                         error = null
                     )
@@ -106,6 +109,22 @@ class HomeViewModel(
                         error = "Erro ao carregar dados: ${e.localizedMessage ?: e.message}"
                     )
                 }
+            }
+        }
+    }
+
+    fun markNotificationAsRead(notificationId: String) {
+        viewModelScope.launch {
+            val currentList = _uiState.value.notificacoes
+            val updatedList = currentList.filter { it.id != notificationId }
+            _uiState.value = _uiState.value.copy(
+                notificacoes = updatedList,
+                notificacoesNaoLidas = updatedList.size,
+                actionMessage = "Notificação marcada como lida!"
+            )
+            val success = homeRepository.markNotificationAsRead(notificationId)
+            if (!success) {
+                refresh()
             }
         }
     }

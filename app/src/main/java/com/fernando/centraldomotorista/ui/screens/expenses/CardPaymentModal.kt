@@ -87,8 +87,8 @@ fun CardPaymentModal(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        contentColor = Color.White
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         LazyColumn(
             modifier = Modifier
@@ -111,7 +111,7 @@ fun CardPaymentModal(
                         letterSpacing = 1.sp
                     )
                     IconButton(onClick = onDismiss) {
-                        Text("Fechar", color = Color.Gray, fontSize = 12.sp)
+                        Text("Fechar", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                 }
             }
@@ -131,7 +131,7 @@ fun CardPaymentModal(
                                     onDismiss()
                                     onNavigateToManageCards()
                                 },
-                            colors = CardDefaults.cardColors(containerColor = SurfaceDarkAlt),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Column(
@@ -141,7 +141,7 @@ fun CardPaymentModal(
                             ) {
                                 Text(
                                     text = "Nenhum cartão cadastrado",
-                                    color = Color.LightGray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -168,9 +168,9 @@ fun CardPaymentModal(
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cardExpanded) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    unfocusedBorderColor = Color.DarkGray
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
                                 ),
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier
@@ -180,18 +180,18 @@ fun CardPaymentModal(
                             ExposedDropdownMenu(
                                 expanded = cardExpanded,
                                 onDismissRequest = { cardExpanded = false },
-                                modifier = Modifier.background(SurfaceDark)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 activeCards.forEach { card ->
                                     val brandIssuerText = listOfNotNull(card.brandName, card.issuerName).joinToString(" • ")
                                     DropdownMenuItem(
                                         text = {
                                             Column {
-                                                Text("${card.nickname} •••• ${card.lastFour}", color = Color.White, fontWeight = FontWeight.Bold)
+                                                Text("${card.nickname} •••• ${card.lastFour}", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                                                 if (brandIssuerText.isNotBlank()) {
                                                     Text(brandIssuerText, color = OrangeNeon, fontSize = 11.sp)
                                                 }
-                                                Text("Fechamento: Dia ${card.closingDay} • Vencimento: Dia ${card.dueDay}", color = Color.Gray, fontSize = 11.sp)
+                                                Text("Fechamento: Dia ${card.closingDay} • Vencimento: Dia ${card.dueDay}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                                             }
                                         },
                                         onClick = {
@@ -232,7 +232,7 @@ fun CardPaymentModal(
                 if (brandIssuerInfo.isNotBlank()) {
                     item {
                         Surface(
-                            color = SurfaceDarkAlt.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -249,7 +249,7 @@ fun CardPaymentModal(
                                 )
                                 Text(
                                     text = "Bandeira / Emissor: $brandIssuerInfo",
-                                    color = Color.LightGray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -268,8 +268,8 @@ fun CardPaymentModal(
                     Button(
                         onClick = { isInstallment = false },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (!isInstallment) OrangeNeon else SurfaceDarkAlt,
-                            contentColor = if (!isInstallment) Color.Black else Color.White
+                            containerColor = if (!isInstallment) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (!isInstallment) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1f)
@@ -280,8 +280,8 @@ fun CardPaymentModal(
                     Button(
                         onClick = { isInstallment = true },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isInstallment) OrangeNeon else SurfaceDarkAlt,
-                            contentColor = if (isInstallment) Color.Black else Color.White
+                            containerColor = if (isInstallment) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isInstallment) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1f)
@@ -307,9 +307,9 @@ fun CardPaymentModal(
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = OrangeNeon,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                unfocusedBorderColor = Color.DarkGray
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
                             ),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
@@ -325,7 +325,7 @@ fun CardPaymentModal(
                                 val closing = selectedCard?.closingDay
                                 Text(
                                     text = if (closing != null) "Fechamento: Dia $closing" else "Automático",
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 10.sp
                                 )
                             },
@@ -333,7 +333,7 @@ fun CardPaymentModal(
                                 focusedBorderColor = OrangeNeon,
                                 focusedTextColor = GreenNeon,
                                 unfocusedTextColor = GreenNeon,
-                                unfocusedBorderColor = Color.DarkGray
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
                             ),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1.2f)
@@ -354,8 +354,8 @@ fun CardPaymentModal(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedTextColor = OrangeNeon,
-                        unfocusedTextColor = Color.LightGray,
-                        unfocusedBorderColor = Color.DarkGray
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     ),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
