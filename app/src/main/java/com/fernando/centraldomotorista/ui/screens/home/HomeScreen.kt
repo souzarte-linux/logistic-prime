@@ -95,8 +95,7 @@ fun HomeScreen(
 
     var isCadastroExpanded by remember { mutableStateOf(true) }
     var isSpeedDialOpen by remember { mutableStateOf(false) }
-    var selectedQuickExpenseCategory by remember { mutableStateOf<String?>(null) }
-    var showExpenseBottomSheet by remember { mutableStateOf(false) }
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.actionMessage) {
         uiState.actionMessage?.let { msg ->
@@ -369,7 +368,7 @@ fun HomeScreen(
                         onClick = {
                             coroutineScope.launch {
                                 drawerState.close()
-                                onSignOut()
+                                showLogoutConfirmation = true
                             }
                         },
                         modifier = Modifier.padding(horizontal = 12.dp)
@@ -388,7 +387,7 @@ fun HomeScreen(
                             fontWeight = FontWeight.Black,
                             fontSize = 17.sp,
                             letterSpacing = 1.sp,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     },
                     navigationIcon = {
@@ -398,7 +397,7 @@ fun HomeScreen(
                             Icon(
                                 imageVector = Icons.Default.Menu,
                                 contentDescription = "Menu",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     },
@@ -415,7 +414,7 @@ fun HomeScreen(
                                 Icon(
                                     imageVector = Icons.Default.Notifications,
                                     contentDescription = "Notificações",
-                                    tint = Color.White
+                                    tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                             if (uiState.notificacoesNaoLidas > 0) {
@@ -437,8 +436,8 @@ fun HomeScreen(
                             }
                         }
 
-                        // Botão Sair
-                        IconButton(onClick = onSignOut) {
+                        // Botão Sair com confirmação
+                        IconButton(onClick = { showLogoutConfirmation = true }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                                 contentDescription = "Sair",
@@ -447,7 +446,7 @@ fun HomeScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = SurfaceDark
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
                 )
             },
@@ -549,7 +548,7 @@ fun HomeScreen(
                     }
                 }
             },
-            containerColor = BackgroundDark
+            containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
             Box(
                 modifier = Modifier
@@ -569,7 +568,7 @@ fun HomeScreen(
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth(),
                         color = OrangeNeon,
-                        trackColor = SurfaceDark
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
             }
@@ -606,7 +605,7 @@ fun HomeScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
@@ -622,7 +621,7 @@ fun HomeScreen(
                         ) {
                             Text(
                                 text = "LUCRO LÍQUIDO HOJE",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
@@ -695,7 +694,7 @@ fun HomeScreen(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.8.sp,
-                                    color = Color.Gray
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     text = "$percentText% atingido",
@@ -710,7 +709,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(8.dp)
-                                    .background(Color(0xFF26262B), RoundedCornerShape(100.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(100.dp))
                                     .clip(RoundedCornerShape(100.dp))
                             ) {
                                 val gradientColors = listOf(
@@ -734,7 +733,7 @@ fun HomeScreen(
                             }
                         }
 
-                        HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.5f))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
 
                         // Rodapé Metas
                         Row(
@@ -744,13 +743,13 @@ fun HomeScreen(
                             Column {
                                 Text(
                                     text = "META DIÁRIA",
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
                                     text = uiState.metaDiaria.formatCurrency(),
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -758,7 +757,7 @@ fun HomeScreen(
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     text = "FALTAM",
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -898,7 +897,7 @@ fun HomeScreen(
                                 .weight(1f)
                                 .clickable { onNavigateToCreateDailyTotal() },
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -916,12 +915,12 @@ fun HomeScreen(
                                     text = "TOTAL DO DIA",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
-                                    color = Color.White
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "Lançar valor bruto",
                                     fontSize = 11.sp,
-                                    color = Color.Gray
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -932,7 +931,7 @@ fun HomeScreen(
                                 .weight(1f)
                                 .clickable { onNavigateToReports() },
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -950,7 +949,7 @@ fun HomeScreen(
                                     text = "A RECEBER",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
-                                    color = Color.White
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = uiState.contasAReceber.formatCurrency(),
@@ -969,7 +968,7 @@ fun HomeScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "LANÇAMENTO RÁPIDO DE DESPESA",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -1016,7 +1015,7 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = "ROTAS RECENTES",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -1038,7 +1037,7 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .clickable { onNavigateToCreateRoute() },
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
                             modifier = Modifier
@@ -1050,12 +1049,12 @@ fun HomeScreen(
                             Icon(
                                 imageVector = Icons.Default.Route,
                                 contentDescription = null,
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(36.dp)
                             )
                             Text(
                                 text = "Nenhuma rota registrada ainda.",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -1091,97 +1090,47 @@ fun HomeScreen(
         }
     }
 }
+}
 
-    // Modal Bottom Sheet de Despesa Rápida (Alimentação / Outros)
-    if (showExpenseBottomSheet && selectedQuickExpenseCategory != null) {
-        val category = selectedQuickExpenseCategory!!
-        val categoryLabel = when (category) {
-            "alimentacao" -> "Alimentação"
-            else -> "Despesa"
-        }
-
-        var amountText by remember { mutableStateOf("") }
-        var isSubmitting by remember { mutableStateOf(false) }
-
-        ModalBottomSheet(
-            onDismissRequest = {
-                if (!isSubmitting) showExpenseBottomSheet = false
-            },
-            containerColor = SurfaceDark,
-            contentColor = Color.White
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+    // Diálogo de Confirmação para Logout Seguro
+    if (showLogoutConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirmation = false },
+            title = {
                 Text(
-                    text = "Lançar Despesa: $categoryLabel",
-                    fontSize = 18.sp,
+                    text = "Sair da Conta",
                     fontWeight = FontWeight.Bold,
-                    color = OrangeNeon
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { amountText = it.replace(',', '.') },
-                    label = { Text("Valor (R$)") },
-                    placeholder = { Text("0.00") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = Color.Gray,
-                        unfocusedLabelColor = Color.Gray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+            },
+            text = {
+                Text(
+                    text = "Tem certeza de que deseja sair da sua conta? Será necessário fazer login novamente.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
+            },
+            confirmButton = {
                 Button(
                     onClick = {
-                        val amount = amountText.toBigDecimalOrNull()
-                        if (amount != null && amount > BigDecimal.ZERO) {
-                            isSubmitting = true
-                            viewModel.createQuickExpense(category, amount) {
-                                isSubmitting = false
-                                showExpenseBottomSheet = false
-                            }
-                        } else {
-                            Toast.makeText(context, "Digite um valor válido", Toast.LENGTH_SHORT).show()
-                        }
+                        showLogoutConfirmation = false
+                        onSignOut()
                     },
-                    enabled = !isSubmitting && amountText.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangeNeon,
-                        contentColor = Color.Black
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
+                        containerColor = RedAlert,
+                        contentColor = Color.White
+                    )
                 ) {
-                    if (isSubmitting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            color = Color.Black,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = "Confirmar Lançamento",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
+                    Text("Sair", fontWeight = FontWeight.Bold)
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-        }
-    }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirmation = false }) {
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurface)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 
@@ -1196,8 +1145,9 @@ fun QuickExpenseButton(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() },
-        color = SurfaceDark,
-        shape = RoundedCornerShape(12.dp)
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
     ) {
         Column(
             modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
@@ -1214,7 +1164,7 @@ fun QuickExpenseButton(
                 text = title,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1227,7 +1177,7 @@ fun RouteRecentItem(route: Route) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
@@ -1243,7 +1193,7 @@ fun RouteRecentItem(route: Route) {
                     text = "$origin ➔ $destination",
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1251,23 +1201,26 @@ fun RouteRecentItem(route: Route) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val formattedDateTime = route.occurredAt
+                        .atZoneSameInstant(java.time.ZoneId.systemDefault())
+                        .format(DateTimeFormatter.ofPattern("HH:mm - dd/MM"))
                     Text(
-                        text = route.occurredAt.format(DateTimeFormatter.ofPattern("HH:mm - dd/MM")),
+                        text = formattedDateTime,
                         fontSize = 11.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (route.distanceKm > BigDecimal.ZERO) {
                         Text(
                             text = "• ${route.distanceKm} km",
                             fontSize = 11.sp,
-                            color = Color.LightGray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     if (route.packageCount > 1) {
                         Text(
                             text = "• ${route.packageCount} pacotes",
                             fontSize = 11.sp,
-                            color = Color.LightGray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -1373,13 +1326,13 @@ private fun SpeedDialOptionItem(
     ) {
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = SurfaceDark,
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 6.dp,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
         ) {
             Text(
                 text = label,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)

@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import java.time.ZoneId
 
 data class HomeData(
     val profile: Profile,
@@ -43,7 +44,8 @@ class HomeRepository(
     ): HomeData = withContext(Dispatchers.IO) {
         coroutineScope {
             val userFilter = "eq.$userId"
-            val today = LocalDate.now()
+            val zone = ZoneId.systemDefault()
+            val today = LocalDate.now(zone)
 
             val profileDeferred = async {
                 profileRepository.createOrFetchProfile(userId, email, fullName, avatarUrl)
@@ -105,10 +107,10 @@ class HomeRepository(
             val pendingCycles = billingCyclesDeferred.await()
             val unreadNotifications = notificationsDeferred.await()
 
-            // 1. Filtros de Hoje
-            val todayRoutes = allRoutes.filter { it.occurredAt.toLocalDate() == today }
-            val todayDailyTotals = allDailyTotals.filter { it.occurredAt.toLocalDate() == today }
-            val todayExpenses = allExpenses.filter { it.occurredAt.toLocalDate() == today }
+            // 1. Filtros de Hoje (convertendo datas para o fuso local)
+            val todayRoutes = allRoutes.filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today }
+            val todayDailyTotals = allDailyTotals.filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today }
+            val todayExpenses = allExpenses.filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today }
 
             val totalGanhosHoje = todayRoutes.map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add)
                 .add(todayDailyTotals.map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add))
@@ -170,31 +172,5 @@ class HomeRepository(
                 notificacoesNaoLidas = unreadNotifications.size
             )
         }
-    }
-
-    suspend fun createQuickExpense(
-        userId: String,
-        category: String,
-        amount: BigDecimal
-    ): Expense = withContext(Dispatchers.IO) {
-        val title = when (category.lowercase()) {
-            "combustivel" -> "Abastecimento rápido"
-            "manutencao" -> "Manutenção rápida"
-            "alimentacao" -> "Alimentação do dia"
-            else -> "Despesa rápida"
-        }
-
-        val dto = ExpenseDto(
-            userId = userId,
-            category = category.lowercase(),
-            title = title,
-            amount = amount,
-            paymentMethod = "pix",
-            isFullTank = true,
-            occurredAt = OffsetDateTime.now().toString()
-        )
-
-        val createdList = expenseApi.createExpense(dto)
-        createdList.firstOrNull()?.toDomain() ?: dto.toDomain()
     }
 }
