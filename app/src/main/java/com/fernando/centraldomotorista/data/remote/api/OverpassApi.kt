@@ -30,6 +30,15 @@ interface OverpassApi {
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    val original = chain.request()
+                    val request = original.newBuilder()
+                        .header("User-Agent", "CentralDoMotorista/1.0 (Android; Mobile)")
+                        .header("Accept", "application/json")
+                        .method(original.method, original.body)
+                        .build()
+                    chain.proceed(request)
+                }
                 .addInterceptor(logging)
                 .build()
 

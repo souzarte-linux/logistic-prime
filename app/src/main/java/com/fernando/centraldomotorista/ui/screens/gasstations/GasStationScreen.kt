@@ -880,9 +880,9 @@ private fun generateLeafletMapHtml(
     stations: List<NearbyGasStation>
 ): String {
     val stationsJsonArray = stations.joinToString(",") { station ->
-        val safeName = station.name.replace("'", "\\'").replace("\"", "\\\"")
-        val safeBrand = station.brand.replace("'", "\\'").replace("\"", "\\\"")
-        val safeAddress = station.fullAddress.replace("'", "\\'").replace("\"", "\\\"")
+        val safeName = station.name.replace("'", "\\'").replace("\"", "\\\"").replace("\n", " ").replace("\r", "")
+        val safeBrand = station.brand.replace("'", "\\'").replace("\"", "\\\"").replace("\n", " ").replace("\r", "")
+        val safeAddress = station.fullAddress.replace("'", "\\'").replace("\"", "\\\"").replace("\n", " ").replace("\r", "")
         val distText = if (station.distanceMeters >= 1000) "${String.format(java.util.Locale.US, "%.1f", station.distanceMeters / 1000f)}km" else "${station.distanceMeters.toInt()}m"
         """
         {

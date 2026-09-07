@@ -25,10 +25,12 @@ object LocationHelper {
             val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
             val cancellationTokenSource = CancellationTokenSource()
 
-            val highAccuracyLocation = fusedLocationClient.getCurrentLocation(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                cancellationTokenSource.token
-            ).await()
+            val highAccuracyLocation = kotlinx.coroutines.withTimeoutOrNull(7000L) {
+                fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    cancellationTokenSource.token
+                ).await()
+            }
 
             if (highAccuracyLocation != null) {
                 return@withContext highAccuracyLocation
@@ -84,9 +86,20 @@ object LocationHelper {
     }
 
     fun calculateDistanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
-        val results = FloatArray(1)
-        Location.distanceBetween(lat1, lon1, lat2, lon2, results)
-        return results[0]
+        return try {
+            val results = FloatArray(1)
+            Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+            results[0]
+        } catch (e: Throwable) {
+            val dLat = Math.toRadians(lat2 - lat1)
+            val dLon = Math.toRadians(lon2 - lon1)
+            val rLat1 = Math.toRadians(lat1)
+            val rLat2 = Math.toRadians(lat2)
+            val a = Math.sin(dLat / 2).let { it * it } +
+                    Math.sin(dLon / 2).let { it * it } * Math.cos(rLat1) * Math.cos(rLat2)
+            val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            (6371000 * c).toFloat()
+        }
     }
 
     fun normalizeBrand(rawBrand: String?, rawName: String?, rawOperator: String?): String {
