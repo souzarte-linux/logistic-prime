@@ -1,26 +1,51 @@
 package com.fernando.centraldomotorista.ui.screens.home
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -31,28 +56,17 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Route
+import com.fernando.centraldomotorista.data.repository.ReceivableItem
+import com.fernando.centraldomotorista.data.repository.TipoAlertaManutencao
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
+import java.net.URL
 import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
+import kotlinx.coroutines.withContext
 
 fun BigDecimal.formatCurrency(): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
@@ -94,9 +108,10 @@ fun HomeScreen(
     }
 
     var isCadastroExpanded by remember { mutableStateOf(true) }
-    var isSpeedDialOpen by remember { mutableStateOf(false) }
     var showLogoutConfirmation by remember { mutableStateOf(false) }
     var showNotificationsModal by remember { mutableStateOf(false) }
+    var showReceivablesModal by remember { mutableStateOf(false) }
+    var showEditDailyGoalModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.actionMessage) {
         uiState.actionMessage?.let { msg ->
@@ -117,31 +132,63 @@ fun HomeScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Cabeçalho do Usuário
-                    Column(
+                    // Cabeçalho do Usuário com Avatar Real e Boas-Vindas Contextuais (Item 2.8)
+                    val currentHour = remember { java.time.LocalTime.now().hour }
+                    val saudacao = when (currentHour) {
+                        in 5..11 -> "Bom dia"
+                        in 12..17 -> "Boa tarde"
+                        else -> "Boa noite"
+                    }
+                    val driverFullName = uiState.profile?.fullName?.trim() ?: "Motorista"
+                    val firstName = driverFullName.split("\\s+".toRegex()).firstOrNull() ?: "Motorista"
+
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(horizontal = 16.dp, vertical = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DirectionsCar,
-                            contentDescription = null,
-                            tint = OrangeNeon,
-                            modifier = Modifier.size(36.dp)
+                        DriverAvatar(
+                            avatarUrl = uiState.profile?.avatarUrl,
+                            name = uiState.profile?.fullName,
+                            modifier = Modifier.size(52.dp)
                         )
-                        Text(
-                            text = uiState.profile?.fullName ?: "Central do Motorista",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 17.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = uiState.profile?.email ?: "Logística & Entregas",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Text(
+                                text = "$saudacao, $firstName! 👋",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = uiState.profile?.email ?: "Logística & Entregas",
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Surface(
+                                color = OrangeNeon.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                val vehicleType = uiState.profile?.vehicle?.replaceFirstChar { it.uppercase() } ?: "Moto"
+                                Text(
+                                    text = "$vehicleType • Parceiro",
+                                    color = OrangeNeon,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -446,102 +493,26 @@ fun HomeScreen(
                 )
             },
             floatingActionButton = {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    AnimatedVisibility(
-                        visible = isSpeedDialOpen,
-                        enter = fadeIn(animationSpec = tween(180)) + slideInVertically(animationSpec = tween(220)) { it / 2 },
-                        exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(animationSpec = tween(180)) { it / 2 }
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        ) {
-                            // 1. Lançar Ganhos por Rota
-                            SpeedDialOptionItem(
-                                label = "Lançar Ganhos por Rota",
-                                icon = Icons.Default.Navigation,
-                                onClick = {
-                                    isSpeedDialOpen = false
-                                    onNavigateToCreateRoute()
-                                }
-                            )
-
-                            // 2. Total do Dia
-                            SpeedDialOptionItem(
-                                label = "Total do Dia",
-                                icon = Icons.Default.CalendarToday,
-                                onClick = {
-                                    isSpeedDialOpen = false
-                                    onNavigateToCreateDailyTotal()
-                                }
-                            )
-
-                            // Linha divisória sutil
-                            HorizontalDivider(
-                                modifier = Modifier
-                                    .width(220.dp)
-                                    .padding(vertical = 4.dp),
-                                color = Color.White.copy(alpha = 0.15f)
-                            )
-
-                            // 3. Combustível
-                            SpeedDialOptionItem(
-                                label = "Combustível",
-                                icon = Icons.Default.LocalGasStation,
-                                onClick = {
-                                    isSpeedDialOpen = false
-                                    onNavigateToFuelExpense()
-                                }
-                            )
-
-                            // 4. Manutenção
-                            SpeedDialOptionItem(
-                                label = "Manutenção",
-                                icon = Icons.Default.Build,
-                                onClick = {
-                                    isSpeedDialOpen = false
-                                    onNavigateToMaintenanceExpense()
-                                }
-                            )
-
-                            // 5. Alimentação
-                            SpeedDialOptionItem(
-                                label = "Alimentação",
-                                icon = Icons.Default.Restaurant,
-                                onClick = {
-                                    isSpeedDialOpen = false
-                                    onNavigateToMealExpense()
-                                }
-                            )
-                        }
-                    }
-
-                    // FAB Principal
-                    val fabRotation by animateFloatAsState(
-                        targetValue = if (isSpeedDialOpen) 45f else 0f,
-                        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                        label = "fabRotation"
-                    )
-
-                    FloatingActionButton(
-                        onClick = { isSpeedDialOpen = !isSpeedDialOpen },
-                        containerColor = OrangeNeon,
-                        contentColor = Color.Black,
-                        shape = CircleShape
-                    ) {
+                ExtendedFloatingActionButton(
+                    onClick = { onNavigateToCreateRoute() },
+                    containerColor = OrangeNeon,
+                    contentColor = Color.Black,
+                    icon = {
                         Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = if (isSpeedDialOpen) "Fechar menu" else "Menu de ações rápidas",
-                            modifier = Modifier
-                                .size(28.dp)
-                                .rotate(fabRotation)
+                            imageVector = Icons.Default.Navigation,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
                         )
-                    }
-                }
+                    },
+                    text = {
+                        Text(
+                            text = "Lançar Rota",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
+                        )
+                    },
+                    shape = CircleShape
+                )
             },
             containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
@@ -550,544 +521,653 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+                PullToRefreshBox(
+                    isRefreshing = uiState.loading && (uiState.rotasRecentes.isNotEmpty() || uiState.profile != null),
+                    onRefresh = { viewModel.refresh() },
+                    modifier = Modifier.fillMaxSize()
                 ) {
-            // A. Indicador de Carregamento / Erro
-            if (uiState.loading) {
-                item {
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = OrangeNeon,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                }
-            }
-
-            if (uiState.error != null) {
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = RedAlert.copy(alpha = 0.15f)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    if (uiState.loading && uiState.rotasRecentes.isEmpty() && uiState.profile == null) {
+                        HomeSkeletonLoading()
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
                         ) {
-                            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = RedAlert)
-                            Text(
-                                text = uiState.error ?: "",
-                                color = RedAlert,
-                                fontSize = 13.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(onClick = { viewModel.refresh() }) {
-                                Text("Recarregar", color = OrangeNeon, fontWeight = FontWeight.Bold)
+                            // A. Indicador de Carregamento / Erro
+                            if (uiState.loading) {
+                                item {
+                                    LinearProgressIndicator(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = OrangeNeon,
+                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                }
                             }
-                        }
-                    }
-                }
-            }
 
-            // B. Card de Lucro Líquido Hoje
-            item {
-                val isLucroNegativo = uiState.lucroHoje < BigDecimal.ZERO
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (isLucroNegativo) "SALDO DO DIA (A RECUPERAR)" else "LUCRO LÍQUIDO HOJE",
-                                color = if (isLucroNegativo) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
-                            if (uiState.sessaoAtiva) {
-                                Surface(
-                                    color = GreenNeon.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(100.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, GreenNeon.copy(alpha = 0.5f))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            if (uiState.error != null) {
+                                item {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = RedAlert.copy(alpha = 0.15f)),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .background(GreenNeon, CircleShape)
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = RedAlert)
+                                            Text(
+                                                text = uiState.error ?: "",
+                                                color = RedAlert,
+                                                fontSize = 13.sp,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            TextButton(onClick = { viewModel.refresh() }) {
+                                                Text("Recarregar", color = OrangeNeon, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // B. Card de Lucro Líquido Hoje
+                            item {
+                                val isLucroNegativo = uiState.lucroHoje < BigDecimal.ZERO
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = if (isLucroNegativo) "SALDO DO DIA (A RECUPERAR)" else "LUCRO LÍQUIDO HOJE",
+                                                color = if (isLucroNegativo) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 1.sp
+                                            )
+                                            if (uiState.sessaoAtiva) {
+                                                Surface(
+                                                    color = GreenNeon.copy(alpha = 0.15f),
+                                                    shape = RoundedCornerShape(100.dp),
+                                                    border = BorderStroke(1.dp, GreenNeon.copy(alpha = 0.5f))
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(8.dp)
+                                                                .background(GreenNeon, CircleShape)
+                                                        )
+                                                        Text(
+                                                            text = "SESSÃO ATIVA",
+                                                            color = GreenNeon,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Valor Grande em Destaque
                                         Text(
-                                            text = "SESSÃO ATIVA",
-                                            color = GreenNeon,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
+                                            text = uiState.lucroHoje.formatCurrency(),
+                                            color = if (isLucroNegativo) RedAlert else OrangeNeon,
+                                            fontSize = 38.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+
+                                        // Detalhamento de Entradas vs Saídas do Dia (Item 2.1)
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                    shape = RoundedCornerShape(12.dp)
+                                                )
+                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            // Entradas (Ganhos)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(26.dp)
+                                                        .background(GreenNeon.copy(alpha = 0.15f), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.TrendingUp,
+                                                        contentDescription = "Entradas",
+                                                        tint = GreenNeon,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                                Column {
+                                                    Text(
+                                                        text = "ENTRADAS",
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text(
+                                                        text = "+ ${uiState.ganhosHoje.formatCurrency()}",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = GreenNeon
+                                                    )
+                                                }
+                                            }
+
+                                            VerticalDivider(
+                                                modifier = Modifier.height(28.dp),
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                            )
+
+                                            // Saídas (Despesas)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(26.dp)
+                                                        .background(RedAlert.copy(alpha = 0.15f), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.TrendingDown,
+                                                        contentDescription = "Saídas",
+                                                        tint = RedAlert,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                                Column {
+                                                    Text(
+                                                        text = "SAÍDAS",
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text(
+                                                        text = "- ${uiState.despesasHoje.formatCurrency()}",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = RedAlert
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Termômetro de Meta do Dia
+                                        val metaVal = uiState.metaDiaria
+                                        val lucroVal = uiState.lucroHoje
+                                        val rawPercent = if (metaVal > BigDecimal.ZERO && !isLucroNegativo) (lucroVal.toFloat() / metaVal.toFloat()) else 0f
+                                        val clampedProgress = rawPercent.coerceIn(0f, 1f)
+                                        val animatedProgress by animateFloatAsState(
+                                            targetValue = clampedProgress,
+                                            animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                                            label = "thermometerProgress"
+                                        )
+                                        val percentText = if (isLucroNegativo) "0" else (rawPercent * 100).toInt().coerceAtLeast(0).toString()
+
+                                        val thermometerColor = when {
+                                            isLucroNegativo -> RedAlert
+                                            clampedProgress >= 0.85f -> GreenNeon                     // Verde
+                                            clampedProgress >= 0.55f -> Color(0xFFFFD600)            // Amarelo
+                                            clampedProgress >= 0.25f -> Color(0xFFFF8A00)            // Amarelo-Alaranjado
+                                            else -> RedAlert                                         // Vermelho
+                                        }
+
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "TERMÔMETRO DA META",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 0.8.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = if (isLucroNegativo) "Custos superam ganhos" else "$percentText% atingido",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = thermometerColor
+                                                )
+                                            }
+
+                                            // Linha / Barra do Termômetro
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(8.dp)
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(100.dp))
+                                                    .clip(RoundedCornerShape(100.dp))
+                                            ) {
+                                                val gradientColors = listOf(
+                                                    Color(0xFFE53935), // Vermelho
+                                                    Color(0xFFFF8A00), // Amarelo-alaranjado
+                                                    Color(0xFFFFD600), // Amarelo
+                                                    Color(0xFF00E676)  // Verde
+                                                )
+
+                                                if (animatedProgress > 0f) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxHeight()
+                                                            .fillMaxWidth(animatedProgress)
+                                                            .background(
+                                                                Brush.horizontalGradient(colors = gradientColors),
+                                                                RoundedCornerShape(100.dp)
+                                                            )
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+
+                                        // Rodapé Metas com Edição Rápida (Item 2.2)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = "META DIÁRIA",
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .clickable { showEditDailyGoalModal = true }
+                                                        .padding(vertical = 2.dp)
+                                                ) {
+                                                    Text(
+                                                        text = uiState.metaDiaria.formatCurrency(),
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.Default.Edit,
+                                                        contentDescription = "Editar meta diária",
+                                                        tint = OrangeNeon,
+                                                        modifier = Modifier.size(15.dp)
+                                                    )
+                                                }
+                                            }
+                                            Column(horizontalAlignment = Alignment.End) {
+                                                Text(
+                                                    text = "FALTAM",
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Text(
+                                                    text = if (uiState.faltamParaMeta <= BigDecimal.ZERO && !isLucroNegativo) "Meta Atingida! 🎉" else uiState.faltamParaMeta.formatCurrency(),
+                                                    color = if (uiState.faltamParaMeta <= BigDecimal.ZERO && !isLucroNegativo) GreenNeon else if (isLucroNegativo) RedAlert else OrangeNeon.copy(alpha = 0.9f),
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // C. Banner de Alerta de Manutenção Proativo (Item 2.3 - Crítico em Vermelho ou Preventivo em Amarelo)
+                            if (uiState.alertaManutencao != null && uiState.tipoAlertaManutencao != TipoAlertaManutencao.NENHUM) {
+                                val alerta = uiState.alertaManutencao!!
+                                val isCritico = uiState.tipoAlertaManutencao == TipoAlertaManutencao.CRITICO
+                                val alertColor = if (isCritico) RedAlert else Color(0xFFFFB300)
+                                val alertBgColor = if (isCritico) RedAlert.copy(alpha = 0.15f) else Color(0xFFFFD600).copy(alpha = 0.12f)
+                                val alertBorderColor = if (isCritico) RedAlert.copy(alpha = 0.5f) else Color(0xFFFFB300).copy(alpha = 0.5f)
+
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .clickable { onNavigateToEditMaintenance(alerta) },
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(containerColor = alertBgColor),
+                                        border = BorderStroke(1.dp, alertBorderColor)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .background(alertColor.copy(alpha = 0.2f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isCritico) Icons.Default.Warning else Icons.Default.WarningAmber,
+                                                    contentDescription = "Alerta",
+                                                    tint = alertColor
+                                                )
+                                            }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = if (isCritico) "ALERTA: ${alerta.partName.uppercase()}" else "AVISO PREVENTIVO: ${alerta.partName.uppercase()}",
+                                                    color = alertColor,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.sp
+                                                )
+                                                Text(
+                                                    text = if (isCritico)
+                                                        "Você ultrapassou em ${uiState.kmManutencao} KM a vida útil de ${alerta.lifeKm} KM."
+                                                    else
+                                                        "Faltam apenas ${uiState.kmManutencao} KM para a troca preventiva (vida útil de ${alerta.lifeKm} KM).",
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    fontSize = 12.sp
+                                                )
+                                                Text(
+                                                    text = "Toque para abrir no modo edição ➔",
+                                                    color = OrangeNeon,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier.padding(top = 4.dp)
+                                                )
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowRight,
+                                                contentDescription = "Editar",
+                                                tint = alertColor,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // D. Grid de 3 Ações
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    // 1. Card Grande Laranja - Lançar Ganhos por Rota
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onNavigateToCreateRoute() },
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(containerColor = OrangeNeon)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(18.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Navigation,
+                                                    contentDescription = null,
+                                                    tint = Color.Black,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                                Column {
+                                                    Text(
+                                                        text = "LANÇAR GANHOS POR ROTA",
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 15.sp,
+                                                        color = Color.Black
+                                                    )
+                                                    Text(
+                                                        text = "Registre corrida por km, tempo e valor",
+                                                        fontSize = 12.sp,
+                                                        color = Color.Black.copy(alpha = 0.75f)
+                                                    )
+                                                }
+                                            }
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                contentDescription = null,
+                                                tint = Color.Black
+                                            )
+                                        }
+                                    }
+
+                                    // 2 e 3 em linha: Lançar Total do Dia e Contas a Receber
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // Lançar Total do Dia
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { onNavigateToCreateDailyTotal() },
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(14.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CalendarToday,
+                                                    contentDescription = null,
+                                                    tint = OrangeNeon,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                                Text(
+                                                    text = "TOTAL DO DIA",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "Lançar valor bruto",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+
+                                        // Contas a Receber (Item 2.4 - Abre Modal Informativo)
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { showReceivablesModal = true },
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(14.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AccountBalanceWallet,
+                                                    contentDescription = null,
+                                                    tint = GreenNeon,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                                Text(
+                                                    text = "A RECEBER",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = uiState.contasAReceber.formatCurrency(),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = GreenNeon
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // E. Lançamento Rápido de Despesa
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(
+                                        text = "LANÇAMENTO RÁPIDO DE DESPESA",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        QuickExpenseButton(
+                                            title = "Combustível",
+                                            icon = Icons.Default.LocalGasStation,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = {
+                                                onNavigateToFuelExpense()
+                                            }
+                                        )
+                                        QuickExpenseButton(
+                                            title = "Manutenção",
+                                            icon = Icons.Default.Build,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = {
+                                                onNavigateToMaintenanceExpense()
+                                            }
+                                        )
+                                        QuickExpenseButton(
+                                            title = "Alimentação",
+                                            icon = Icons.Default.Restaurant,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = {
+                                                onNavigateToMealExpense()
+                                            }
                                         )
                                     }
                                 }
                             }
-                        }
 
-                        // Valor Grande em Destaque
-                        Text(
-                            text = uiState.lucroHoje.formatCurrency(),
-                            color = if (isLucroNegativo) RedAlert else OrangeNeon,
-                            fontSize = 38.sp,
-                            fontWeight = FontWeight.Black
-                        )
-
-                        // Termômetro de Meta do Dia
-                        val metaVal = uiState.metaDiaria
-                        val lucroVal = uiState.lucroHoje
-                        val rawPercent = if (metaVal > BigDecimal.ZERO && !isLucroNegativo) (lucroVal.toFloat() / metaVal.toFloat()) else 0f
-                        val clampedProgress = rawPercent.coerceIn(0f, 1f)
-                        val animatedProgress by animateFloatAsState(
-                            targetValue = clampedProgress,
-                            animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
-                            label = "thermometerProgress"
-                        )
-                        val percentText = if (isLucroNegativo) "0" else (rawPercent * 100).toInt().coerceAtLeast(0).toString()
-
-                        val thermometerColor = when {
-                            isLucroNegativo -> RedAlert
-                            clampedProgress >= 0.85f -> GreenNeon                     // Verde
-                            clampedProgress >= 0.55f -> Color(0xFFFFD600)            // Amarelo
-                            clampedProgress >= 0.25f -> Color(0xFFFF8A00)            // Amarelo-Alaranjado
-                            else -> RedAlert                                         // Vermelho
-                        }
-
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "TERMÔMETRO DA META",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.8.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = if (isLucroNegativo) "Custos superam ganhos" else "$percentText% atingido",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = thermometerColor
-                                )
-                            }
-
-                            // Linha / Barra do Termômetro
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(100.dp))
-                                    .clip(RoundedCornerShape(100.dp))
-                            ) {
-                                val gradientColors = listOf(
-                                    Color(0xFFE53935), // Vermelho
-                                    Color(0xFFFF8A00), // Amarelo-alaranjado
-                                    Color(0xFFFFD600), // Amarelo
-                                    Color(0xFF00E676)  // Verde
-                                )
-
-                                if (animatedProgress > 0f) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .fillMaxWidth(animatedProgress)
-                                            .background(
-                                                Brush.horizontalGradient(colors = gradientColors),
-                                                RoundedCornerShape(100.dp)
-                                            )
-                                    )
-                                }
-                            }
-                        }
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-
-                        // Rodapé Metas
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(
-                                    text = "META DIÁRIA",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = uiState.metaDiaria.formatCurrency(),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = "FALTAM",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = if (uiState.faltamParaMeta <= BigDecimal.ZERO && !isLucroNegativo) "Meta Atingida! 🎉" else uiState.faltamParaMeta.formatCurrency(),
-                                    color = if (uiState.faltamParaMeta <= BigDecimal.ZERO && !isLucroNegativo) GreenNeon else if (isLucroNegativo) RedAlert else OrangeNeon.copy(alpha = 0.9f),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // C. Banner de Alerta de Manutenção
-            if (uiState.alertaManutencao != null) {
-                val alerta = uiState.alertaManutencao!!
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable { onNavigateToEditMaintenance(alerta) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = RedAlert.copy(alpha = 0.15f)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(RedAlert.copy(alpha = 0.2f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Alerta",
-                                    tint = RedAlert
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "ALERTA: ${alerta.partName.uppercase()}",
-                                    color = RedAlert,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    text = "Você ultrapassou em ${uiState.kmUltrapassado} KM a vida útil de ${alerta.lifeKm} KM.",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    text = "Toque para abrir no modo edição ➔",
-                                    color = OrangeNeon,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowRight,
-                                contentDescription = "Editar",
-                                tint = RedAlert,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // D. Grid de 3 Ações
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // 1. Card Grande Laranja - Lançar Ganhos por Rota
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onNavigateToCreateRoute() },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = OrangeNeon)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Navigation,
-                                    contentDescription = null,
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Column {
+                            // F. Rotas Recentes (Item 2.6 - Com Identificação da Plataforma)
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
-                                        text = "LANÇAR GANHOS POR ROTA",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 15.sp,
-                                        color = Color.Black
-                                    )
-                                    Text(
-                                        text = "Registre corrida por km, tempo e valor",
+                                        text = "ROTAS RECENTES",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 12.sp,
-                                        color = Color.Black.copy(alpha = 0.75f)
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    )
+                                    Text(
+                                        text = "Recarregar",
+                                        color = OrangeNeon,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable { viewModel.refresh() }
                                     )
                                 }
                             }
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                tint = Color.Black
-                            )
-                        }
-                    }
 
-                    // 2 e 3 em linha: Lançar Total do Dia e Contas a Receber
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // Lançar Total do Dia
-                        Card(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onNavigateToCreateDailyTotal() },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarToday,
-                                    contentDescription = null,
-                                    tint = OrangeNeon,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Text(
-                                    text = "TOTAL DO DIA",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Lançar valor bruto",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        // Contas a Receber
-                        Card(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onNavigateToReports() },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccountBalanceWallet,
-                                    contentDescription = null,
-                                    tint = GreenNeon,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Text(
-                                    text = "A RECEBER",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = uiState.contasAReceber.formatCurrency(),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = GreenNeon
-                                )
+                            if (uiState.rotasRecentes.isEmpty()) {
+                                item {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onNavigateToCreateRoute() },
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(24.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Route,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(36.dp)
+                                            )
+                                            Text(
+                                                text = "Nenhuma rota registrada ainda.",
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = "Toque em 'Lançar Ganhos por Rota' para começar.",
+                                                color = OrangeNeon,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                items(uiState.rotasRecentes) { route ->
+                                    RouteRecentItem(
+                                        route = route,
+                                        platformName = route.platformId?.let { uiState.plataformasMap[it] }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-
-            // E. Lançamento Rápido de Despesa
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "LANÇAMENTO RÁPIDO DE DESPESA",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        QuickExpenseButton(
-                            title = "Combustível",
-                            icon = Icons.Default.LocalGasStation,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                onNavigateToFuelExpense()
-                            }
-                        )
-                        QuickExpenseButton(
-                            title = "Manutenção",
-                            icon = Icons.Default.Build,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                onNavigateToMaintenanceExpense()
-                            }
-                        )
-                        QuickExpenseButton(
-                            title = "Alimentação",
-                            icon = Icons.Default.Restaurant,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                onNavigateToMealExpense()
-                            }
-                        )
-                    }
-                }
-            }
-
-            // F. Rotas Recentes
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "ROTAS RECENTES",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = "Recarregar",
-                        color = OrangeNeon,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { viewModel.refresh() }
-                    )
-                }
-            }
-
-            if (uiState.rotasRecentes.isEmpty()) {
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onNavigateToCreateRoute() },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Route,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(36.dp)
-                            )
-                            Text(
-                                text = "Nenhuma rota registrada ainda.",
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Toque em 'Lançar Ganhos por Rota' para começar.",
-                                color = OrangeNeon,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(uiState.rotasRecentes) { route ->
-                    RouteRecentItem(route)
-                }
-            }
-        }
-
-        // Scrim semi-transparente quando o Speed Dial estiver aberto
-        AnimatedVisibility(
-            visible = isSpeedDialOpen,
-            enter = fadeIn(animationSpec = tween(180)),
-            exit = fadeOut(animationSpec = tween(150))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.65f))
-                    .clickable { isSpeedDialOpen = false }
-            )
         }
     }
-}
-}
 
     // Diálogo de Confirmação para Logout Seguro
     if (showLogoutConfirmation) {
@@ -1294,6 +1374,250 @@ fun HomeScreen(
             }
         }
     }
+
+    // Modal de Edição Rápida da Meta Diária (Item 2.2)
+    if (showEditDailyGoalModal) {
+        var goalText by remember { mutableStateOf(uiState.metaDiaria.toPlainString()) }
+        AlertDialog(
+            onDismissRequest = { showEditDailyGoalModal = false },
+            title = {
+                Text(
+                    text = "Editar Meta Diária",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Defina seu objetivo diário de faturamento para calcular o termômetro de desempenho.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = goalText,
+                        onValueChange = { goalText = it },
+                        label = { Text("Meta Diária (R$)") },
+                        prefix = { Text("R$ ", fontWeight = FontWeight.Bold) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedLabelColor = OrangeNeon,
+                            cursorColor = OrangeNeon
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val parsed = goalText.replace(",", ".").trim().toBigDecimalOrNull()
+                        if (parsed != null && parsed >= BigDecimal.ZERO) {
+                            viewModel.updateDailyGoal(parsed)
+                            showEditDailyGoalModal = false
+                        } else {
+                            Toast.makeText(context, "Digite um valor válido.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeNeon,
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text("Salvar", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDailyGoalModal = false }) {
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurface)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // Modal Informativo no Card "A RECEBER" (Item 2.4)
+    if (showReceivablesModal) {
+        ModalBottomSheet(
+            onDismissRequest = { showReceivablesModal = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Cabeçalho
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalanceWallet,
+                            contentDescription = null,
+                            tint = GreenNeon,
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Text(
+                            text = "Contas a Receber",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Surface(
+                        color = GreenNeon.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(100.dp)
+                    ) {
+                        Text(
+                            text = uiState.contasAReceber.formatCurrency(),
+                            color = GreenNeon,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Lançamentos com repasse pendente vinculados aos ciclos de faturamento das plataformas:",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                if (uiState.itensAReceber.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = GreenNeon,
+                            modifier = Modifier.size(44.dp)
+                        )
+                        Text(
+                            text = "Tudo em dia!",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Nenhum repasse pendente registrado no momento.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(uiState.itensAReceber) { item ->
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (item.platformName != null) {
+                                                Surface(
+                                                    color = OrangeNeon.copy(alpha = 0.15f),
+                                                    shape = RoundedCornerShape(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = item.platformName,
+                                                        color = OrangeNeon,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 10.sp,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = item.title,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        val formattedDate = item.date
+                                            .atZoneSameInstant(java.time.ZoneId.systemDefault())
+                                            .format(DateTimeFormatter.ofPattern("HH:mm - dd/MM/yyyy"))
+                                        Text(
+                                            text = formattedDate,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Text(
+                                        text = item.amount.formatCurrency(),
+                                        color = GreenNeon,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        showReceivablesModal = false
+                        onNavigateToReports()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeNeon,
+                        contentColor = Color.Black
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Assessment, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Ver Relatórios & Extratos Completos", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1335,7 +1659,10 @@ fun QuickExpenseButton(
 }
 
 @Composable
-fun RouteRecentItem(route: Route) {
+fun RouteRecentItem(
+    route: Route,
+    platformName: String? = null
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
@@ -1349,16 +1676,35 @@ fun RouteRecentItem(route: Route) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val origin = route.origin?.ifBlank { "Origem não informada" } ?: "Rota rápida"
-                val destination = route.destination?.ifBlank { "Destino" } ?: "Concluída"
-                Text(
-                    text = "$origin ➔ $destination",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (platformName != null) {
+                        Surface(
+                            color = OrangeNeon.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = platformName,
+                                color = OrangeNeon,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    val origin = route.origin?.ifBlank { "Origem não informada" } ?: "Rota rápida"
+                    val destination = route.destination?.ifBlank { "Destino" } ?: "Concluída"
+                    Text(
+                        text = "$origin ➔ $destination",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1421,7 +1767,6 @@ fun DrawerCadastroItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Ícone à esquerda dentro de um quadrado com cantos arredondados
             Box(
                 modifier = Modifier
                     .size(38.dp)
@@ -1444,7 +1789,6 @@ fun DrawerCadastroItem(
                 )
             }
 
-            // Título e subtítulo
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -1464,7 +1808,6 @@ fun DrawerCadastroItem(
                 )
             }
 
-            // Seta ">" à direita
             Icon(
                 imageVector = Icons.Default.KeyboardArrowRight,
                 contentDescription = null,
@@ -1476,45 +1819,173 @@ fun DrawerCadastroItem(
 }
 
 @Composable
-private fun SpeedDialOptionItem(
-    label: String,
-    icon: ImageVector,
-    onClick: () -> Unit
+fun DriverAvatar(
+    avatarUrl: String?,
+    name: String?,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.clickable { onClick() }
+    var bitmap by remember(avatarUrl) { mutableStateOf<Bitmap?>(null) }
+    var loadFailed by remember(avatarUrl) { mutableStateOf(false) }
+
+    LaunchedEffect(avatarUrl) {
+        if (!avatarUrl.isNullOrBlank()) {
+            withContext(Dispatchers.IO) {
+                try {
+                    val url = URL(avatarUrl)
+                    val connection = url.openConnection()
+                    connection.connectTimeout = 5000
+                    connection.readTimeout = 5000
+                    val stream = connection.getInputStream()
+                    val decoded = BitmapFactory.decodeStream(stream)
+                    withContext(Dispatchers.Main) {
+                        bitmap = decoded
+                        loadFailed = decoded == null
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        loadFailed = true
+                    }
+                }
+            }
+        }
+    }
+
+    val initials = remember(name) {
+        if (name.isNullOrBlank()) "M"
+        else {
+            val parts = name.trim().split("\\s+".toRegex())
+            if (parts.size >= 2) {
+                "${parts[0].first().uppercase()}${parts[1].first().uppercase()}"
+            } else {
+                parts[0].take(2).uppercase()
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(OrangeNeon, Color(0xFFFF5722))
+                )
+            )
+            .border(2.dp, OrangeNeon.copy(alpha = 0.5f), CircleShape),
+        contentAlignment = Alignment.Center
     ) {
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 6.dp,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-        ) {
+        if (bitmap != null && !loadFailed) {
+            Image(
+                bitmap = bitmap!!.asImageBitmap(),
+                contentDescription = "Foto do motorista",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
             Text(
-                text = label,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                text = initials,
+                color = Color.Black,
+                fontWeight = FontWeight.Black,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center
             )
         }
+    }
+}
 
-        Surface(
-            modifier = Modifier.size(42.dp),
-            shape = CircleShape,
-            color = OrangeNeon,
-            shadowElevation = 6.dp
+@Composable
+fun HomeSkeletonLoading() {
+    val infiniteTransition = rememberInfiniteTransition(label = "skeleton")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.65f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "skeletonAlpha"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Card Lucro Skeleton
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+            )
+        ) {}
+
+        // Action Cards Skeleton
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+            )
+        ) {}
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = Color.Black,
-                    modifier = Modifier.size(20.dp)
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(80.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
                 )
+            ) {}
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(80.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+                )
+            ) {}
+        }
+
+        // Quick Expenses Skeleton
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            repeat(3) {
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(70.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+                    )
+                ) {}
             }
+        }
+
+        // Recent Routes Skeleton
+        repeat(2) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+                )
+            ) {}
         }
     }
 }

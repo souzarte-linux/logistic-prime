@@ -77,4 +77,15 @@ class ProfileRepository(
             )
         }
     }
+
+    suspend fun updateDailyGoal(userId: String, dailyGoal: BigDecimal): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Log.d("ProfileRepository", "Atualizando meta diária para $dailyGoal (UID: $userId)...")
+            profileApi.updateProfile("eq.$userId", mapOf("daily_goal" to dailyGoal.toDouble()))
+            true
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Erro ao atualizar meta diária: ${e.message}", e)
+            false
+        }
+    }
 }

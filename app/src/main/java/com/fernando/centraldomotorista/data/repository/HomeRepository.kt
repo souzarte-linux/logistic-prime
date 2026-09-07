@@ -14,16 +14,36 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
+enum class TipoAlertaManutencao {
+    NENHUM,
+    PREVENTIVO,
+    CRITICO
+}
+
+data class ReceivableItem(
+    val id: String,
+    val title: String,
+    val platformName: String?,
+    val date: OffsetDateTime,
+    val amount: BigDecimal,
+    val isDailyTotal: Boolean = false
+)
+
 data class HomeData(
     val profile: Profile,
     val lucroHoje: BigDecimal,
+    val ganhosHoje: BigDecimal,
+    val despesasHoje: BigDecimal,
     val metaDiaria: BigDecimal,
     val faltamParaMeta: BigDecimal,
     val sessaoAtiva: Boolean,
     val alertaManutencao: PartMaintenance?,
-    val kmUltrapassado: BigDecimal,
+    val tipoAlertaManutencao: TipoAlertaManutencao = TipoAlertaManutencao.NENHUM,
+    val kmManutencao: BigDecimal = BigDecimal.ZERO,
     val contasAReceber: BigDecimal,
+    val itensAReceber: List<ReceivableItem> = emptyList(),
     val rotasRecentes: List<Route>,
+    val plataformasMap: Map<String, String> = emptyMap(),
     val notificacoesNaoLidas: Int,
     val notificacoes: List<AppNotification> = emptyList()
 )
@@ -35,7 +55,8 @@ class HomeRepository(
     private val dailyTotalApi: DailyTotalApi = RetrofitClient.dailyTotalApi,
     private val partMaintenanceApi: PartMaintenanceApi = RetrofitClient.partMaintenanceApi,
     private val billingCycleApi: BillingCycleApi = RetrofitClient.billingCycleApi,
-    private val notificationApi: NotificationApi = RetrofitClient.notificationApi
+    private val notificationApi: NotificationApi = RetrofitClient.notificationApi,
+    private val platformApi: PlatformApi = RetrofitClient.platformApi
 ) {
     suspend fun loadHomeData(
         userId: String,
@@ -99,6 +120,14 @@ class HomeRepository(
                     emptyList()
                 }
             }
+            val platformsDeferred = async {
+                try {
+                    platformApi.getPlatforms(userFilter, null, "name.asc").map { it.toDomain() }
+                } catch (e: Exception) {
+                    Log.e("HomeRepository", "Erro ao buscar platforms: ${e.message}", e)
+                    emptyList()
+                }
+            }
 
             val profile = profileDeferred.await()
             val allRoutes = routesDeferred.await()
@@ -107,6 +136,8 @@ class HomeRepository(
             val allPartMaintenances = partMaintenancesDeferred.await()
             val pendingCycles = billingCyclesDeferred.await()
             val unreadNotifications = notificationsDeferred.await()
+            val platforms = platformsDeferred.await()
+            val platformsMap = platforms.associate { it.id to it.name }
 
             // 1. Filtros de Hoje (convertendo datas para o fuso local)
             val todayRoutes = allRoutes.filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today }
@@ -124,38 +155,84 @@ class HomeRepository(
             // 2. Sessão Ativa (rota iniciada hoje e não finalizada)
             val sessaoAtiva = todayRoutes.any { it.startedAt != null && it.endedAt == null }
 
-            // 3. Alerta de Manutenção
+            // 3. Alerta de Manutenção Proativo (Crítico se vencido, Preventivo se próximo do vencimento)
             val currentOdometerKm = maxOf(
                 allExpenses.firstOrNull { it.odometerKm != null }?.odometerKm ?: BigDecimal.ZERO,
                 allRoutes.firstOrNull { it.endKm > BigDecimal.ZERO }?.endKm ?: BigDecimal.ZERO
             )
 
             var alertaManutencao: PartMaintenance? = null
-            var kmUltrapassado = BigDecimal.ZERO
+            var tipoAlertaManutencao = TipoAlertaManutencao.NENHUM
+            var kmManutencao = BigDecimal.ZERO
 
             if (allPartMaintenances.isNotEmpty()) {
-                val vencidos = allPartMaintenances.map { part ->
+                val partsWithRemaining = allPartMaintenances.map { part ->
                     val remaining = part.kmRemaining(currentOdometerKm)
                     Pair(part, remaining)
-                }.filter { it.second <= BigDecimal.ZERO }
+                }
 
+                // 1º Critérios: Peças vencidas (km restante <= 0) -> Alerta Vermelho
+                val vencidos = partsWithRemaining.filter { it.second <= BigDecimal.ZERO }
                 if (vencidos.isNotEmpty()) {
                     val maisCritico = vencidos.minByOrNull { it.second }
                     if (maisCritico != null) {
                         alertaManutencao = maisCritico.first
-                        kmUltrapassado = maisCritico.second.abs()
+                        tipoAlertaManutencao = TipoAlertaManutencao.CRITICO
+                        kmManutencao = maisCritico.second.abs()
+                    }
+                } else {
+                    // 2º Critérios: Peças próximas do vencimento (restam <= 500 km ou restam <= 20% da vida útil) -> Alerta Amarelo
+                    val preventivos = partsWithRemaining.filter { (part, remaining) ->
+                        remaining > BigDecimal.ZERO && (
+                            remaining <= BigDecimal("500") ||
+                            (part.lifeKm > BigDecimal.ZERO && remaining <= part.lifeKm.multiply(BigDecimal("0.20")))
+                        )
+                    }
+                    if (preventivos.isNotEmpty()) {
+                        val maisProximo = preventivos.minByOrNull { it.second }
+                        if (maisProximo != null) {
+                            alertaManutencao = maisProximo.first
+                            tipoAlertaManutencao = TipoAlertaManutencao.PREVENTIVO
+                            kmManutencao = maisProximo.second
+                        }
                     }
                 }
             }
 
-            // 4. Contas a Receber
+            // 4. Contas a Receber e Detalhamento de Itens
             val pendingCycleIds = pendingCycles.map { it.id }.toSet()
-            val contasAReceber = allRoutes.filter { it.billingCycleId != null && pendingCycleIds.contains(it.billingCycleId) }
-                .map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add)
-                .add(
-                    allDailyTotals.filter { it.billingCycleId != null && pendingCycleIds.contains(it.billingCycleId) }
-                        .map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add)
+            val pendingRoutes = allRoutes.filter { it.billingCycleId != null && pendingCycleIds.contains(it.billingCycleId) }
+            val pendingDailyTotals = allDailyTotals.filter { it.billingCycleId != null && pendingCycleIds.contains(it.billingCycleId) }
+
+            val itensAReceber = mutableListOf<ReceivableItem>()
+            pendingRoutes.forEach { r ->
+                val origin = r.origin?.ifBlank { "Origem" } ?: "Rota"
+                val dest = r.destination?.ifBlank { "Destino" } ?: "Entregas"
+                itensAReceber.add(
+                    ReceivableItem(
+                        id = r.id,
+                        title = "$origin ➔ $dest",
+                        platformName = r.platformId?.let { platformsMap[it] },
+                        date = r.occurredAt,
+                        amount = r.amount,
+                        isDailyTotal = false
+                    )
                 )
+            }
+            pendingDailyTotals.forEach { dt ->
+                itensAReceber.add(
+                    ReceivableItem(
+                        id = dt.id,
+                        title = "Lançamento Total do Dia",
+                        platformName = dt.platformId?.let { platformsMap[it] },
+                        date = dt.occurredAt,
+                        amount = dt.amount,
+                        isDailyTotal = true
+                    )
+                )
+            }
+            val itensAReceberOrdenados = itensAReceber.sortedByDescending { it.date }
+            val contasAReceber = itensAReceberOrdenados.map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add)
 
             // 5. Rotas Recentes (top 5)
             val rotasRecentes = allRoutes.take(5)
@@ -163,17 +240,26 @@ class HomeRepository(
             HomeData(
                 profile = profile,
                 lucroHoje = lucroHoje,
+                ganhosHoje = totalGanhosHoje,
+                despesasHoje = totalGastosHoje,
                 metaDiaria = metaDiaria,
                 faltamParaMeta = faltamParaMeta,
                 sessaoAtiva = sessaoAtiva,
                 alertaManutencao = alertaManutencao,
-                kmUltrapassado = kmUltrapassado,
+                tipoAlertaManutencao = tipoAlertaManutencao,
+                kmManutencao = kmManutencao,
                 contasAReceber = contasAReceber,
+                itensAReceber = itensAReceberOrdenados,
                 rotasRecentes = rotasRecentes,
+                plataformasMap = platformsMap,
                 notificacoesNaoLidas = unreadNotifications.size,
                 notificacoes = unreadNotifications
             )
         }
+    }
+
+    suspend fun updateDailyGoal(userId: String, dailyGoal: BigDecimal): Boolean {
+        return profileRepository.updateDailyGoal(userId, dailyGoal)
     }
 
     suspend fun markNotificationAsRead(notificationId: String): Boolean = withContext(Dispatchers.IO) {

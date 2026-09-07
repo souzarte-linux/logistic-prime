@@ -20,16 +20,24 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.math.BigDecimal
 
+import com.fernando.centraldomotorista.data.repository.ReceivableItem
+import com.fernando.centraldomotorista.data.repository.TipoAlertaManutencao
+
 data class HomeUiState(
     val profile: Profile? = null,
     val lucroHoje: BigDecimal = BigDecimal.ZERO,
+    val ganhosHoje: BigDecimal = BigDecimal.ZERO,
+    val despesasHoje: BigDecimal = BigDecimal.ZERO,
     val metaDiaria: BigDecimal = BigDecimal("200"),
     val faltamParaMeta: BigDecimal = BigDecimal("200"),
     val sessaoAtiva: Boolean = false,
     val alertaManutencao: PartMaintenance? = null,
-    val kmUltrapassado: BigDecimal = BigDecimal.ZERO,
+    val tipoAlertaManutencao: TipoAlertaManutencao = TipoAlertaManutencao.NENHUM,
+    val kmManutencao: BigDecimal = BigDecimal.ZERO,
     val contasAReceber: BigDecimal = BigDecimal.ZERO,
+    val itensAReceber: List<ReceivableItem> = emptyList(),
     val rotasRecentes: List<Route> = emptyList(),
+    val plataformasMap: Map<String, String> = emptyMap(),
     val notificacoesNaoLidas: Int = 0,
     val notificacoes: List<AppNotification> = emptyList(),
     val loading: Boolean = false,
@@ -54,6 +62,29 @@ class HomeViewModel(
 
     fun clearActionMessage() {
         _uiState.value = _uiState.value.copy(actionMessage = null)
+    }
+
+    fun updateDailyGoal(newGoal: BigDecimal) {
+        val user = supabase.auth.currentUserOrNull() ?: return
+        val currentLucro = _uiState.value.lucroHoje
+        val newFaltam = maxOf(BigDecimal.ZERO, newGoal.subtract(currentLucro))
+
+        _uiState.value = _uiState.value.copy(
+            metaDiaria = newGoal,
+            faltamParaMeta = newFaltam,
+            actionMessage = "Meta diária atualizada com sucesso!"
+        )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = homeRepository.updateDailyGoal(user.id, newGoal)
+            if (!success) {
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(
+                        actionMessage = "Erro ao salvar meta no servidor. Verifique a conexão."
+                    )
+                }
+            }
+        }
     }
 
     private fun loadData() {
@@ -88,13 +119,18 @@ class HomeViewModel(
                     _uiState.value = HomeUiState(
                         profile = data.profile,
                         lucroHoje = data.lucroHoje,
+                        ganhosHoje = data.ganhosHoje,
+                        despesasHoje = data.despesasHoje,
                         metaDiaria = data.metaDiaria,
                         faltamParaMeta = data.faltamParaMeta,
                         sessaoAtiva = data.sessaoAtiva,
                         alertaManutencao = data.alertaManutencao,
-                        kmUltrapassado = data.kmUltrapassado,
+                        tipoAlertaManutencao = data.tipoAlertaManutencao,
+                        kmManutencao = data.kmManutencao,
                         contasAReceber = data.contasAReceber,
+                        itensAReceber = data.itensAReceber,
                         rotasRecentes = data.rotasRecentes,
+                        plataformasMap = data.plataformasMap,
                         notificacoesNaoLidas = data.notificacoesNaoLidas,
                         notificacoes = data.notificacoes,
                         loading = false,
