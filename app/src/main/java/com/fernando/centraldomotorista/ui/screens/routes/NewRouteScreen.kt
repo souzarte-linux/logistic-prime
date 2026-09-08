@@ -40,6 +40,7 @@ import com.fernando.centraldomotorista.ui.utils.KmVisualTransformation
 import com.fernando.centraldomotorista.ui.utils.SuffixVisualTransformation
 import java.math.BigDecimal
 import java.text.NumberFormat
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -727,6 +728,41 @@ fun NewRouteScreen(
                             )
                         }
 
+                        // Campo de Data da Rota (Permite lançamento retroativo / posterior)
+                        val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+                        OutlinedTextField(
+                            value = uiState.selectedDate.format(dateFormatter),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Data da Rota") },
+                            trailingIcon = {
+                                IconButton(onClick = {
+                                    showDatePicker(context, uiState.selectedDate) { newDate ->
+                                        viewModel.onDateChanged(newDate)
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarToday,
+                                        contentDescription = "Selecionar Data",
+                                        tint = OrangeNeon
+                                    )
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showDatePicker(context, uiState.selectedDate) { newDate ->
+                                        viewModel.onDateChanged(newDate)
+                                    }
+                                }
+                        )
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -984,5 +1020,21 @@ fun showTimePicker(
         currentTime.hour,
         currentTime.minute,
         true
+    ).show()
+}
+
+fun showDatePicker(
+    context: android.content.Context,
+    currentDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    android.app.DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            onDateSelected(LocalDate.of(year, month + 1, dayOfMonth))
+        },
+        currentDate.year,
+        currentDate.monthValue - 1,
+        currentDate.dayOfMonth
     ).show()
 }

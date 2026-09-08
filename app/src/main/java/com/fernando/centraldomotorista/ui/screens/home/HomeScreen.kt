@@ -58,6 +58,7 @@ import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Route
 import com.fernando.centraldomotorista.data.repository.ReceivableItem
 import com.fernando.centraldomotorista.data.repository.TipoAlertaManutencao
+import com.fernando.centraldomotorista.ui.components.RouteDetailsDialog
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
 import java.net.URL
@@ -112,6 +113,7 @@ fun HomeScreen(
     var showNotificationsModal by remember { mutableStateOf(false) }
     var showReceivablesModal by remember { mutableStateOf(false) }
     var showEditDailyGoalModal by remember { mutableStateOf(false) }
+    var selectedRouteForDetails by remember { mutableStateOf<Route?>(null) }
 
     LaunchedEffect(uiState.actionMessage) {
         uiState.actionMessage?.let { msg ->
@@ -1158,7 +1160,8 @@ fun HomeScreen(
                                 items(uiState.rotasRecentes) { route ->
                                     RouteRecentItem(
                                         route = route,
-                                        platformName = route.platformId?.let { uiState.plataformasMap[it] }
+                                        platformName = route.platformId?.let { uiState.plataformasMap[it] },
+                                        onClick = { selectedRouteForDetails = route }
                                     )
                                 }
                             }
@@ -1618,6 +1621,19 @@ fun HomeScreen(
             }
         }
     }
+
+    // Modal de Detalhes da Rota com Botão Editar no Topo Direito
+    selectedRouteForDetails?.let { route ->
+        RouteDetailsDialog(
+            route = route,
+            platformName = route.platformId?.let { uiState.plataformasMap[it] },
+            onDismiss = { selectedRouteForDetails = null },
+            onEdit = { r ->
+                selectedRouteForDetails = null
+                onNavigateToRoute("lancar_rota?itemId=${r.id}")
+            }
+        )
+    }
 }
 
 @Composable
@@ -1661,10 +1677,13 @@ fun QuickExpenseButton(
 @Composable
 fun RouteRecentItem(
     route: Route,
-    platformName: String? = null
+    platformName: String? = null,
+    onClick: () -> Unit = {}
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {

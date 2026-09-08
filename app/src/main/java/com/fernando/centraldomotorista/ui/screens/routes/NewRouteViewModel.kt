@@ -60,7 +60,8 @@ data class NewRouteUiState(
     val bonusText: String = "",
     val notesText: String = "",
     
-    // Horários e Odômetro
+    // Horários, Data e Odômetro
+    val selectedDate: LocalDate = LocalDate.now(),
     val startTime: LocalTime = LocalTime.now().withSecond(0).withNano(0),
     val endTime: LocalTime = LocalTime.now().plusHours(2).withSecond(0).withNano(0),
     val breakMinutesText: String = "",
@@ -144,6 +145,7 @@ class NewRouteViewModel(
                 withContext(Dispatchers.Main) {
                     if (existingRoute != null) {
                         val zone = ZoneId.systemDefault()
+                        val sDate = existingRoute.occurredAt.atZoneSameInstant(zone).toLocalDate()
                         val sTime = existingRoute.startedAt?.atZoneSameInstant(zone)?.toLocalTime() ?: LocalTime.now().withSecond(0).withNano(0)
                         val eTime = existingRoute.endedAt?.atZoneSameInstant(zone)?.toLocalTime() ?: LocalTime.now().plusHours(2).withSecond(0).withNano(0)
 
@@ -161,6 +163,7 @@ class NewRouteViewModel(
                             editingRouteId = existingRoute.id,
                             platforms = platforms,
                             selectedPlatformId = existingRoute.platformId ?: platforms.firstOrNull()?.id,
+                            selectedDate = sDate,
                             origin = existingRoute.origin ?: "",
                             destination = existingRoute.destination ?: "",
                             distanceKmText = if (existingRoute.distanceKm > BigDecimal.ZERO) existingRoute.distanceKm.toPlainString().replace('.', ',') else "",
@@ -382,6 +385,10 @@ class NewRouteViewModel(
     }
 
     // --- Horários e Odômetro ---
+    fun onDateChanged(date: LocalDate) {
+        _uiState.value = _uiState.value.copy(selectedDate = date)
+    }
+
     fun onStartTimeChanged(time: LocalTime) {
         _uiState.value = _uiState.value.copy(startTime = time)
     }
@@ -443,15 +450,15 @@ class NewRouteViewModel(
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val now = OffsetDateTime.now()
-                val today = LocalDate.now()
+                val routeDate = state.selectedDate
                 val zone = ZoneId.systemDefault()
 
-                val startedAt = LocalDateTime.of(today, state.startTime).atZone(zone).toOffsetDateTime()
+                val startedAt = LocalDateTime.of(routeDate, state.startTime).atZone(zone).toOffsetDateTime()
                 
                 // Se horário final for anterior ao inicial, assumimos virada de dia
-                val endLocalDate = if (state.endTime.isBefore(state.startTime)) today.plusDays(1) else today
+                val endLocalDate = if (state.endTime.isBefore(state.startTime)) routeDate.plusDays(1) else routeDate
                 val endedAt = LocalDateTime.of(endLocalDate, state.endTime).atZone(zone).toOffsetDateTime()
+                val occurredAt = LocalDateTime.of(routeDate, state.startTime).atZone(zone).toOffsetDateTime()
 
                 val distanceKm = state.distanceKmText.replace(',', '.').trim().toBigDecimalOrNull() ?: BigDecimal.ZERO
                 val startKm = state.startKmText.replace(',', '.').trim().toBigDecimalOrNull() ?: BigDecimal.ZERO
@@ -489,7 +496,7 @@ class NewRouteViewModel(
                     startKm = startKm,
                     endKm = endKm,
                     billingCycleId = null,
-                    occurredAt = now
+                    occurredAt = occurredAt
                 )
 
                 if (state.editingRouteId.isNullOrBlank()) {

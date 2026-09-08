@@ -60,12 +60,12 @@ data class Route(
     val smallPackagesCount: Int = 0,
     val largePackagesCount: Int = 0,
     val largePackagesPrices: List<BigDecimal> = emptyList(),
-    val startedAt: OffsetDateTime?,
-    val endedAt: OffsetDateTime?,
+    val startedAt: OffsetDateTime? = null,
+    val endedAt: OffsetDateTime? = null,
     val breakMinutes: Int = 0,
     val startKm: BigDecimal = BigDecimal.ZERO,
     val endKm: BigDecimal = BigDecimal.ZERO,
-    val billingCycleId: String?,
+    val billingCycleId: String? = null,
     val occurredAt: OffsetDateTime,
 )
 
@@ -78,7 +78,7 @@ data class DailyTotal(
     val productType: String = "alimento",
     val subtractRoutes: Boolean = false,
     val notes: String? = null,
-    val billingCycleId: String?,
+    val billingCycleId: String? = null,
     val occurredAt: OffsetDateTime,
 )
 

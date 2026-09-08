@@ -41,9 +41,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.fernando.centraldomotorista.data.model.Route
 import com.fernando.centraldomotorista.data.model.TransactionItem
 import com.fernando.centraldomotorista.data.model.TransactionSourceType
 import com.fernando.centraldomotorista.data.model.TransactionType
+import com.fernando.centraldomotorista.ui.components.RouteDetailsDialog
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
 import java.text.NumberFormat
@@ -63,6 +65,9 @@ fun HistoricoScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    var selectedRouteForDetails by remember { mutableStateOf<Route?>(null) }
+    var selectedRoutePlatformName by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -163,6 +168,12 @@ fun HistoricoScreen(
                                 },
                                 onDeleteTransaction = { tx ->
                                     viewModel.promptDelete(tx)
+                                },
+                                onClickTransaction = { tx ->
+                                    if (tx.sourceType == TransactionSourceType.ROUTE && tx.rawRoute != null) {
+                                        selectedRouteForDetails = tx.rawRoute
+                                        selectedRoutePlatformName = tx.establishment
+                                    }
                                 }
                             )
                         }
@@ -261,6 +272,19 @@ fun HistoricoScreen(
                 }
             },
             containerColor = MaterialTheme.colorScheme.surface
+        )
+    }
+
+    // Modal de Detalhes da Rota com Botão Editar no Topo Direito
+    selectedRouteForDetails?.let { route ->
+        RouteDetailsDialog(
+            route = route,
+            platformName = selectedRoutePlatformName,
+            onDismiss = { selectedRouteForDetails = null },
+            onEdit = { r ->
+                selectedRouteForDetails = null
+                onNavigateToEdit("lancar_rota?itemId=${r.id}")
+            }
         )
     }
 }
@@ -615,7 +639,8 @@ fun MonthAccordionItem(
     onToggleMonth: () -> Unit,
     onToggleWeek: (String) -> Unit,
     onEditTransaction: (TransactionItem) -> Unit,
-    onDeleteTransaction: (TransactionItem) -> Unit
+    onDeleteTransaction: (TransactionItem) -> Unit,
+    onClickTransaction: (TransactionItem) -> Unit = {}
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -694,7 +719,8 @@ fun MonthAccordionItem(
                         isExpanded = isWeekExpanded,
                         onToggleWeek = { onToggleWeek(week.weekKey) },
                         onEditTransaction = onEditTransaction,
-                        onDeleteTransaction = onDeleteTransaction
+                        onDeleteTransaction = onDeleteTransaction,
+                        onClickTransaction = onClickTransaction
                     )
                 }
 
@@ -740,7 +766,8 @@ fun WeekAccordionItem(
     isExpanded: Boolean,
     onToggleWeek: () -> Unit,
     onEditTransaction: (TransactionItem) -> Unit,
-    onDeleteTransaction: (TransactionItem) -> Unit
+    onDeleteTransaction: (TransactionItem) -> Unit,
+    onClickTransaction: (TransactionItem) -> Unit = {}
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -817,7 +844,8 @@ fun WeekAccordionItem(
                     DaySection(
                         day = day,
                         onEditTransaction = onEditTransaction,
-                        onDeleteTransaction = onDeleteTransaction
+                        onDeleteTransaction = onDeleteTransaction,
+                        onClickTransaction = onClickTransaction
                     )
                 }
 
@@ -862,7 +890,8 @@ fun WeekAccordionItem(
 fun DaySection(
     day: DayGroup,
     onEditTransaction: (TransactionItem) -> Unit,
-    onDeleteTransaction: (TransactionItem) -> Unit
+    onDeleteTransaction: (TransactionItem) -> Unit,
+    onClickTransaction: (TransactionItem) -> Unit = {}
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -896,6 +925,7 @@ fun DaySection(
         day.items.forEach { item ->
             TransactionCard(
                 item = item,
+                onClick = { onClickTransaction(item) },
                 onEdit = { onEditTransaction(item) },
                 onDelete = { onDeleteTransaction(item) }
             )
@@ -939,6 +969,7 @@ fun DaySection(
 @Composable
 fun TransactionCard(
     item: TransactionItem,
+    onClick: () -> Unit = {},
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -960,7 +991,9 @@ fun TransactionCard(
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
