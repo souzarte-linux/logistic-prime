@@ -32,6 +32,8 @@ import com.fernando.centraldomotorista.ui.screens.login.LoginScreen
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.fernando.centraldomotorista.auth.BiometricAuthHelper
 import io.github.jan.supabase.auth.auth
 
@@ -227,9 +229,18 @@ fun CentralDoMotoristaApp(
                 )
             }
 
-            composable(Screen.FuelExpense.route) {
+            composable(
+                route = "${Screen.FuelExpense.route}?itemId={itemId}",
+                arguments = listOf(navArgument("itemId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId")
                 val fuelViewModel: com.fernando.centraldomotorista.ui.screens.expenses.FuelExpenseViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.expenses.FuelExpenseScreen(
+                    itemId = itemId,
                     viewModel = fuelViewModel,
                     onNavigateBack = {
                         homeViewModel.refresh()
@@ -240,9 +251,18 @@ fun CentralDoMotoristaApp(
                 )
             }
 
-            composable(Screen.MealExpense.route) {
+            composable(
+                route = "${Screen.MealExpense.route}?itemId={itemId}",
+                arguments = listOf(navArgument("itemId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId")
                 val mealViewModel: com.fernando.centraldomotorista.ui.screens.expenses.MealExpenseViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.expenses.MealExpenseScreen(
+                    itemId = itemId,
                     viewModel = mealViewModel,
                     onNavigateBack = {
                         homeViewModel.refresh()
@@ -338,8 +358,17 @@ fun CentralDoMotoristaApp(
             }
 
             // Formulário Dedicado - Lançar / Editar Manutenção
-            composable(Screen.LancarManutencao.route) {
+            composable(
+                route = "${Screen.LancarManutencao.route}?itemId={itemId}",
+                arguments = listOf(navArgument("itemId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId")
                 com.fernando.centraldomotorista.ui.screens.pecas.LancarManutencaoScreen(
+                    itemId = itemId,
                     viewModel = partMaintenanceViewModel,
                     onNavigateToManageCards = { navController.navigate(Screen.CreditCards.route) },
                     onNavigateBack = {
@@ -365,9 +394,18 @@ fun CentralDoMotoristaApp(
                 )
             }
 
-            composable(Screen.LancarRota.route) {
+            composable(
+                route = "${Screen.LancarRota.route}?itemId={itemId}",
+                arguments = listOf(navArgument("itemId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId")
                 val routeViewModel: com.fernando.centraldomotorista.ui.screens.routes.NewRouteViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.routes.NewRouteScreen(
+                    itemId = itemId,
                     viewModel = routeViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onRouteSaved = {
@@ -377,11 +415,23 @@ fun CentralDoMotoristaApp(
                 )
             }
 
-            composable(Screen.LancarTotalDia.route) {
-                PlaceholderActionScreen(
-                    title = "Lançar Total do Dia",
-                    description = "Registro consolidado de faturamento diário por aplicativo parceiro.",
-                    onBack = { navController.popBackStack() }
+            composable(
+                route = "${Screen.LancarTotalDia.route}?itemId={itemId}",
+                arguments = listOf(navArgument("itemId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId")
+                val totalDiaViewModel: com.fernando.centraldomotorista.ui.screens.dailytotal.LancarTotalDiaViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.dailytotal.LancarTotalDiaScreen(
+                    itemId = itemId,
+                    viewModel = totalDiaViewModel,
+                    onNavigateBack = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
                 )
             }
 
@@ -394,7 +444,13 @@ fun CentralDoMotoristaApp(
             }
 
             composable(Screen.Historico.route) {
-                GenericScreenPlaceholder(title = "Histórico de Atividades")
+                val historicoViewModel: com.fernando.centraldomotorista.ui.screens.historico.HistoricoViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.historico.HistoricoScreen(
+                    viewModel = historicoViewModel,
+                    onNavigateToEdit = { editRoute ->
+                        navController.navigate(editRoute)
+                    }
+                )
             }
         }
     }

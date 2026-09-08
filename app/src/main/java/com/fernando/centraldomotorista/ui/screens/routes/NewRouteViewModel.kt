@@ -67,6 +67,7 @@ data class NewRouteUiState(
     val startKmText: String = "",
     val endKmText: String = "",
     
+    val editingRouteId: String? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null,
@@ -120,6 +121,79 @@ class NewRouteViewModel(
 
     init {
         loadPlatforms()
+    }
+
+    fun initOrLoad(itemId: String?) {
+        val user = supabase.auth.currentUserOrNull()
+        if (user == null) {
+            _uiState.value = _uiState.value.copy(isLoading = false, error = "Usuário não autenticado.")
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val platforms = platformRepository.getActivePlatforms(user.id)
+                val lastOdometerKm = routeRepository.getLastOdometerKm(user.id)
+                var existingRoute: Route? = null
+                if (!itemId.isNullOrBlank()) {
+                    existingRoute = routeRepository.getRouteById(itemId)
+                }
+
+                withContext(Dispatchers.Main) {
+                    if (existingRoute != null) {
+                        val zone = ZoneId.systemDefault()
+                        val sTime = existingRoute.startedAt?.atZoneSameInstant(zone)?.toLocalTime() ?: LocalTime.now().withSecond(0).withNano(0)
+                        val eTime = existingRoute.endedAt?.atZoneSameInstant(zone)?.toLocalTime() ?: LocalTime.now().plusHours(2).withSecond(0).withNano(0)
+
+                        val smallCount = existingRoute.smallPackagesCount
+                        val smallPrice = existingRoute.packageUnitPrice
+                        val smallTotal = BigDecimal(smallCount).multiply(smallPrice).setScale(2, RoundingMode.HALF_UP)
+
+                        val largeCount = existingRoute.largePackagesCount
+                        val largePrices = existingRoute.largePackagesPrices
+                        val isIndividual = largePrices.distinct().size > 1
+                        val singleLargePrice = largePrices.firstOrNull() ?: BigDecimal.ZERO
+                        val largeTotal = largePrices.fold(BigDecimal.ZERO, BigDecimal::add).setScale(2, RoundingMode.HALF_UP)
+
+                        _uiState.value = _uiState.value.copy(
+                            editingRouteId = existingRoute.id,
+                            platforms = platforms,
+                            selectedPlatformId = existingRoute.platformId ?: platforms.firstOrNull()?.id,
+                            origin = existingRoute.origin ?: "",
+                            destination = existingRoute.destination ?: "",
+                            distanceKmText = if (existingRoute.distanceKm > BigDecimal.ZERO) existingRoute.distanceKm.toPlainString().replace('.', ',') else "",
+                            selectedProductTypeCode = existingRoute.productType,
+                            smallPackagesCountText = if (smallCount > 0) smallCount.toString() else "",
+                            smallPackagesUnitPriceText = if (smallPrice > BigDecimal.ZERO) smallPrice.toPlainString().replace('.', ',') else "",
+                            smallPackagesTotal = smallTotal,
+                            largePackagesCountText = if (largeCount > 0) largeCount.toString() else "",
+                            isLargePackageIndividualValue = isIndividual,
+                            largePackageSingleUnitPriceText = if (singleLargePrice > BigDecimal.ZERO) singleLargePrice.toPlainString().replace('.', ',') else "",
+                            largePackagesIndividualPrices = largePrices,
+                            largePackagesTotal = largeTotal,
+                            tipText = if (existingRoute.tip > BigDecimal.ZERO) existingRoute.tip.toPlainString().replace('.', ',') else "",
+                            bonusText = if (existingRoute.bonus > BigDecimal.ZERO) existingRoute.bonus.toPlainString().replace('.', ',') else "",
+                            notesText = existingRoute.notes ?: "",
+                            startTime = sTime,
+                            endTime = eTime,
+                            breakMinutesText = if (existingRoute.breakMinutes > 0) existingRoute.breakMinutes.toString() else "",
+                            startKmText = if (existingRoute.startKm > BigDecimal.ZERO) existingRoute.startKm.toPlainString().replace('.', ',') else "",
+                            endKmText = if (existingRoute.endKm > BigDecimal.ZERO) existingRoute.endKm.toPlainString().replace('.', ',') else "",
+                            isLoading = false
+                        )
+                    } else {
+                        loadPlatforms()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("NewRouteVM", "Erro ao carregar rota: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Erro ao carregar dados da rota.")
+                }
+            }
+        }
     }
 
     fun loadPlatforms() {
@@ -393,7 +467,7 @@ class NewRouteViewModel(
                 val notes = state.notesText.trim().ifBlank { null }
 
                 val route = Route(
-                    id = "",
+                    id = state.editingRouteId ?: "",
                     userId = user.id,
                     platformId = state.selectedPlatformId,
                     origin = state.origin.trim().ifBlank { null },
@@ -418,14 +492,18 @@ class NewRouteViewModel(
                     occurredAt = now
                 )
 
-                Log.d("NewRouteVM", "Salvando nova rota: $route")
-                val created = routeRepository.createRoute(route)
-                Log.d("NewRouteVM", "Rota criada com sucesso: $created")
+                if (state.editingRouteId.isNullOrBlank()) {
+                    Log.d("NewRouteVM", "Criando nova rota: $route")
+                    routeRepository.createRoute(route)
+                } else {
+                    Log.d("NewRouteVM", "Atualizando rota existente: $route")
+                    routeRepository.updateRoute(route)
+                }
 
                 withContext(Dispatchers.Main) {
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        message = "Rota lançada com sucesso!"
+                        message = if (state.editingRouteId.isNullOrBlank()) "Rota lançada com sucesso!" else "Rota atualizada com sucesso!"
                     )
                     onSuccess()
                 }

@@ -43,6 +43,7 @@ fun DailyTotalDto.toDomain(): DailyTotal {
         distanceKm = distanceKm ?: BigDecimal.ZERO,
         productType = productType ?: "alimento",
         subtractRoutes = subtractRoutes ?: false,
+        notes = notes,
         billingCycleId = billingCycleId,
         occurredAt = parsedOccurredAt
     )
@@ -57,6 +58,7 @@ fun DailyTotal.toDto(): DailyTotalDto {
         distanceKm = distanceKm,
         productType = productType,
         subtractRoutes = subtractRoutes,
+        notes = notes,
         billingCycleId = billingCycleId,
         occurredAt = occurredAt.toString()
     )

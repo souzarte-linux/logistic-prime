@@ -15,22 +15,37 @@ class ExpenseRepository(
     suspend fun createExpense(expense: Expense): Expense = withContext(Dispatchers.IO) {
         val dto = expense.toDto()
         val createdList = expenseApi.createExpense(dto)
-        createdList.firstOrNull()?.toDomain() ?: expense
+        val result = createdList.firstOrNull()?.toDomain() ?: expense
+        com.fernando.centraldomotorista.util.AppDataSync.notifyDataChanged()
+        result
     }
 
     suspend fun updateExpense(expense: Expense): Expense = withContext(Dispatchers.IO) {
         val dto = expense.toDto()
         val updatedList = expenseApi.updateExpense("eq.${expense.id}", dto)
-        updatedList.firstOrNull()?.toDomain() ?: expense
+        val result = updatedList.firstOrNull()?.toDomain() ?: expense
+        com.fernando.centraldomotorista.util.AppDataSync.notifyDataChanged()
+        result
     }
 
     suspend fun deleteExpense(expenseId: String): Boolean = withContext(Dispatchers.IO) {
         try {
             expenseApi.deleteExpense("eq.$expenseId")
+            com.fernando.centraldomotorista.util.AppDataSync.notifyDataChanged()
             true
         } catch (e: Exception) {
             Log.e("ExpenseRepo", "Erro ao excluir despesa $expenseId: ${e.message}", e)
             false
+        }
+    }
+
+    suspend fun getExpenseById(expenseId: String): Expense? = withContext(Dispatchers.IO) {
+        try {
+            val list = expenseApi.getExpenseById("eq.$expenseId")
+            list.firstOrNull()?.toDomain()
+        } catch (e: Exception) {
+            Log.e("ExpenseRepo", "Erro ao buscar despesa $expenseId: ${e.message}", e)
+            null
         }
     }
 

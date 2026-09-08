@@ -36,6 +36,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FuelExpenseScreen(
+    itemId: String? = null,
     viewModel: FuelExpenseViewModel = viewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToGasStations: () -> Unit,
@@ -44,6 +45,10 @@ fun FuelExpenseScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    LaunchedEffect(itemId) {
+        viewModel.initOrLoad(itemId)
+    }
     var stationMenuExpanded by remember { mutableStateOf(false) }
     var fuelMenuExpanded by remember { mutableStateOf(false) }
     var showCardModal by remember { mutableStateOf(false) }
@@ -80,7 +85,7 @@ fun FuelExpenseScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "NOVO ABASTECIMENTO",
+                        text = if (uiState.editingExpenseId != null) "EDITAR ABASTECIMENTO" else "NOVO ABASTECIMENTO",
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
@@ -523,7 +528,7 @@ fun FuelExpenseScreen(
                                 CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.Black, strokeWidth = 2.dp)
                             } else {
                                 Text(
-                                    text = "Salvar Abastecimento",
+                                    text = if (uiState.editingExpenseId != null) "Salvar Alterações ✓" else "Salvar Abastecimento",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp
                                 )

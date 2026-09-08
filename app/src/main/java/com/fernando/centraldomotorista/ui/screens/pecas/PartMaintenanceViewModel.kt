@@ -526,6 +526,90 @@ class PartMaintenanceViewModel(
         }
     }
 
+    fun initOrLoad(itemId: String?) {
+        viewModelScope.launch {
+            loadData()
+            if (!itemId.isNullOrBlank()) {
+                val partsList = partRepository.getPartMaintenances(currentUserId)
+                val part = partsList.firstOrNull { it.id == itemId || it.expenseId == itemId }
+                if (part != null) {
+                    startEditing(part)
+                } else {
+                    try {
+                        val exp = expenseRepository.getExpenseById(itemId)
+                        if (exp != null) {
+                            val cardData = if (exp.paymentMethod == "cartao" && exp.cardId != null) {
+                                CardPaymentData(
+                                    cardId = exp.cardId,
+                                    cardBrand = exp.cardBrand,
+                                    cardOperator = exp.cardOperator,
+                                    cardDueDay = exp.cardDueDay,
+                                    isInstallment = (exp.installmentTotal ?: 1) > 1,
+                                    installmentTotal = exp.installmentTotal,
+                                    firstInstallmentMonth = null,
+                                    installmentGroupId = exp.installmentGroupId
+                                )
+                            } else null
+
+                            _uiState.update {
+                                it.copy(
+                                    isFormOpen = true,
+                                    editingPartId = null,
+                                    editingExpenseId = exp.id,
+                                    partName = exp.title.removePrefix("Manutenção: ").trim(),
+                                    lifeKm = "10000",
+                                    lastChangeKm = exp.odometerKm?.toPlainString() ?: "",
+                                    selectedCompanyId = exp.companyId,
+                                    totalAmountText = exp.amount.toPlainString(),
+                                    lastChangeDateTime = exp.occurredAt.toLocalDateTime(),
+                                    receiptNumber = exp.receiptNumber ?: "",
+                                    notes = exp.description ?: "",
+                                    paymentMethod = exp.paymentMethod,
+                                    partBrand = exp.partBrand ?: "",
+                                    partModel = exp.partModel ?: "",
+                                    cardPaymentData = cardData
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+                }
+            }
+        }
+    }
+
+    fun deleteCurrent(onSuccess: () -> Unit = {}) {
+        val partId = _uiState.value.editingPartId
+        val expId = _uiState.value.editingExpenseId
+        if (partId != null) {
+            deletePartMaintenance(partId, onSuccess)
+        } else if (expId != null) {
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoading = true) }
+                try {
+                    val ok = expenseRepository.deleteExpense(expId)
+                    if (ok) {
+                        _uiState.update {
+                            it.copy(
+                                isFormOpen = false,
+                                editingPartId = null,
+                                editingExpenseId = null,
+                                message = "Despesa de manutenção excluída com sucesso!"
+                            )
+                        }
+                        loadData()
+                        onSuccess()
+                    } else {
+                        _uiState.update { it.copy(isLoading = false, error = "Erro ao excluir despesa.") }
+                    }
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(isLoading = false, error = "Erro ao excluir despesa: ${e.message}") }
+                }
+            }
+        }
+    }
+
     fun clearMessages() {
         _uiState.update { it.copy(message = null, error = null) }
     }

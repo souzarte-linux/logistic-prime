@@ -21,4 +21,21 @@ interface DailyTotalApi {
     suspend fun createDailyTotal(
         @Body dailyTotal: DailyTotalDto
     ): List<DailyTotalDto>
+
+    @Headers("Prefer: return=representation")
+    @retrofit2.http.PATCH("daily_totals")
+    suspend fun updateDailyTotal(
+        @Query("id") idFilter: String,
+        @Body dailyTotal: DailyTotalDto
+    ): List<DailyTotalDto>
+
+    @retrofit2.http.DELETE("daily_totals")
+    suspend fun deleteDailyTotal(
+        @Query("id") idFilter: String
+    )
+
+    @GET("daily_totals")
+    suspend fun getDailyTotalById(
+        @Query("id") idFilter: String
+    ): List<DailyTotalDto>
 }

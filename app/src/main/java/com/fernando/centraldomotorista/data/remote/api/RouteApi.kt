@@ -19,4 +19,21 @@ interface RouteApi {
     suspend fun createRoute(
         @Body route: RouteDto
     ): List<RouteDto>
+
+    @Headers("Prefer: return=representation")
+    @retrofit2.http.PATCH("routes")
+    suspend fun updateRoute(
+        @Query("id") idFilter: String,
+        @Body route: RouteDto
+    ): List<RouteDto>
+
+    @retrofit2.http.DELETE("routes")
+    suspend fun deleteRoute(
+        @Query("id") idFilter: String
+    )
+
+    @GET("routes")
+    suspend fun getRouteById(
+        @Query("id") idFilter: String
+    ): List<RouteDto>
 }

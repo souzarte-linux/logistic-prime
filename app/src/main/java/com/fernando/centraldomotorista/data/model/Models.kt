@@ -77,6 +77,7 @@ data class DailyTotal(
     val distanceKm: BigDecimal = BigDecimal.ZERO,
     val productType: String = "alimento",
     val subtractRoutes: Boolean = false,
+    val notes: String? = null,
     val billingCycleId: String?,
     val occurredAt: OffsetDateTime,
 )

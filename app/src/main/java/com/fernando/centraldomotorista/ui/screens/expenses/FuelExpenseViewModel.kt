@@ -45,7 +45,8 @@ data class FuelExpenseUiState(
     val receiptNumber: String = "",
     val notes: String = "",
     val paymentMethod: String = "pix", // "pix", "card", "dinheiro"
-    val cardPaymentData: CardPaymentData? = null
+    val cardPaymentData: CardPaymentData? = null,
+    val editingExpenseId: String? = null
 )
 
 class FuelExpenseViewModel(
@@ -62,6 +63,65 @@ class FuelExpenseViewModel(
 
     init {
         loadInitialData()
+    }
+
+    fun initOrLoad(itemId: String?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingData = true, error = null) }
+            val stations = gasStationRepository.getGasStations(currentUserId)
+            val cards = creditCardRepository.getCreditCards(currentUserId)
+            val brands = creditCardRepository.getCardBrands(currentUserId)
+            val operators = creditCardRepository.getCardOperators(currentUserId)
+
+            var editExpense: Expense? = null
+            if (!itemId.isNullOrBlank()) {
+                editExpense = expenseRepository.getExpenseById(itemId)
+            }
+
+            if (editExpense != null) {
+                val cardData = if (editExpense.paymentMethod == "cartao" || editExpense.paymentMethod == "card") {
+                    CardPaymentData(
+                        cardId = editExpense.cardId ?: "",
+                        cardBrand = editExpense.cardBrand,
+                        cardOperator = editExpense.cardOperator,
+                        cardDueDay = editExpense.cardDueDay,
+                        isInstallment = (editExpense.installmentTotal ?: 1) > 1,
+                        installmentTotal = editExpense.installmentTotal,
+                        firstInstallmentMonth = null,
+                        installmentGroupId = editExpense.installmentGroupId
+                    )
+                } else null
+
+                val zone = ZoneId.systemDefault()
+                val dt = editExpense.occurredAt.atZoneSameInstant(zone).toLocalDateTime()
+
+                _uiState.update {
+                    it.copy(
+                        gasStations = stations,
+                        creditCards = cards,
+                        cardBrands = brands,
+                        cardOperators = operators,
+                        editingExpenseId = editExpense.id,
+                        selectedStationId = editExpense.gasStationId ?: stations.firstOrNull { s -> s.name == editExpense.vendor }?.id,
+                        selectedFuelType = editExpense.fuelType ?: "Gasolina Comum",
+                        pricePerLiterText = editExpense.pricePerLiter?.toPlainString()?.replace('.', ',') ?: "",
+                        litersText = editExpense.liters?.toPlainString()?.replace('.', ',') ?: "",
+                        odometerKmText = editExpense.odometerKm?.toPlainString()?.replace('.', ',') ?: "",
+                        isFullTank = editExpense.isFullTank,
+                        totalAmountText = editExpense.amount.toPlainString().replace('.', ','),
+                        isTotalManuallyEdited = true,
+                        dateTime = dt,
+                        receiptNumber = editExpense.receiptNumber ?: "",
+                        notes = editExpense.description ?: "",
+                        paymentMethod = if (editExpense.paymentMethod == "cartao" || editExpense.paymentMethod == "card") "cartao" else editExpense.paymentMethod,
+                        cardPaymentData = cardData,
+                        isLoadingData = false
+                    )
+                }
+            } else {
+                loadInitialData()
+            }
+        }
     }
 
     fun loadInitialData() {
@@ -234,7 +294,7 @@ class FuelExpenseViewModel(
                 val cardData = if (state.paymentMethod == "cartao") state.cardPaymentData else null
 
                 val expense = Expense(
-                    id = "",
+                    id = state.editingExpenseId ?: "",
                     userId = currentUserId,
                     category = "combustivel",
                     title = title,
@@ -259,8 +319,13 @@ class FuelExpenseViewModel(
                     cardId = cardData?.cardId?.ifBlank { null }
                 )
 
-                expenseRepository.createExpense(expense)
-                _uiState.update { it.copy(isSaving = false, message = "Abastecimento salvo com sucesso!") }
+                if (state.editingExpenseId.isNullOrBlank()) {
+                    expenseRepository.createExpense(expense)
+                } else {
+                    expenseRepository.updateExpense(expense)
+                }
+
+                _uiState.update { it.copy(isSaving = false, message = if (state.editingExpenseId.isNullOrBlank()) "Abastecimento salvo com sucesso!" else "Abastecimento atualizado com sucesso!") }
                 onSuccess()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSaving = false, error = "Erro ao salvar abastecimento: ${e.message}") }

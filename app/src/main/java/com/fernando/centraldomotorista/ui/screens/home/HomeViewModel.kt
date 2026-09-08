@@ -54,6 +54,11 @@ class HomeViewModel(
 
     init {
         loadData()
+        viewModelScope.launch {
+            com.fernando.centraldomotorista.util.AppDataSync.dataChangedEvents.collect {
+                loadData()
+            }
+        }
     }
 
     fun refresh() {

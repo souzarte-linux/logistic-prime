@@ -39,7 +39,8 @@ data class MealExpenseUiState(
     val notes: String = "", // Observação (opcional)
     val paymentMethod: String = "pix", // "pix", "cartao", "dinheiro"
     val cardPaymentData: CardPaymentData? = null,
-    val isAddCompanyDialogOpen: Boolean = false
+    val isAddCompanyDialogOpen: Boolean = false,
+    val editingExpenseId: String? = null
 )
 
 class MealExpenseViewModel(
@@ -56,6 +57,70 @@ class MealExpenseViewModel(
 
     init {
         loadInitialData()
+    }
+
+    fun initOrLoad(itemId: String?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingData = true, error = null) }
+            try {
+                val companies = companyRepository.getCompanies(currentUserId)
+                val cards = creditCardRepository.getCreditCards(currentUserId)
+                val brands = creditCardRepository.getCardBrands(currentUserId)
+                val operators = creditCardRepository.getCardOperators(currentUserId)
+
+                var editExpense: Expense? = null
+                if (!itemId.isNullOrBlank()) {
+                    editExpense = expenseRepository.getExpenseById(itemId)
+                }
+
+                if (editExpense != null) {
+                    val cardData = if (editExpense.paymentMethod == "cartao" || editExpense.paymentMethod == "card") {
+                        CardPaymentData(
+                            cardId = editExpense.cardId ?: "",
+                            cardBrand = editExpense.cardBrand,
+                            cardOperator = editExpense.cardOperator,
+                            cardDueDay = editExpense.cardDueDay,
+                            isInstallment = (editExpense.installmentTotal ?: 1) > 1,
+                            installmentTotal = editExpense.installmentTotal,
+                            firstInstallmentMonth = null,
+                            installmentGroupId = editExpense.installmentGroupId
+                        )
+                    } else null
+
+                    val zone = ZoneId.systemDefault()
+                    val dt = editExpense.occurredAt.atZoneSameInstant(zone).toLocalDateTime()
+                    val cents = editExpense.amount.multiply(BigDecimal(100)).toLong()
+
+                    _uiState.update {
+                        it.copy(
+                            companies = companies,
+                            creditCards = cards,
+                            cardBrands = brands,
+                            cardOperators = operators,
+                            editingExpenseId = editExpense.id,
+                            selectedCompanyId = editExpense.companyId ?: companies.firstOrNull { c -> c.name == editExpense.vendor }?.id,
+                            selectedMealType = editExpense.mealType ?: "Almoço",
+                            title = editExpense.title,
+                            amountText = cents.toString(),
+                            dateTime = dt,
+                            notes = editExpense.description ?: "",
+                            paymentMethod = if (editExpense.paymentMethod == "cartao" || editExpense.paymentMethod == "card") "cartao" else editExpense.paymentMethod,
+                            cardPaymentData = cardData,
+                            isLoadingData = false
+                        )
+                    }
+                } else {
+                    loadInitialData()
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoadingData = false,
+                        error = "Erro ao carregar dados: ${e.message}"
+                    )
+                }
+            }
+        }
     }
 
     fun loadInitialData() {
@@ -183,7 +248,7 @@ class MealExpenseViewModel(
                 val cardData = if (state.paymentMethod == "cartao") state.cardPaymentData else null
 
                 val expense = Expense(
-                    id = "",
+                    id = state.editingExpenseId ?: "",
                     userId = currentUserId,
                     category = "alimentacao",
                     title = title,
@@ -203,12 +268,16 @@ class MealExpenseViewModel(
                     cardDueDay = cardData?.cardDueDay
                 )
 
-                expenseRepository.createExpense(expense)
+                if (state.editingExpenseId.isNullOrBlank()) {
+                    expenseRepository.createExpense(expense)
+                } else {
+                    expenseRepository.updateExpense(expense)
+                }
 
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        message = "Despesa de alimentação salva com sucesso!"
+                        message = if (state.editingExpenseId.isNullOrBlank()) "Despesa de alimentação salva com sucesso!" else "Despesa de alimentação atualizada com sucesso!"
                     )
                 }
                 onSuccess()

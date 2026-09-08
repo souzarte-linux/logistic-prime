@@ -47,6 +47,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewRouteScreen(
+    itemId: String? = null,
     viewModel: NewRouteViewModel = viewModel(),
     onNavigateBack: () -> Unit,
     onRouteSaved: () -> Unit
@@ -56,6 +57,10 @@ fun NewRouteScreen(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val endKmFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(itemId) {
+        viewModel.initOrLoad(itemId)
+    }
 
     var platformMenuExpanded by remember { mutableStateOf(false) }
     var productTypeMenuExpanded by remember { mutableStateOf(false) }
@@ -85,7 +90,7 @@ fun NewRouteScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "LANÇAR GANHOS POR ROTA",
+                        text = if (uiState.editingRouteId != null) "EDITAR GANHOS POR ROTA" else "LANÇAR GANHOS POR ROTA",
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
@@ -939,7 +944,7 @@ fun NewRouteScreen(
                                 Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Salvar Rota",
+                                    text = if (uiState.editingRouteId != null) "Salvar Alterações" else "Salvar Rota",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 16.sp
                                 )

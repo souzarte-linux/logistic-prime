@@ -39,6 +39,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealExpenseScreen(
+    itemId: String? = null,
     viewModel: MealExpenseViewModel = viewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToCompanies: () -> Unit = {},
@@ -48,6 +49,10 @@ fun MealExpenseScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    LaunchedEffect(itemId) {
+        viewModel.initOrLoad(itemId)
+    }
 
     val fieldBackground = MaterialTheme.colorScheme.surfaceVariant
     val fieldBorder = MaterialTheme.colorScheme.outline
@@ -120,7 +125,7 @@ fun MealExpenseScreen(
                     }
 
                     Text(
-                        text = "LANÇAMENTO DE ALIMENTAÇÃO",
+                        text = if (uiState.editingExpenseId != null) "EDITAR ALIMENTAÇÃO" else "LANÇAMENTO DE ALIMENTAÇÃO",
                         fontWeight = FontWeight.Black,
                         fontSize = 16.sp,
                         letterSpacing = 0.8.sp,
@@ -611,7 +616,7 @@ fun MealExpenseScreen(
                     )
                 } else {
                     Text(
-                        text = "SALVAR DESPESA",
+                        text = if (uiState.editingExpenseId != null) "SALVAR ALTERAÇÕES ✓" else "SALVAR DESPESA",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp

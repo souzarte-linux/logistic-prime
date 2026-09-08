@@ -18,7 +18,38 @@ class RouteRepository(
     suspend fun createRoute(route: Route): Route = withContext(Dispatchers.IO) {
         val dto = route.toDto()
         val createdList = routeApi.createRoute(dto)
-        createdList.firstOrNull()?.toDomain() ?: route
+        val result = createdList.firstOrNull()?.toDomain() ?: route
+        com.fernando.centraldomotorista.util.AppDataSync.notifyDataChanged()
+        result
+    }
+
+    suspend fun updateRoute(route: Route): Route = withContext(Dispatchers.IO) {
+        val dto = route.toDto()
+        val updatedList = routeApi.updateRoute("eq.${route.id}", dto)
+        val result = updatedList.firstOrNull()?.toDomain() ?: route
+        com.fernando.centraldomotorista.util.AppDataSync.notifyDataChanged()
+        result
+    }
+
+    suspend fun deleteRoute(routeId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            routeApi.deleteRoute("eq.$routeId")
+            com.fernando.centraldomotorista.util.AppDataSync.notifyDataChanged()
+            true
+        } catch (e: Exception) {
+            Log.e("RouteRepository", "Erro ao excluir rota $routeId: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun getRouteById(routeId: String): Route? = withContext(Dispatchers.IO) {
+        try {
+            val list = routeApi.getRouteById("eq.$routeId")
+            list.firstOrNull()?.toDomain()
+        } catch (e: Exception) {
+            Log.e("RouteRepository", "Erro ao buscar rota $routeId: ${e.message}", e)
+            null
+        }
     }
 
     suspend fun getRoutes(userId: String): List<Route> = withContext(Dispatchers.IO) {

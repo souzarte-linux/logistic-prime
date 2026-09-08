@@ -28,4 +28,9 @@ interface ExpenseApi {
     suspend fun deleteExpense(
         @Query("id") idFilter: String
     )
+
+    @GET("expenses")
+    suspend fun getExpenseById(
+        @Query("id") idFilter: String
+    ): List<ExpenseDto>
 }

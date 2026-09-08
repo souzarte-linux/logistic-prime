@@ -8,6 +8,6 @@ interface BillingCycleApi {
     @GET("billing_cycles")
     suspend fun getBillingCycles(
         @Query("user_id") userIdFilter: String,
-        @Query("status") statusFilter: String = "eq.pending"
+        @Query("status") statusFilter: String? = "eq.pending"
     ): List<BillingCycleDto>
 }

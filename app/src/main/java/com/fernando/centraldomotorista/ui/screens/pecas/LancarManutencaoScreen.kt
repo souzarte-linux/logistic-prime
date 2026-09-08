@@ -44,6 +44,7 @@ private val GreenNeon = Color(0xFF00E676)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LancarManutencaoScreen(
+    itemId: String? = null,
     viewModel: PartMaintenanceViewModel = viewModel(),
     onNavigateToManageCards: () -> Unit = {},
     onNavigateBack: () -> Unit
@@ -54,7 +55,11 @@ fun LancarManutencaoScreen(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    val isEditing = uiState.editingPartId != null
+    LaunchedEffect(itemId) {
+        viewModel.initOrLoad(itemId)
+    }
+
+    val isEditing = uiState.editingPartId != null || uiState.editingExpenseId != null
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var productDropdownExpanded by remember { mutableStateOf(false) }
     var companyDropdownExpanded by remember { mutableStateOf(false) }
@@ -755,16 +760,16 @@ fun LancarManutencaoScreen(
     }
 
     // Confirmação de exclusão
-    if (showDeleteConfirmDialog && uiState.editingPartId != null) {
+    if (showDeleteConfirmDialog && isEditing) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Excluir Monitoramento", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
-            text = { Text("Tem certeza que deseja excluir o monitoramento de '${uiState.partName}' e a despesa associada?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = { Text("Excluir Manutenção", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+            text = { Text("Tem certeza que deseja excluir este registro de manutenção?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
                         showDeleteConfirmDialog = false
-                        viewModel.deletePartMaintenance(uiState.editingPartId!!) {
+                        viewModel.deleteCurrent {
                             onNavigateBack()
                         }
                     },

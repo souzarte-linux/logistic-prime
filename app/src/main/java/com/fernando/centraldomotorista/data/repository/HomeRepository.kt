@@ -144,8 +144,11 @@ class HomeRepository(
             val todayDailyTotals = allDailyTotals.filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today }
             val todayExpenses = allExpenses.filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today }
 
-            val totalGanhosHoje = todayRoutes.map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add)
-                .add(todayDailyTotals.map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add))
+            val totalGanhosHoje = com.fernando.centraldomotorista.util.EarningsCalculator.calcularTotalGanhos(
+                routes = todayRoutes,
+                dailyTotals = todayDailyTotals,
+                zone = zone
+            )
             val totalGastosHoje = todayExpenses.map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add)
 
             val lucroHoje = totalGanhosHoje.subtract(totalGastosHoje)
