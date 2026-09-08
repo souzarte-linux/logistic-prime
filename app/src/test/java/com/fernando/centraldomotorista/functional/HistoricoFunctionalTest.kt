@@ -243,4 +243,120 @@ class HistoricoFunctionalTest {
         assertFalse("Total do Dia excluído não deve estar mais na lista", list.any { it.id == txDaily.id })
         assertEquals("Subtotal deve zerar após excluir todas as transações", BigDecimal.ZERO, calcBalance(list))
     }
+
+    // =========================================================================
+    // TESTE 5: subtract_routes com Rota Retroativa e Isolamento de Datas
+    // =========================================================================
+    @Test
+    fun test5_subtractRoutesWithRetroactiveDate_scenarios() {
+        val threeDaysAgo = today.minusDays(3)
+
+        // 1. Rota lançada HOJE com data RETROATIVA (3 dias atrás), valor R$ 100
+        val routeThreeDaysAgo = Route(
+            id = "r_retro_3d",
+            userId = "user_1",
+            platformId = "plat_ml",
+            origin = "SPO",
+            destination = "SAO",
+            amount = BigDecimal("100.00"),
+            occurredAt = OffsetDateTime.of(threeDaysAgo, LocalTime.of(10, 0), zone)
+        )
+
+        // 2. Total do Dia com occurred_at para essa MESMA data retroativa (3 dias atrás), valor R$ 250, subtract_routes = true
+        val dailyThreeDaysAgo = DailyTotal(
+            id = "dt_retro_3d",
+            userId = "user_1",
+            platformId = "plat_ml",
+            amount = BigDecimal("250.00"),
+            subtractRoutes = true,
+            occurredAt = OffsetDateTime.of(threeDaysAgo, LocalTime.of(18, 0), zone)
+        )
+
+        // Ponto A: O líquido calculado para aquele dia retroativo é R$ 150 (250 - 100)
+        val routes = listOf(routeThreeDaysAgo)
+        val liquidoDiaRetroativo = EarningsCalculator.calcularGanhoLiquidoDoDia(dailyThreeDaysAgo, routes, zone)
+        assertEquals(
+            "Ponto 1: Líquido calculado para a data retroativa deve ser R$ 150,00 (250 - 100)",
+            BigDecimal("150.00"),
+            liquidoDiaRetroativo
+        )
+
+        // Ponto B: O Histórico mostra essa rota e esse total do dia agrupados dentro do DIA CORRETO (3 dias atrás)
+        val txRoute = TransactionItem(
+            id = routeThreeDaysAgo.id,
+            type = TransactionType.GANHO,
+            sourceType = TransactionSourceType.ROUTE,
+            title = "MERCADO LIVRE",
+            subtitle = "SPO - SAO",
+            amount = routeThreeDaysAgo.amount,
+            netAmount = routeThreeDaysAgo.amount,
+            category = "ROTA",
+            occurredAt = routeThreeDaysAgo.occurredAt,
+            rawRoute = routeThreeDaysAgo
+        )
+        val txDaily = TransactionItem(
+            id = dailyThreeDaysAgo.id,
+            type = TransactionType.GANHO,
+            sourceType = TransactionSourceType.DAILY_TOTAL,
+            title = "TOTAL DO DIA",
+            subtitle = "MERCADO LIVRE",
+            amount = dailyThreeDaysAgo.amount,
+            netAmount = liquidoDiaRetroativo,
+            category = "TOTAL DO DIA",
+            occurredAt = dailyThreeDaysAgo.occurredAt,
+            subtractRoutes = true,
+            rawDailyTotal = dailyThreeDaysAgo
+        )
+
+        val dKeyRoute = txRoute.occurredAt.atZoneSameInstant(zone).toLocalDate()
+        val dKeyDaily = txDaily.occurredAt.atZoneSameInstant(zone).toLocalDate()
+
+        assertEquals("Ponto 2: Rota deve estar agrupada no dia retroativo (3 dias atrás)", threeDaysAgo, dKeyRoute)
+        assertEquals("Ponto 2: Total do dia deve estar agrupado no dia retroativo (3 dias atrás)", threeDaysAgo, dKeyDaily)
+        assertNotEquals("Ponto 2: Rota NÃO deve estar no dia de hoje", today, dKeyRoute)
+        assertNotEquals("Ponto 2: Total do dia NÃO deve estar no dia de hoje", today, dKeyDaily)
+
+        // Ponto C: O saldo de "Hoje" na tela Início NÃO inclui esses valores retroativos
+        val allRoutes = listOf(routeThreeDaysAgo)
+        val allDailyTotals = listOf(dailyThreeDaysAgo)
+
+        val todayRoutes = allRoutes.filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today }
+        val todayDailyTotals = allDailyTotals.filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today }
+
+        val totalGanhosHoje = EarningsCalculator.calcularTotalGanhos(todayRoutes, todayDailyTotals, zone)
+
+        assertEquals("Ponto 3: Não deve haver rotas computadas para hoje", 0, todayRoutes.size)
+        assertEquals("Ponto 3: Não deve haver total do dia computado para hoje", 0, todayDailyTotals.size)
+        assertEquals("Ponto 3: Saldo de Hoje no Início deve ser R$ 0,00 (não inclui valores retroativos)", BigDecimal.ZERO, totalGanhosHoje)
+
+        // Ponto D: Rota com data retroativa e "Total do Dia" com data de HOJE -> NÃO deve misturar
+        val dtHoje = DailyTotal(
+            id = "dt_today",
+            userId = "user_1",
+            platformId = "plat_ml",
+            amount = BigDecimal("250.00"),
+            subtractRoutes = true,
+            occurredAt = OffsetDateTime.of(today, LocalTime.of(19, 0), zone)
+        )
+
+        // O total do dia de HOJE com a rota de 3 dias atrás não deve descontar a rota retroativa
+        val liquidoDtHoje = EarningsCalculator.calcularGanhoLiquidoDoDia(dtHoje, listOf(routeThreeDaysAgo), zone)
+        assertEquals(
+            "Ponto 4: Líquido do Total do Dia de HOJE deve ser integral R$ 250,00 (não desconta rota de 3 dias atrás)",
+            BigDecimal("250.00"),
+            liquidoDtHoje
+        )
+
+        // Consolidação no Início hoje: apenas o dtHoje (R$ 250,00)
+        val totalHojeComDt = EarningsCalculator.calcularTotalGanhos(
+            routes = listOf(routeThreeDaysAgo).filter { it.occurredAt.atZoneSameInstant(zone).toLocalDate() == today },
+            dailyTotals = listOf(dtHoje),
+            zone = zone
+        )
+        assertEquals(
+            "Ponto 4: Total de Hoje com Total do Dia de hoje e rota retroativa deve ser R$ 250,00",
+            BigDecimal("250.00"),
+            totalHojeComDt
+        )
+    }
 }

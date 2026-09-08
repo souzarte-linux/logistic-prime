@@ -21,6 +21,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
@@ -116,12 +117,14 @@ class HistoricoViewModel(
             try {
                 val (profile, items) = historicoRepository.loadHistoricoData(currentUserId)
                 val today = LocalDate.now()
+                val zone = ZoneId.systemDefault()
 
                 var entradasHoje = BigDecimal.ZERO
                 var saidasHoje = BigDecimal.ZERO
 
                 items.forEach { tx ->
-                    if (tx.occurredAt.toLocalDate() == today) {
+                    val txLocalDate = tx.occurredAt.atZoneSameInstant(zone).toLocalDate()
+                    if (txLocalDate == today) {
                         if (tx.type == TransactionType.GANHO) {
                             entradasHoje = entradasHoje.add(tx.netAmount)
                         } else {
@@ -308,7 +311,8 @@ class HistoricoViewModel(
         items: List<TransactionItem>,
         tab: HistoricoTab,
         query: String,
-        today: LocalDate
+        today: LocalDate,
+        zone: ZoneId = ZoneId.systemDefault()
     ): Pair<List<MonthGroup>, List<TransactionItem>> {
         val filtered = items.filter { item ->
             val matchTab = when (tab) {
@@ -334,7 +338,8 @@ class HistoricoViewModel(
 
         val monthsMap = mutableMapOf<String, MutableList<TransactionItem>>()
         filtered.forEach { item ->
-            val mKey = item.occurredAt.toLocalDate().format(DateTimeFormatter.ofPattern("yyyy-MM"))
+            val localDate = item.occurredAt.atZoneSameInstant(zone).toLocalDate()
+            val mKey = localDate.format(DateTimeFormatter.ofPattern("yyyy-MM"))
             monthsMap.getOrPut(mKey) { mutableListOf() }.add(item)
         }
 
@@ -348,7 +353,7 @@ class HistoricoViewModel(
 
             val weeksMap = mutableMapOf<String, MutableList<TransactionItem>>()
             monthItems.forEach { item ->
-                val d = item.occurredAt.toLocalDate()
+                val d = item.occurredAt.atZoneSameInstant(zone).toLocalDate()
                 val wStart = d.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 val wKey = wStart.toString()
                 weeksMap.getOrPut(wKey) { mutableListOf() }.add(item)
@@ -365,7 +370,7 @@ class HistoricoViewModel(
 
                 val daysMap = mutableMapOf<String, MutableList<TransactionItem>>()
                 weekItems.forEach { item ->
-                    val dKey = item.occurredAt.toLocalDate().toString()
+                    val dKey = item.occurredAt.atZoneSameInstant(zone).toLocalDate().toString()
                     daysMap.getOrPut(dKey) { mutableListOf() }.add(item)
                 }
 
