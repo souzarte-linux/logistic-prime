@@ -254,3 +254,35 @@ data class Company(
     val website: String? = null,
 )
 
+data class DeliveryRoute(
+    val id: String = "",
+    val userId: String = "",
+    val name: String,
+)
+
+data class DeliveryPartner(
+    val id: String = "",
+    val userId: String = "",
+    val fullName: String,
+    val cep: String? = null,
+    val street: String? = null,
+    val number: String? = null,
+    val neighborhood: String? = null,
+    val city: String? = null,
+    val state: String? = null,
+    val phone: String? = null,
+    val isWhatsapp: Boolean = false,
+    val socialMedia: String? = null,
+    val pixKey: String? = null,
+    val pixBank: String? = null,
+    val cpf: String? = null,
+    val preferredRouteId: String? = null,
+    val packageRate: BigDecimal = BigDecimal.ZERO,
+    val defaultBonus: BigDecimal = BigDecimal.ZERO,
+    val deliveryType: String = "moto",
+    val rating: Int = 3,
+    val paymentCycleType: String = "fixed",
+    val paymentCycleFixed: String? = "semanal",
+    val paymentCycleVariableDays: List<Int>? = null,
+    val active: Boolean = true,
+)

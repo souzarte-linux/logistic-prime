@@ -58,6 +58,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Plataformas : Screen("plataformas", "Apps & Plataformas", Icons.Default.Smartphone)
     object Bandeiras : Screen("bandeiras", "Bandeiras", Icons.Default.CreditCard)
     object MonitoramentoPecas : Screen("monitoramento-pecas", "Monitoramento Peças", Icons.Default.Build)
+    object DeliveryRoutes : Screen("delivery_routes", "Rotas", Icons.Default.AltRoute)
+    object DeliveryPartners : Screen("delivery_partners", "Entregadores Parceiros", Icons.Default.TwoWheeler)
     
     // Suporte a telas auxiliares existentes
     object CreditCards : Screen("credit_cards", "Gerenciamento de Cartões", Icons.Default.CreditCard)
@@ -329,6 +331,38 @@ fun CentralDoMotoristaApp(
                 val bandeirasViewModel: com.fernando.centraldomotorista.ui.screens.bandeiras.BandeirasViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.bandeiras.BandeirasScreen(
                     viewModel = bandeirasViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Cadastro - Rotas de Entrega
+            composable(Screen.DeliveryRoutes.route) {
+                val deliveryRoutesViewModel: com.fernando.centraldomotorista.ui.screens.deliveryroutes.DeliveryRoutesViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliveryroutes.DeliveryRoutesScreen(
+                    viewModel = deliveryRoutesViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable("rotas") {
+                val deliveryRoutesViewModel: com.fernando.centraldomotorista.ui.screens.deliveryroutes.DeliveryRoutesViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliveryroutes.DeliveryRoutesScreen(
+                    viewModel = deliveryRoutesViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Cadastro - Entregadores Parceiros
+            composable(Screen.DeliveryPartners.route) {
+                val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersScreen(
+                    viewModel = deliveryPartnersViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable("entregadores") {
+                val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersScreen(
+                    viewModel = deliveryPartnersViewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

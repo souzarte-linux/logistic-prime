@@ -351,6 +351,32 @@ fun HomeScreen(
                                     }
                                 }
                             )
+
+                            // 🛣️ Rotas
+                            DrawerCadastroItem(
+                                icon = Icons.Default.AltRoute,
+                                title = "Rotas",
+                                subtitle = "Rotas de entrega cadastradas",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("delivery_routes")
+                                    }
+                                }
+                            )
+
+                            // 🛵 Entregadores Parceiros
+                            DrawerCadastroItem(
+                                icon = Icons.Default.TwoWheeler,
+                                title = "Entregadores Parceiros",
+                                subtitle = "Cadastro de motoristas e entregadores",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("delivery_partners")
+                                    }
+                                }
+                            )
                         }
                     }
 

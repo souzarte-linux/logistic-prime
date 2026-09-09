@@ -205,3 +205,57 @@ class PhoneVisualTransformation : VisualTransformation {
         return TransformedText(AnnotatedString(formatted), offsetMapping)
     }
 }
+
+class CpfVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text.filter { it.isDigit() }.take(11)
+        val out = StringBuilder()
+        for (i in raw.indices) {
+            if (i == 3 || i == 6) out.append('.')
+            else if (i == 9) out.append('-')
+            out.append(raw[i])
+        }
+        val formatted = out.toString()
+
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                val clamped = offset.coerceIn(0, raw.length)
+                val extra = when {
+                    clamped <= 3 -> 0
+                    clamped <= 6 -> 1
+                    clamped <= 9 -> 2
+                    else -> 3
+                }
+                return (clamped + extra).coerceAtMost(formatted.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                val clamped = offset.coerceIn(0, formatted.length)
+                val reduction = when {
+                    clamped <= 3 -> 0
+                    clamped <= 7 -> 1
+                    clamped <= 11 -> 2
+                    else -> 3
+                }
+                return (clamped - reduction).coerceIn(0, raw.length)
+            }
+        }
+        return TransformedText(AnnotatedString(formatted), offsetMapping)
+    }
+}
+
+fun isValidCpf(cpf: String): Boolean {
+    val digits = cpf.filter { it.isDigit() }
+    if (digits.length != 11) return false
+    if (digits.all { it == digits[0] }) return false
+
+    val sum1 = (0..8).sumOf { i -> digits[i].digitToInt() * (10 - i) }
+    val rem1 = (sum1 * 10) % 11
+    val digit1 = if (rem1 == 10) 0 else rem1
+    if (digit1 != digits[9].digitToInt()) return false
+
+    val sum2 = (0..9).sumOf { i -> digits[i].digitToInt() * (11 - i) }
+    val rem2 = (sum2 * 10) % 11
+    val digit2 = if (rem2 == 10) 0 else rem2
+    return digit2 == digits[10].digitToInt()
+}
