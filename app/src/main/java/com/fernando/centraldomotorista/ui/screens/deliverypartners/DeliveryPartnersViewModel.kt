@@ -3,12 +3,15 @@ package com.fernando.centraldomotorista.ui.screens.deliverypartners
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
+import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.data.remote.api.ViaCepApi
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
+import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryRouteRepository
 import com.fernando.centraldomotorista.ui.utils.isValidCpf
+import com.fernando.centraldomotorista.util.AppDataSync
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +57,9 @@ data class DeliveryPartnerFormData(
 data class DeliveryPartnersUiState(
     val partners: List<DeliveryPartner> = emptyList(),
     val routes: List<DeliveryRoute> = emptyList(),
+    val partnerSessions: List<DeliveryPartnerSession> = emptyList(),
+    val activeSessionsMap: Map<String, DeliveryPartnerSession> = emptyMap(),
+    val isLoadingSessions: Boolean = false,
     val searchQuery: String = "",
     val statusFilter: PartnerStatusFilter = PartnerStatusFilter.ALL,
     val isLoading: Boolean = false,
@@ -74,6 +80,7 @@ data class DeliveryPartnersUiState(
 class DeliveryPartnersViewModel(
     private val partnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
     private val routeRepository: DeliveryRouteRepository = DeliveryRouteRepository(),
+    private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
     private val viaCepApi: ViaCepApi = ViaCepApi.instance
 ) : ViewModel() {
 
@@ -85,6 +92,14 @@ class DeliveryPartnersViewModel(
 
     init {
         loadData()
+        viewModelScope.launch {
+            AppDataSync.dataChangedEvents.collect {
+                loadData()
+                _uiState.value.formData.id?.let { partnerId ->
+                    loadPartnerSessions(partnerId)
+                }
+            }
+        }
     }
 
     fun loadData() {
@@ -92,11 +107,28 @@ class DeliveryPartnersViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             val partners = partnerRepository.getDeliveryPartners(currentUserId)
             val routes = routeRepository.getDeliveryRoutes(currentUserId)
+            val sessions = sessionRepository.getSessions(currentUserId)
+            val activeSessions = sessions.filter { it.endTime == null }.associateBy { it.partnerId }
+
             _uiState.update {
                 it.copy(
                     partners = partners,
                     routes = routes,
+                    activeSessionsMap = activeSessions,
                     isLoading = false
+                )
+            }
+        }
+    }
+
+    fun loadPartnerSessions(partnerId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingSessions = true) }
+            val sessions = sessionRepository.getSessionsForPartner(currentUserId, partnerId)
+            _uiState.update {
+                it.copy(
+                    partnerSessions = sessions,
+                    isLoadingSessions = false
                 )
             }
         }
@@ -157,9 +189,11 @@ class DeliveryPartnersViewModel(
                 initialFormData = initial,
                 showDiscardAlert = false,
                 cpfError = null,
-                error = null
+                error = null,
+                partnerSessions = emptyList()
             )
         }
+        loadPartnerSessions(partner.id)
     }
 
     fun requestCloseForm() {

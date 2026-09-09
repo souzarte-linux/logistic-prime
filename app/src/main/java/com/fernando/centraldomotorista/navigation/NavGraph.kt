@@ -356,6 +356,12 @@ fun CentralDoMotoristaApp(
                 val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersScreen(
                     viewModel = deliveryPartnersViewModel,
+                    onNavigateToNewSession = { partnerId ->
+                        navController.navigate("new_partner_session/$partnerId")
+                    },
+                    onNavigateToCloseSession = { sessionId ->
+                        navController.navigate("close_partner_session/$sessionId")
+                    },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
@@ -363,7 +369,49 @@ fun CentralDoMotoristaApp(
                 val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersScreen(
                     viewModel = deliveryPartnersViewModel,
+                    onNavigateToNewSession = { partnerId ->
+                        navController.navigate("new_partner_session/$partnerId")
+                    },
+                    onNavigateToCloseSession = { sessionId ->
+                        navController.navigate("close_partner_session/$sessionId")
+                    },
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Sessão de Trabalho - Iniciar Nova Sessão
+            composable(
+                route = "new_partner_session/{partnerId}",
+                arguments = listOf(navArgument("partnerId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val partnerId = backStackEntry.arguments?.getString("partnerId") ?: ""
+                val newSessionViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.NewPartnerSessionViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.NewPartnerSessionScreen(
+                    partnerId = partnerId,
+                    viewModel = newSessionViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSessionCreated = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            // Sessão de Trabalho - Fechar Sessão e Pagar
+            composable(
+                route = "close_partner_session/{sessionId}",
+                arguments = listOf(navArgument("sessionId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
+                val closeSessionViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.ClosePartnerSessionViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.ClosePartnerSessionScreen(
+                    sessionId = sessionId,
+                    viewModel = closeSessionViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSessionClosed = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
                 )
             }
 

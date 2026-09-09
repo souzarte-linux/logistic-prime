@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
+import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.ui.theme.*
 import com.fernando.centraldomotorista.ui.utils.*
@@ -50,6 +51,8 @@ import java.util.Locale
 @Composable
 fun DeliveryPartnersScreen(
     viewModel: DeliveryPartnersViewModel = viewModel(),
+    onNavigateToNewSession: (partnerId: String) -> Unit = {},
+    onNavigateToCloseSession: (sessionId: String) -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -103,6 +106,8 @@ fun DeliveryPartnersScreen(
             onActiveChanged = { viewModel.onActiveChanged(it) },
             onSave = { viewModel.savePartner() },
             onDelete = { uiState.formData.id?.let { viewModel.deletePartner(it) } },
+            onNavigateToNewSession = onNavigateToNewSession,
+            onNavigateToCloseSession = onNavigateToCloseSession,
             onClose = { viewModel.requestCloseForm() },
             onConfirmDiscard = { viewModel.forceCloseForm() },
             onDismissDiscard = { viewModel.dismissDiscardAlert() }
@@ -116,6 +121,8 @@ fun DeliveryPartnersScreen(
             onAddPartner = { viewModel.openCreateForm() },
             onEditPartner = { viewModel.openEditForm(it) },
             onToggleActive = { viewModel.togglePartnerActive(it) },
+            onNavigateToNewSession = onNavigateToNewSession,
+            onNavigateToCloseSession = onNavigateToCloseSession,
             onNavigateBack = onNavigateBack
         )
     }
@@ -134,6 +141,8 @@ private fun DeliveryPartnersListView(
     onAddPartner: () -> Unit,
     onEditPartner: (DeliveryPartner) -> Unit,
     onToggleActive: (DeliveryPartner) -> Unit,
+    onNavigateToNewSession: (partnerId: String) -> Unit,
+    onNavigateToCloseSession: (sessionId: String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val filteredPartners = remember(uiState.partners, uiState.searchQuery, uiState.statusFilter) {
@@ -379,9 +388,13 @@ private fun DeliveryPartnersListView(
             if (!uiState.isLoading) {
                 items(filteredPartners, key = { it.id }) { partner ->
                     val preferredRouteName = partner.preferredRouteId?.let { routeMap[it]?.name } ?: "Sem rota definida"
+                    val activeSession = uiState.activeSessionsMap[partner.id]
                     DeliveryPartnerCard(
                         partner = partner,
                         preferredRouteName = preferredRouteName,
+                        activeSession = activeSession,
+                        onStartSession = { onNavigateToNewSession(partner.id) },
+                        onCloseSession = { sessionId -> onNavigateToCloseSession(sessionId) },
                         onClick = { onEditPartner(partner) },
                         onToggleActive = { onToggleActive(partner) }
                     )
@@ -398,6 +411,9 @@ private fun DeliveryPartnersListView(
 private fun DeliveryPartnerCard(
     partner: DeliveryPartner,
     preferredRouteName: String,
+    activeSession: DeliveryPartnerSession? = null,
+    onStartSession: () -> Unit = {},
+    onCloseSession: (String) -> Unit = {},
     onClick: () -> Unit,
     onToggleActive: () -> Unit
 ) {
@@ -550,6 +566,68 @@ private fun DeliveryPartnerCard(
                     }
                 }
             }
+
+            // Ação de Sessão (Ativa ou Iniciar)
+            if (activeSession != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                Surface(
+                    color = OrangeNeon.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(OrangeNeon, CircleShape)
+                            )
+                            Text(
+                                text = "Sessão Ativa (${activeSession.scannedCount} pct)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeNeon
+                            )
+                        }
+                        Button(
+                            onClick = { onCloseSession(activeSession.id) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GreenNeon,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Fechar Sessão", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else if (partner.active) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                OutlinedButton(
+                    onClick = onStartSession,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = OrangeNeon),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Iniciar Sessão", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
@@ -587,6 +665,8 @@ private fun DeliveryPartnerFormView(
     onActiveChanged: (Boolean) -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
+    onNavigateToNewSession: (partnerId: String) -> Unit,
+    onNavigateToCloseSession: (sessionId: String) -> Unit,
     onClose: () -> Unit,
     onConfirmDiscard: () -> Unit,
     onDismissDiscard: () -> Unit
@@ -1376,6 +1456,36 @@ private fun DeliveryPartnerFormView(
                 }
             }
 
+            // -------------------------------------------------------------
+            // OPERAÇÃO & SESSÕES DE TRABALHO
+            // -------------------------------------------------------------
+            if (isEditing && form.id != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                Button(
+                    onClick = { onNavigateToNewSession(form.id) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeNeon,
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Iniciar Sessão de Trabalho", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+
+                PartnerRecentSessionsSection(
+                    sessions = uiState.partnerSessions,
+                    routes = uiState.routes,
+                    isLoading = uiState.isLoadingSessions,
+                    onOpenCloseSession = { sessionId -> onNavigateToCloseSession(sessionId) }
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -1474,5 +1584,158 @@ private fun getDeliveryTypeLabel(deliveryType: String): String {
         "carro" -> "Carro"
         "utilitario" -> "Utilitário"
         else -> "Moto"
+    }
+}
+
+@Composable
+private fun PartnerRecentSessionsSection(
+    sessions: List<DeliveryPartnerSession>,
+    routes: List<DeliveryRoute>,
+    isLoading: Boolean,
+    onOpenCloseSession: (String) -> Unit
+) {
+    val routeMap = remember(routes) { routes.associateBy { it.id } }
+    val timeFormatter = remember { java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm") }
+
+    SectionHeader(title = "SESSÕES RECENTES", icon = Icons.Default.History)
+
+    if (isLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = OrangeNeon, modifier = Modifier.size(32.dp))
+        }
+    } else if (sessions.isEmpty()) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Text(
+                text = "Nenhuma sessão registrada para este entregador até o momento.",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                textAlign = TextAlign.Center
+            )
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            sessions.forEach { session ->
+                val routeName = session.routeId?.let { routeMap[it]?.name } ?: "Sem rota definida"
+                val isInProgress = session.endTime == null
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = isInProgress) {
+                            onOpenCloseSession(session.id)
+                        },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                width = 1.dp,
+                                color = if (isInProgress) OrangeNeon.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = session.startTime?.format(timeFormatter) ?: "Data não informada",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Surface(
+                                color = if (isInProgress) OrangeNeon.copy(alpha = 0.15f) else GreenNeon.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = if (isInProgress) "EM ANDAMENTO" else "FINALIZADA",
+                                    color = if (isInProgress) OrangeNeon else GreenNeon,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+
+                        // Rota
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.AltRoute,
+                                contentDescription = null,
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = routeName,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        // Pacotes e Valores
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Expedidos: ${session.expectedPackageCount} | Bipados: ${session.scannedCount}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (!isInProgress) {
+                                    Text(
+                                        text = "Entregues: ${session.deliveredCount} | Devolvidos: ${session.returnedCount}",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = if (isInProgress) "Pendente" else "R$ ${String.format(Locale("pt", "BR"), "%.2f", session.amountPaid)}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isInProgress) OrangeNeon else GreenNeon
+                                )
+                                if (isInProgress) {
+                                    Text(
+                                        text = "Toque para fechar",
+                                        fontSize = 10.sp,
+                                        color = OrangeNeon,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

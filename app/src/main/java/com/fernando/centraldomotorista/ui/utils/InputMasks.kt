@@ -4,6 +4,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -258,4 +259,19 @@ fun isValidCpf(cpf: String): Boolean {
     val rem2 = (sum2 * 10) % 11
     val digit2 = if (rem2 == 10) 0 else rem2
     return digit2 == digits[10].digitToInt()
+}
+
+fun cleanCurrencyInput(input: String): String {
+    return input.filter { it.isDigit() || it == ',' || it == '.' }.trim()
+}
+
+fun parseCurrency(text: String): BigDecimal {
+    val clean = cleanCurrencyInput(text)
+    if (clean.isBlank()) return BigDecimal.ZERO
+    val normalized = if (clean.contains(',')) {
+        clean.replace(".", "").replace(',', '.')
+    } else {
+        clean
+    }
+    return normalized.toBigDecimalOrNull() ?: BigDecimal.ZERO
 }

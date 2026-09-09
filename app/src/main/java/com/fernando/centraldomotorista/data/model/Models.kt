@@ -286,3 +286,20 @@ data class DeliveryPartner(
     val paymentCycleVariableDays: List<Int>? = null,
     val active: Boolean = true,
 )
+
+data class DeliveryPartnerSession(
+    val id: String = "",
+    val userId: String = "",
+    val partnerId: String,
+    val routeId: String? = null,
+    val expectedPackageCount: Int = 0,
+    val scannedBarcodes: List<String> = emptyList(),
+    val scannedCount: Int = 0,
+    val deliveredCount: Int = 0,
+    val returnedCount: Int = 0,
+    val startTime: OffsetDateTime? = null,
+    val endTime: OffsetDateTime? = null,
+    val amountPaid: BigDecimal = BigDecimal.ZERO,
+    val expenseId: String? = null,
+    val createdAt: OffsetDateTime? = null,
+)
