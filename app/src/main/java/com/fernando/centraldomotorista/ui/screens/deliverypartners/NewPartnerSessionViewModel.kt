@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
@@ -26,7 +29,8 @@ data class NewPartnerSessionUiState(
     val selectedRouteId: String? = null,
     val expectedPackageCount: Int = 0,
     val expectedPackageCountText: String = "0",
-    val startTime: OffsetDateTime = OffsetDateTime.now(),
+    val selectedDate: LocalDate = LocalDate.now(),
+    val startTime: LocalTime = LocalTime.now().withSecond(0).withNano(0),
     val scannedBarcodes: Set<String> = emptySet(),
     val isScannerOpen: Boolean = false,
     val showDivergenceDialog: Boolean = false,
@@ -91,10 +95,12 @@ class NewPartnerSessionViewModel(
         }
     }
 
-    fun onStartTimeChanged(hour: Int, minute: Int) {
-        val current = _uiState.value.startTime
-        val updated = current.withHour(hour).withMinute(minute).withSecond(0)
-        _uiState.update { it.copy(startTime = updated) }
+    fun onDateChanged(date: LocalDate) {
+        _uiState.update { it.copy(selectedDate = date) }
+    }
+
+    fun onStartTimeChanged(time: LocalTime) {
+        _uiState.update { it.copy(startTime = time) }
     }
 
     fun openScanner() {
@@ -153,6 +159,10 @@ class NewPartnerSessionViewModel(
 
         viewModelScope.launch {
             try {
+                val sessionDate = state.selectedDate
+                val zone = ZoneId.systemDefault()
+                val startedAt = LocalDateTime.of(sessionDate, state.startTime).atZone(zone).toOffsetDateTime()
+
                 val newSession = DeliveryPartnerSession(
                     id = "",
                     userId = user.id,
@@ -163,7 +173,7 @@ class NewPartnerSessionViewModel(
                     scannedCount = state.scannedCount,
                     deliveredCount = 0,
                     returnedCount = 0,
-                    startTime = state.startTime,
+                    startTime = startedAt,
                     endTime = null, // Em andamento
                     amountPaid = BigDecimal.ZERO,
                     expenseId = null

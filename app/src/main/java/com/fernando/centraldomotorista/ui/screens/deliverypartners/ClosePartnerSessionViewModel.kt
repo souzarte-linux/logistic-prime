@@ -19,7 +19,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.util.Locale
 
 data class ClosePartnerSessionUiState(
@@ -80,12 +84,16 @@ class ClosePartnerSessionViewModel(
                 val calculatedSuggested = BigDecimal(initialDelivered).multiply(packageRate).add(defaultBonus)
                 val formattedAmount = String.format(Locale("pt", "BR"), "%.2f", calculatedSuggested)
 
+                val sessionDate = session.startTime?.toLocalDate() ?: LocalDate.now()
+                val nowTime = LocalTime.now().withSecond(0).withNano(0)
+                val initialEndTime = LocalDateTime.of(sessionDate, nowTime).atZone(ZoneId.systemDefault()).toOffsetDateTime()
+
                 _uiState.update {
                     it.copy(
                         session = session,
                         partner = partner,
                         route = route,
-                        endTime = OffsetDateTime.now(),
+                        endTime = initialEndTime,
                         deliveredCount = initialDelivered,
                         deliveredCountText = initialDelivered.toString(),
                         returnedCount = 0,

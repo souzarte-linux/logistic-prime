@@ -33,7 +33,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.BarcodeScannerScreen
+import com.fernando.centraldomotorista.ui.screens.routes.showDatePicker
+import com.fernando.centraldomotorista.ui.screens.routes.showTimePicker
 import com.fernando.centraldomotorista.ui.theme.*
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -116,6 +120,7 @@ fun NewPartnerSessionScreen(
         )
     }
 
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm") }
     var routeDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -327,28 +332,108 @@ fun NewPartnerSessionScreen(
                     }
                 }
 
-                // 3. Quantidade de Pacotes Expedidos & Hora de Início
+                // 3. Data da Sessão, Hora de Início e Pacotes Expedidos
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Pacotes Expedidos
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = "PACOTES EXPEDIDOS",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "DATA E HORA DE INÍCIO",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
+                        // Campo de Data da Sessão (Permite lançamento retroativo / posterior)
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                value = uiState.selectedDate.format(dateFormatter),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Data da Sessão") },
+                                trailingIcon = {
+                                    IconButton(onClick = {
+                                        showDatePicker(context, uiState.selectedDate) { newDate ->
+                                            viewModel.onDateChanged(newDate)
+                                        }
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.CalendarToday,
+                                            contentDescription = "Selecionar Data",
+                                            tint = OrangeNeon
+                                        )
+                                    }
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = OrangeNeon,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        showDatePicker(context, uiState.selectedDate) { newDate ->
+                                            viewModel.onDateChanged(newDate)
+                                        }
+                                    }
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Hora de Início
+                            Box(modifier = Modifier.weight(1f)) {
+                                OutlinedTextField(
+                                    value = uiState.startTime.format(timeFormatter),
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Hora Início") },
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            showTimePicker(context, uiState.startTime) { newTime ->
+                                                viewModel.onStartTimeChanged(newTime)
+                                            }
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Default.AccessTime,
+                                                contentDescription = "Selecionar Hora",
+                                                tint = OrangeNeon
+                                            )
+                                        }
+                                    },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = OrangeNeon,
+                                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            showTimePicker(context, uiState.startTime) { newTime ->
+                                                viewModel.onStartTimeChanged(newTime)
+                                            }
+                                        }
+                                )
+                            }
+
+                            // Pacotes Expedidos
                             OutlinedTextField(
                                 value = uiState.expectedPackageCountText,
                                 onValueChange = { viewModel.onExpectedPackageCountChanged(it) },
+                                label = { Text("Pacotes Expedidos") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 leadingIcon = {
                                     Icon(Icons.Default.Inventory2, contentDescription = null, tint = OrangeNeon)
@@ -357,60 +442,11 @@ fun NewPartnerSessionScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = OrangeNeon,
                                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.weight(1f)
                             )
-                        }
-
-                        // Hora de Início
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = "HORA DE INÍCIO",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            OutlinedCard(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val curTime = uiState.startTime
-                                        TimePickerDialog(
-                                            context,
-                                            { _, hour, min ->
-                                                viewModel.onStartTimeChanged(hour, min)
-                                            },
-                                            curTime.hour,
-                                            curTime.minute,
-                                            true
-                                        ).show()
-                                    },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 15.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(Icons.Default.Schedule, contentDescription = null, tint = OrangeNeon)
-                                    Text(
-                                        text = uiState.startTime.format(timeFormatter),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
                         }
                     }
                 }
