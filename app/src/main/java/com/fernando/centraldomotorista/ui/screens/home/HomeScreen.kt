@@ -34,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -58,6 +59,7 @@ import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Route
 import com.fernando.centraldomotorista.data.repository.ReceivableItem
 import com.fernando.centraldomotorista.data.repository.TipoAlertaManutencao
+import com.fernando.centraldomotorista.navigation.Screen
 import com.fernando.centraldomotorista.ui.components.RouteDetailsDialog
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
@@ -88,6 +90,7 @@ fun HomeScreen(
     onNavigateToMaintenanceExpense: () -> Unit,
     onNavigateToEditMaintenance: (PartMaintenance) -> Unit = {},
     onNavigateToRoute: (String) -> Unit,
+    onNavigateToDeliveryPartners: () -> Unit = { onNavigateToRoute(Screen.DeliveryPartners.route) },
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -950,129 +953,73 @@ fun HomeScreen(
                                 }
                             }
 
-                            // D. Grid de 3 Ações
+                            // D. Grid de 4 Ações (Grade 2x2)
                             item {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    // 1. Card Grande Laranja - Lançar Ganhos por Rota
-                                    Card(
+                                    // Linha 1: Lançar Ganhos por Rota e Total do Dia
+                                    Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { onNavigateToCreateRoute() },
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = CardDefaults.cardColors(containerColor = OrangeNeon)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(18.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Navigation,
-                                                    contentDescription = null,
-                                                    tint = Color.Black,
-                                                    modifier = Modifier.size(28.dp)
-                                                )
-                                                Column {
-                                                    Text(
-                                                        text = "LANÇAR GANHOS POR ROTA",
-                                                        fontWeight = FontWeight.Black,
-                                                        fontSize = 15.sp,
-                                                        color = Color.Black
-                                                    )
-                                                    Text(
-                                                        text = "Registre corrida por km, tempo e valor",
-                                                        fontSize = 12.sp,
-                                                        color = Color.Black.copy(alpha = 0.75f)
-                                                    )
-                                                }
-                                            }
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                                contentDescription = null,
-                                                tint = Color.Black
-                                            )
-                                        }
-                                    }
-
-                                    // 2 e 3 em linha: Lançar Total do Dia e Contas a Receber
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                            .height(IntrinsicSize.Min),
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        // Lançar Total do Dia
-                                        Card(
+                                        // 1. Lançar Ganhos por Rota
+                                        HomeActionCard(
+                                            title = "LANÇAR GANHOS POR ROTA",
+                                            subtitle = "Registre corrida por km, tempo e valor",
+                                            icon = Icons.Default.Navigation,
+                                            iconTint = OrangeNeon,
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clickable { onNavigateToCreateDailyTotal() },
-                                            shape = RoundedCornerShape(16.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                                        ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(14.dp),
-                                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.CalendarToday,
-                                                    contentDescription = null,
-                                                    tint = OrangeNeon,
-                                                    modifier = Modifier.size(22.dp)
-                                                )
-                                                Text(
-                                                    text = "TOTAL DO DIA",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 13.sp,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                    text = "Lançar valor bruto",
-                                                    fontSize = 11.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
+                                                .fillMaxHeight(),
+                                            onClick = { onNavigateToCreateRoute() }
+                                        )
 
-                                        // Contas a Receber (Item 2.4 - Abre Modal Informativo)
-                                        Card(
+                                        // 2. Total do Dia
+                                        HomeActionCard(
+                                            title = "TOTAL DO DIA",
+                                            subtitle = "Lançar valor bruto",
+                                            icon = Icons.Default.CalendarToday,
+                                            iconTint = OrangeNeon,
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clickable { showReceivablesModal = true },
-                                            shape = RoundedCornerShape(16.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                                        ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(14.dp),
-                                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.AccountBalanceWallet,
-                                                    contentDescription = null,
-                                                    tint = GreenNeon,
-                                                    modifier = Modifier.size(22.dp)
-                                                )
-                                                Text(
-                                                    text = "A RECEBER",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 13.sp,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                    text = uiState.contasAReceber.formatCurrency(),
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 12.sp,
-                                                    color = GreenNeon
-                                                )
-                                            }
-                                        }
+                                                .fillMaxHeight(),
+                                            onClick = { onNavigateToCreateDailyTotal() }
+                                        )
+                                    }
+
+                                    // Linha 2: Contas a Receber e Entregadores Parceiros
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(IntrinsicSize.Min),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // 3. Contas a Receber (Abre Modal Informativo)
+                                        HomeActionCard(
+                                            title = "A RECEBER",
+                                            subtitle = uiState.contasAReceber.formatCurrency(),
+                                            subtitleColor = GreenNeon,
+                                            subtitleFontWeight = FontWeight.Bold,
+                                            icon = Icons.Default.AccountBalanceWallet,
+                                            iconTint = GreenNeon,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight(),
+                                            onClick = { showReceivablesModal = true }
+                                        )
+
+                                        // 4. Entregadores Parceiros
+                                        HomeActionCard(
+                                            title = "ENTREGADORES PARCEIROS",
+                                            subtitle = "Gerenciar equipe e sessões de entrega",
+                                            icon = Icons.Default.Groups,
+                                            iconTint = OrangeNeon,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight(),
+                                            onClick = { onNavigateToDeliveryPartners() }
+                                        )
                                     }
                                 }
                             }
@@ -1663,6 +1610,83 @@ fun HomeScreen(
 }
 
 @Composable
+fun HomeActionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    iconTint: Color,
+    modifier: Modifier = Modifier,
+    subtitleColor: Color? = null,
+    subtitleFontWeight: FontWeight? = null,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(iconTint.copy(alpha = 0.14f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.5.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    lineHeight = 16.sp,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 11.sp,
+                    color = subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = subtitleFontWeight ?: FontWeight.Normal,
+                    maxLines = 2,
+                    lineHeight = 14.sp,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun QuickExpenseButton(
     title: String,
     icon: ImageVector,
@@ -1967,39 +1991,31 @@ fun HomeSkeletonLoading() {
             )
         ) {}
 
-        // Action Cards Skeleton
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
-            )
-        ) {}
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(80.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
-                )
-            ) {}
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(80.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
-                )
-            ) {}
+        // Action Cards Skeleton (Grade 2x2)
+        repeat(2) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(115.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+                    )
+                ) {}
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(115.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+                    )
+                ) {}
+            }
         }
 
         // Quick Expenses Skeleton

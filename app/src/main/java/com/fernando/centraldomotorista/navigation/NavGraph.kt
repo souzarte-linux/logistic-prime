@@ -219,6 +219,9 @@ fun CentralDoMotoristaApp(
                         partMaintenanceViewModel.startEditing(part)
                         navController.navigate(Screen.LancarManutencao.route)
                     },
+                    onNavigateToDeliveryPartners = {
+                        navController.navigate(Screen.DeliveryPartners.route)
+                    },
                     onNavigateToRoute = { route ->
                         navController.navigate(route)
                     },
