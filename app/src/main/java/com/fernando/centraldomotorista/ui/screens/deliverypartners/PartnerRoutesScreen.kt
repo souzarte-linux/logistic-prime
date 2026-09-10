@@ -236,13 +236,13 @@ fun PartnerRoutesScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 48.dp)
             ) {
-                // 1. TOPO DA TELA: Dois números em destaque (Sessões finalizadas HOJE)
+                // 1. TOPO DA TELA: Dois números em destaque (Sessões finalizadas NO MÊS)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Total de pacotes entregues hoje
+                        // Total de pacotes entregues no mês
                         Card(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(14.dp),
@@ -262,7 +262,7 @@ fun PartnerRoutesScreen(
                                 ) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(16.dp))
                                     Text(
-                                        text = "ENTREGUES HOJE",
+                                        text = "ENTREGUES NO MÊS",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.5.sp,
@@ -270,7 +270,7 @@ fun PartnerRoutesScreen(
                                     )
                                 }
                                 Text(
-                                    text = "${uiState.todayDeliveredCount}",
+                                    text = "${uiState.monthDeliveredCount}",
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Black,
                                     color = GreenNeon
@@ -283,7 +283,7 @@ fun PartnerRoutesScreen(
                             }
                         }
 
-                        // Valor total pago hoje (R$)
+                        // Valor total pago no mês (R$)
                         Card(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(14.dp),
@@ -303,7 +303,7 @@ fun PartnerRoutesScreen(
                                 ) {
                                     Icon(Icons.Default.AttachMoney, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
                                     Text(
-                                        text = "TOTAL PAGO HOJE",
+                                        text = "TOTAL PAGO NO MÊS",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.5.sp,
@@ -311,7 +311,7 @@ fun PartnerRoutesScreen(
                                     )
                                 }
                                 Text(
-                                    text = "R$ ${String.format(Locale("pt", "BR"), "%.2f", uiState.todayTotalAmountPaid)}",
+                                    text = "R$ ${String.format(Locale("pt", "BR"), "%.2f", uiState.monthTotalAmountPaid)}",
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Black,
                                     color = OrangeNeon,

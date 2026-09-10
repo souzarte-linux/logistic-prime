@@ -26,8 +26,8 @@ data class PartnerRoutesUiState(
     val partner: DeliveryPartner? = null,
     val routes: List<DeliveryRoute> = emptyList(),
     val sessions: List<DeliveryPartnerSession> = emptyList(),
-    val todayDeliveredCount: Int = 0,
-    val todayTotalAmountPaid: BigDecimal = BigDecimal.ZERO,
+    val monthDeliveredCount: Int = 0,
+    val monthTotalAmountPaid: BigDecimal = BigDecimal.ZERO,
     val isLoading: Boolean = false,
     val message: String? = null,
     val error: String? = null,
@@ -76,22 +76,24 @@ class PartnerRoutesViewModel(
                             .thenByDescending { it.createdAt }
                     )
 
-                val today = LocalDate.now()
-                val todaySessions = sessions.filter { session ->
-                    session.endTime != null &&
-                            session.endTime.atZoneSameInstant(ZoneId.systemDefault()).toLocalDate() == today
+                val now = LocalDate.now()
+                val monthSessions = sessions.filter { session ->
+                    session.endTime != null && run {
+                        val sessionDate = session.endTime.atZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
+                        sessionDate.year == now.year && sessionDate.month == now.month
+                    }
                 }
 
-                val deliveredToday = todaySessions.sumOf { it.deliveredCount }
-                val amountPaidToday = todaySessions.fold(BigDecimal.ZERO) { acc, s -> acc.add(s.amountPaid) }
+                val deliveredMonth = monthSessions.sumOf { it.deliveredCount }
+                val amountPaidMonth = monthSessions.fold(BigDecimal.ZERO) { acc, s -> acc.add(s.amountPaid) }
 
                 _uiState.update {
                     it.copy(
                         partner = targetPartner,
                         routes = routes,
                         sessions = sessions,
-                        todayDeliveredCount = deliveredToday,
-                        todayTotalAmountPaid = amountPaidToday,
+                        monthDeliveredCount = deliveredMonth,
+                        monthTotalAmountPaid = amountPaidMonth,
                         isLoading = false
                     )
                 }
