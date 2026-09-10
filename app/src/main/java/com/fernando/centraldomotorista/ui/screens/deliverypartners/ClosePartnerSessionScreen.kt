@@ -409,7 +409,7 @@ fun ClosePartnerSessionScreen(
                                         color = RedAlert
                                     )
                                     Text(
-                                        text = "Total informado (${uiState.totalAccounted}) ≠ Bipados (${session?.scannedCount ?: 0}). Entregues + Devolvidos deve ser igual aos pacotes bipados.",
+                                        text = "Total informado (${uiState.totalAccounted}) ≠ Expedidos (${uiState.basePackageCount}). Entregues + Devolvidos deve ser igual aos pacotes expedidos.",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -421,8 +421,8 @@ fun ClosePartnerSessionScreen(
 
                 // 5. Cálculo Automático do Valor a Pagar
                 item {
-                    val rate = partner?.packageRate ?: java.math.BigDecimal.ZERO
-                    val bonus = partner?.defaultBonus ?: java.math.BigDecimal.ZERO
+                    val rate = if ((session?.packageRate ?: java.math.BigDecimal.ZERO) > java.math.BigDecimal.ZERO) session!!.packageRate else (partner?.packageRate ?: java.math.BigDecimal.ZERO)
+                    val bonus = if ((session?.defaultBonus ?: java.math.BigDecimal.ZERO) > java.math.BigDecimal.ZERO) session!!.defaultBonus else (partner?.defaultBonus ?: java.math.BigDecimal.ZERO)
                     val delivered = uiState.deliveredCount
                     val subtotal = java.math.BigDecimal(delivered).multiply(rate)
 

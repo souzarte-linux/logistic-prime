@@ -43,11 +43,14 @@ data class ClosePartnerSessionUiState(
     val error: String? = null,
     val sessionFinalized: Boolean = false
 ) {
+    val basePackageCount: Int
+        get() = if (session != null && session.expectedPackageCount > 0) session.expectedPackageCount else (session?.scannedCount ?: 0)
+
     val totalAccounted: Int
         get() = deliveredCount + returnedCount
 
     val hasDivergence: Boolean
-        get() = session != null && totalAccounted != session.scannedCount
+        get() = session != null && totalAccounted != basePackageCount
 }
 
 class ClosePartnerSessionViewModel(
@@ -77,8 +80,9 @@ class ClosePartnerSessionViewModel(
                 val routes = routeRepository.getDeliveryRoutes(user.id)
                 val route = routes.firstOrNull { it.id == session.routeId }
 
-                // Pre-fill deliveredCount with scannedCount initially
-                val initialDelivered = session.scannedCount
+                // Pre-fill deliveredCount with expectedPackageCount (base) initially
+                val baseCount = if (session.expectedPackageCount > 0) session.expectedPackageCount else session.scannedCount
+                val initialDelivered = baseCount
                 val packageRate = if (session.packageRate > BigDecimal.ZERO) session.packageRate else (partner?.packageRate ?: BigDecimal.ZERO)
                 val defaultBonus = if (session.defaultBonus > BigDecimal.ZERO) session.defaultBonus else (partner?.defaultBonus ?: BigDecimal.ZERO)
                 val calculatedSuggested = BigDecimal(initialDelivered).multiply(packageRate).add(defaultBonus)
@@ -119,18 +123,24 @@ class ClosePartnerSessionViewModel(
 
     fun onDeliveredCountChanged(text: String) {
         val clean = text.filter { it.isDigit() }
-        val count = clean.toIntOrNull() ?: 0
         _uiState.update { current ->
             val session = current.session
             val partner = current.partner
+            val base = current.basePackageCount
+
+            val delivered = if (clean.isEmpty()) 0 else (clean.toIntOrNull() ?: 0)
+            val returned = if (clean.isEmpty()) base else (base - delivered).coerceAtLeast(0)
+
             val packageRate = if (session != null && session.packageRate > BigDecimal.ZERO) session.packageRate else (partner?.packageRate ?: BigDecimal.ZERO)
             val defaultBonus = if (session != null && session.defaultBonus > BigDecimal.ZERO) session.defaultBonus else (partner?.defaultBonus ?: BigDecimal.ZERO)
-            val suggested = BigDecimal(count).multiply(packageRate).add(defaultBonus)
+            val suggested = BigDecimal(delivered).multiply(packageRate).add(defaultBonus)
             val formatted = String.format(Locale("pt", "BR"), "%.2f", suggested)
 
             current.copy(
                 deliveredCountText = clean,
-                deliveredCount = count,
+                deliveredCount = delivered,
+                returnedCountText = if (clean.isEmpty()) base.toString() else returned.toString(),
+                returnedCount = returned,
                 suggestedAmount = suggested,
                 amountPaid = suggested,
                 amountPaidText = formatted
@@ -140,8 +150,29 @@ class ClosePartnerSessionViewModel(
 
     fun onReturnedCountChanged(text: String) {
         val clean = text.filter { it.isDigit() }
-        val count = clean.toIntOrNull() ?: 0
-        _uiState.update { it.copy(returnedCountText = clean, returnedCount = count) }
+        _uiState.update { current ->
+            val session = current.session
+            val partner = current.partner
+            val base = current.basePackageCount
+
+            val returned = if (clean.isEmpty()) 0 else (clean.toIntOrNull() ?: 0)
+            val delivered = if (clean.isEmpty()) base else (base - returned).coerceAtLeast(0)
+
+            val packageRate = if (session != null && session.packageRate > BigDecimal.ZERO) session.packageRate else (partner?.packageRate ?: BigDecimal.ZERO)
+            val defaultBonus = if (session != null && session.defaultBonus > BigDecimal.ZERO) session.defaultBonus else (partner?.defaultBonus ?: BigDecimal.ZERO)
+            val suggested = BigDecimal(delivered).multiply(packageRate).add(defaultBonus)
+            val formatted = String.format(Locale("pt", "BR"), "%.2f", suggested)
+
+            current.copy(
+                returnedCountText = clean,
+                returnedCount = returned,
+                deliveredCountText = if (clean.isEmpty()) base.toString() else delivered.toString(),
+                deliveredCount = delivered,
+                suggestedAmount = suggested,
+                amountPaid = suggested,
+                amountPaidText = formatted
+            )
+        }
     }
 
     fun onAmountPaidChanged(formattedText: String, rawValue: BigDecimal) {
