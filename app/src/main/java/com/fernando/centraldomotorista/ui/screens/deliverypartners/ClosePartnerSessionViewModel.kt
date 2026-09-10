@@ -79,8 +79,8 @@ class ClosePartnerSessionViewModel(
 
                 // Pre-fill deliveredCount with scannedCount initially
                 val initialDelivered = session.scannedCount
-                val packageRate = partner?.packageRate ?: BigDecimal.ZERO
-                val defaultBonus = partner?.defaultBonus ?: BigDecimal.ZERO
+                val packageRate = if (session.packageRate > BigDecimal.ZERO) session.packageRate else (partner?.packageRate ?: BigDecimal.ZERO)
+                val defaultBonus = if (session.defaultBonus > BigDecimal.ZERO) session.defaultBonus else (partner?.defaultBonus ?: BigDecimal.ZERO)
                 val calculatedSuggested = BigDecimal(initialDelivered).multiply(packageRate).add(defaultBonus)
                 val formattedAmount = String.format(Locale("pt", "BR"), "%.2f", calculatedSuggested)
 
@@ -121,9 +121,10 @@ class ClosePartnerSessionViewModel(
         val clean = text.filter { it.isDigit() }
         val count = clean.toIntOrNull() ?: 0
         _uiState.update { current ->
+            val session = current.session
             val partner = current.partner
-            val packageRate = partner?.packageRate ?: BigDecimal.ZERO
-            val defaultBonus = partner?.defaultBonus ?: BigDecimal.ZERO
+            val packageRate = if (session != null && session.packageRate > BigDecimal.ZERO) session.packageRate else (partner?.packageRate ?: BigDecimal.ZERO)
+            val defaultBonus = if (session != null && session.defaultBonus > BigDecimal.ZERO) session.defaultBonus else (partner?.defaultBonus ?: BigDecimal.ZERO)
             val suggested = BigDecimal(count).multiply(packageRate).add(defaultBonus)
             val formatted = String.format(Locale("pt", "BR"), "%.2f", suggested)
 

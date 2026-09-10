@@ -285,6 +285,7 @@ data class DeliveryPartner(
     val paymentCycleFixed: String? = "semanal",
     val paymentCycleVariableDays: List<Int>? = null,
     val active: Boolean = true,
+    val photoUrl: String? = null,
 )
 
 data class DeliveryPartnerSession(
@@ -302,4 +303,6 @@ data class DeliveryPartnerSession(
     val amountPaid: BigDecimal = BigDecimal.ZERO,
     val expenseId: String? = null,
     val createdAt: OffsetDateTime? = null,
+    val packageRate: BigDecimal = BigDecimal.ZERO,
+    val defaultBonus: BigDecimal = BigDecimal.ZERO,
 )

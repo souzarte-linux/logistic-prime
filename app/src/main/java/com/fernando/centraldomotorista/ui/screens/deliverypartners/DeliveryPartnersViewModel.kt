@@ -48,7 +48,8 @@ data class DeliveryPartnerFormData(
     val paymentCycleType: String = "fixed", // "fixed" | "variable"
     val paymentCycleFixed: String = "semanal", // "semanal" | "quinzenal" | "mensal"
     val paymentCycleVariableDays: List<Int> = listOf(7, 7, 15, 15),
-    val active: Boolean = true
+    val active: Boolean = true,
+    val photoUrl: String = ""
 ) {
     val isDirty: Boolean
         get() = this != DeliveryPartnerFormData()
@@ -59,6 +60,7 @@ data class DeliveryPartnersUiState(
     val routes: List<DeliveryRoute> = emptyList(),
     val partnerSessions: List<DeliveryPartnerSession> = emptyList(),
     val activeSessionsMap: Map<String, DeliveryPartnerSession> = emptyMap(),
+    val sessionsByPartnerMap: Map<String, List<DeliveryPartnerSession>> = emptyMap(),
     val isLoadingSessions: Boolean = false,
     val searchQuery: String = "",
     val statusFilter: PartnerStatusFilter = PartnerStatusFilter.ALL,
@@ -109,12 +111,14 @@ class DeliveryPartnersViewModel(
             val routes = routeRepository.getDeliveryRoutes(currentUserId)
             val sessions = sessionRepository.getSessions(currentUserId)
             val activeSessions = sessions.filter { it.endTime == null }.associateBy { it.partnerId }
+            val sessionsByPartner = sessions.groupBy { it.partnerId }
 
             _uiState.update {
                 it.copy(
                     partners = partners,
                     routes = routes,
                     activeSessionsMap = activeSessions,
+                    sessionsByPartnerMap = sessionsByPartner,
                     isLoading = false
                 )
             }
@@ -180,7 +184,8 @@ class DeliveryPartnersViewModel(
             paymentCycleType = partner.paymentCycleType,
             paymentCycleFixed = partner.paymentCycleFixed ?: "semanal",
             paymentCycleVariableDays = partner.paymentCycleVariableDays ?: listOf(7, 7, 15, 15),
-            active = partner.active
+            active = partner.active,
+            photoUrl = partner.photoUrl ?: ""
         )
         _uiState.update {
             it.copy(
@@ -224,6 +229,10 @@ class DeliveryPartnersViewModel(
 
     fun onFullNameChanged(name: String) {
         _uiState.update { it.copy(formData = it.formData.copy(fullName = name)) }
+    }
+
+    fun onPhotoUrlChanged(url: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(photoUrl = url)) }
     }
 
     fun onCepChanged(cepInput: String) {
@@ -435,7 +444,8 @@ class DeliveryPartnersViewModel(
                 paymentCycleType = form.paymentCycleType,
                 paymentCycleFixed = if (form.paymentCycleType == "fixed") form.paymentCycleFixed else null,
                 paymentCycleVariableDays = if (form.paymentCycleType == "variable") form.paymentCycleVariableDays else null,
-                active = form.active
+                active = form.active,
+                photoUrl = form.photoUrl.trim().ifBlank { null }
             )
 
             try {

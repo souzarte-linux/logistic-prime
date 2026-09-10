@@ -23,7 +23,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.BarcodeScannerScreen
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.PartnerAvatar
 import com.fernando.centraldomotorista.ui.screens.routes.showDatePicker
 import com.fernando.centraldomotorista.ui.screens.routes.showTimePicker
 import com.fernando.centraldomotorista.ui.theme.*
@@ -51,6 +54,7 @@ fun NewPartnerSessionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
 
     LaunchedEffect(partnerId) {
         viewModel.loadData(partnerId)
@@ -186,7 +190,7 @@ fun NewPartnerSessionScreen(
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Salvar e Iniciar Sessão",
+                                text = "Salvar e Iniciar Rota",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
@@ -229,19 +233,11 @@ fun NewPartnerSessionScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .background(OrangeNeon.copy(alpha = 0.15f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.TwoWheeler,
-                                    contentDescription = null,
-                                    tint = OrangeNeon,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
+                            PartnerAvatar(
+                                photoUrl = partner?.photoUrl,
+                                name = partner?.fullName,
+                                size = 52.dp
+                            )
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -448,6 +444,42 @@ fun NewPartnerSessionScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+
+                        // 4. Novos Campos: Valor por Pacote e Bonificação negociados para a sessão
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.packageRateText,
+                                onValueChange = { viewModel.onPackageRateChanged(it) },
+                                label = { Text("Valor por Pacote (R$)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = OrangeNeon,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedTextField(
+                                value = uiState.defaultBonusText,
+                                onValueChange = { viewModel.onDefaultBonusChanged(it) },
+                                label = { Text("Bonificação (R$)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = OrangeNeon,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
 
@@ -544,49 +576,105 @@ fun NewPartnerSessionScreen(
                                 )
                             }
 
-                            // Lista com os códigos já bipados
+                            // Lista com os códigos já bipados pós-bipagem
                             if (uiState.scannedBarcodes.isNotEmpty()) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
 
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        text = "Códigos Bipados (${uiState.scannedCount}):",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-
-                                    LazyRow(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth()
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        items(uiState.scannedBarcodes.toList()) { code ->
+                                        Text(
+                                            text = "Códigos Bipados (${uiState.scannedCount})",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+
+                                        Button(
+                                            onClick = {
+                                                val allCodes = uiState.scannedBarcodes.joinToString("\n")
+                                                clipboardManager.setText(AnnotatedString(allCodes))
+                                                Toast.makeText(context, "${uiState.scannedCount} códigos copiados!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = OrangeNeon.copy(alpha = 0.2f),
+                                                contentColor = OrangeNeon
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.height(30.dp)
+                                        ) {
+                                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(13.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Copiar Todos", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        uiState.scannedBarcodes.forEach { code ->
                                             Surface(
-                                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                                shape = RoundedCornerShape(8.dp)
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
                                             ) {
                                                 Row(
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 10.dp, vertical = 6.dp),
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    horizontalArrangement = Arrangement.SpaceBetween
                                                 ) {
                                                     Text(
                                                         text = code,
-                                                        fontSize = 11.sp,
+                                                        fontSize = 12.sp,
                                                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                                        color = MaterialTheme.colorScheme.onSurface
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        modifier = Modifier.weight(1f),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
-                                                    Icon(
-                                                        imageVector = Icons.Default.Close,
-                                                        contentDescription = "Remover",
-                                                        tint = RedAlert,
-                                                        modifier = Modifier
-                                                            .size(14.dp)
-                                                            .clickable { viewModel.removeBarcode(code) }
-                                                    )
+
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        IconButton(
+                                                            onClick = {
+                                                                clipboardManager.setText(AnnotatedString(code))
+                                                                Toast.makeText(context, "Código copiado: $code", Toast.LENGTH_SHORT).show()
+                                                            },
+                                                            modifier = Modifier.size(26.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.ContentCopy,
+                                                                contentDescription = "Copiar Código",
+                                                                tint = OrangeNeon,
+                                                                modifier = Modifier.size(15.dp)
+                                                            )
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = { viewModel.removeBarcode(code) },
+                                                            modifier = Modifier.size(26.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Close,
+                                                                contentDescription = "Remover",
+                                                                tint = RedAlert,
+                                                                modifier = Modifier.size(15.dp)
+                                                            )
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

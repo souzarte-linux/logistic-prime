@@ -34,6 +34,10 @@ data class DeliveryPartnerSessionDto(
     val amountPaid: BigDecimal = BigDecimal.ZERO,
     @SerializedName("expense_id")
     val expenseId: String? = null,
+    @SerializedName("package_rate")
+    val packageRate: BigDecimal? = null,
+    @SerializedName("default_bonus")
+    val defaultBonus: BigDecimal? = null,
     @SerializedName("created_at")
     val createdAt: String? = null
 )
@@ -57,7 +61,9 @@ fun DeliveryPartnerSessionDto.toDomain(): DeliveryPartnerSession {
         endTime = parsedEndTime,
         amountPaid = amountPaid,
         expenseId = expenseId,
-        createdAt = parsedCreatedAt
+        createdAt = parsedCreatedAt,
+        packageRate = packageRate ?: BigDecimal.ZERO,
+        defaultBonus = defaultBonus ?: BigDecimal.ZERO
     )
 }
 
@@ -76,6 +82,8 @@ fun DeliveryPartnerSession.toDto(): DeliveryPartnerSessionDto {
         endTime = endTime?.toString(),
         amountPaid = amountPaid,
         expenseId = expenseId,
+        packageRate = packageRate,
+        defaultBonus = defaultBonus,
         createdAt = createdAt?.toString()
     )
 }

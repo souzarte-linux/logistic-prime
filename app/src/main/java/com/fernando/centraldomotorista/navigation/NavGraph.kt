@@ -354,16 +354,16 @@ fun CentralDoMotoristaApp(
                 )
             }
 
-            // Cadastro - Entregadores Parceiros
+            // Cadastro - Entregadores Parceiros (Tela 1: Listagem)
             composable(Screen.DeliveryPartners.route) {
                 val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersScreen(
                     viewModel = deliveryPartnersViewModel,
-                    onNavigateToNewSession = { partnerId ->
-                        navController.navigate("new_partner_session/$partnerId")
+                    onNavigateToPartnerRoutes = { partnerId ->
+                        navController.navigate("partner_routes/$partnerId")
                     },
-                    onNavigateToCloseSession = { sessionId ->
-                        navController.navigate("close_partner_session/$sessionId")
+                    onNavigateToCreatePartner = {
+                        navController.navigate("create_delivery_partner")
                     },
                     onNavigateBack = { navController.popBackStack() }
                 )
@@ -372,12 +372,59 @@ fun CentralDoMotoristaApp(
                 val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersScreen(
                     viewModel = deliveryPartnersViewModel,
-                    onNavigateToNewSession = { partnerId ->
-                        navController.navigate("new_partner_session/$partnerId")
+                    onNavigateToPartnerRoutes = { partnerId ->
+                        navController.navigate("partner_routes/$partnerId")
+                    },
+                    onNavigateToCreatePartner = {
+                        navController.navigate("create_delivery_partner")
+                    },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Tela 2: Rotas dos Parceiros (Detalhes do parceiro + sessões)
+            composable(
+                route = "partner_routes/{partnerId}",
+                arguments = listOf(navArgument("partnerId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val partnerId = backStackEntry.arguments?.getString("partnerId") ?: ""
+                val partnerRoutesViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerRoutesViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerRoutesScreen(
+                    partnerId = partnerId,
+                    viewModel = partnerRoutesViewModel,
+                    onNavigateToNewSession = { id ->
+                        navController.navigate("new_partner_session/$id")
                     },
                     onNavigateToCloseSession = { sessionId ->
                         navController.navigate("close_partner_session/$sessionId")
                     },
+                    onNavigateToEditPartner = { id ->
+                        navController.navigate("edit_delivery_partner/$id")
+                    },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Formulário de Cadastro de Novo Entregador
+            composable("create_delivery_partner") {
+                val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnerFormScreen(
+                    partnerId = null,
+                    viewModel = deliveryPartnersViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Formulário de Edição de Entregador Existente
+            composable(
+                route = "edit_delivery_partner/{partnerId}",
+                arguments = listOf(navArgument("partnerId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val partnerId = backStackEntry.arguments?.getString("partnerId") ?: ""
+                val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnerFormScreen(
+                    partnerId = partnerId,
+                    viewModel = deliveryPartnersViewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

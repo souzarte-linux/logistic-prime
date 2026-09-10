@@ -22,6 +22,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.util.Locale
 
 data class NewPartnerSessionUiState(
     val partner: DeliveryPartner? = null,
@@ -29,6 +30,8 @@ data class NewPartnerSessionUiState(
     val selectedRouteId: String? = null,
     val expectedPackageCount: Int = 0,
     val expectedPackageCountText: String = "0",
+    val packageRateText: String = "0,00",
+    val defaultBonusText: String = "0,00",
     val selectedDate: LocalDate = LocalDate.now(),
     val startTime: LocalTime = LocalTime.now().withSecond(0).withNano(0),
     val scannedBarcodes: Set<String> = emptySet(),
@@ -70,6 +73,8 @@ class NewPartnerSessionViewModel(
                         partner = targetPartner,
                         routes = routes,
                         selectedRouteId = targetPartner?.preferredRouteId ?: routes.firstOrNull()?.id,
+                        packageRateText = String.format(Locale("pt", "BR"), "%.2f", targetPartner?.packageRate ?: BigDecimal.ZERO),
+                        defaultBonusText = String.format(Locale("pt", "BR"), "%.2f", targetPartner?.defaultBonus ?: BigDecimal.ZERO),
                         isLoading = false
                     )
                 }
@@ -82,6 +87,16 @@ class NewPartnerSessionViewModel(
 
     fun onRouteSelected(routeId: String?) {
         _uiState.update { it.copy(selectedRouteId = routeId) }
+    }
+
+    fun onPackageRateChanged(text: String) {
+        val clean = text.filter { it.isDigit() || it == ',' || it == '.' }
+        _uiState.update { it.copy(packageRateText = clean) }
+    }
+
+    fun onDefaultBonusChanged(text: String) {
+        val clean = text.filter { it.isDigit() || it == ',' || it == '.' }
+        _uiState.update { it.copy(defaultBonusText = clean) }
     }
 
     fun onExpectedPackageCountChanged(text: String) {
@@ -163,6 +178,9 @@ class NewPartnerSessionViewModel(
                 val zone = ZoneId.systemDefault()
                 val startedAt = LocalDateTime.of(sessionDate, state.startTime).atZone(zone).toOffsetDateTime()
 
+                val rate = parseCurrency(state.packageRateText)
+                val bonus = parseCurrency(state.defaultBonusText)
+
                 val newSession = DeliveryPartnerSession(
                     id = "",
                     userId = user.id,
@@ -176,7 +194,9 @@ class NewPartnerSessionViewModel(
                     startTime = startedAt,
                     endTime = null, // Em andamento
                     amountPaid = BigDecimal.ZERO,
-                    expenseId = null
+                    expenseId = null,
+                    packageRate = rate,
+                    defaultBonus = bonus
                 )
 
                 sessionRepository.saveSession(newSession)
@@ -191,6 +211,17 @@ class NewPartnerSessionViewModel(
                 }
             }
         }
+    }
+
+    private fun parseCurrency(text: String): BigDecimal {
+        val clean = text.filter { it.isDigit() || it == ',' || it == '.' }.trim()
+        if (clean.isBlank()) return BigDecimal.ZERO
+        val normalized = if (clean.contains(',')) {
+            clean.replace(".", "").replace(',', '.')
+        } else {
+            clean
+        }
+        return normalized.toBigDecimalOrNull() ?: BigDecimal.ZERO
     }
 
     fun clearError() {

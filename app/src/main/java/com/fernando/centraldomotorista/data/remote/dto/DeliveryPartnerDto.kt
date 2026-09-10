@@ -53,6 +53,8 @@ data class DeliveryPartnerDto(
     val paymentCycleVariableDays: List<Int>? = null,
     @SerializedName("active")
     val active: Boolean = true,
+    @SerializedName("photo_url")
+    val photoUrl: String? = null,
     @SerializedName("created_at")
     val createdAt: String? = null
 )
@@ -82,7 +84,8 @@ fun DeliveryPartnerDto.toDomain(): DeliveryPartner {
         paymentCycleType = paymentCycleType,
         paymentCycleFixed = paymentCycleFixed,
         paymentCycleVariableDays = paymentCycleVariableDays,
-        active = active
+        active = active,
+        photoUrl = photoUrl
     )
 }
 
@@ -111,6 +114,7 @@ fun DeliveryPartner.toDto(): DeliveryPartnerDto {
         paymentCycleType = paymentCycleType,
         paymentCycleFixed = if (paymentCycleType == "fixed") paymentCycleFixed?.ifBlank { null } else null,
         paymentCycleVariableDays = if (paymentCycleType == "variable") paymentCycleVariableDays else null,
-        active = active
+        active = active,
+        photoUrl = photoUrl?.trim()?.ifBlank { null }
     )
 }
