@@ -34,6 +34,8 @@ import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.ge
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeLabel
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
+import java.time.Duration
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -728,6 +730,12 @@ private fun PartnerSessionCard(
                             fontWeight = FontWeight.Medium,
                             color = GreenNeon
                         )
+                        val durationStr = formatDuration(session.startTime, session.endTime)
+                        Text(
+                            text = "Duração Rota: $durationStr",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
@@ -911,18 +919,51 @@ private fun SessionDetailDialog(
     onDismiss: () -> Unit,
     onEdit: () -> Unit
 ) {
+    val context = LocalContext.current
     val startTimeStr = session.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(timeFormatter) ?: "--"
     val endTimeStr = session.endTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(timeFormatter) ?: "--"
+    val durationStr = formatDuration(session.startTime, session.endTime)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = OrangeNeon)
-                Text("Detalhes da Sessão", fontWeight = FontWeight.Bold)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = OrangeNeon)
+                    Text(
+                        text = "Detalhes da Sessão",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                IconButton(
+                    onClick = {
+                        SessionShareHelper.shareSessionImage(
+                            context = context,
+                            session = session,
+                            partnerName = partnerName,
+                            routeName = routeName,
+                            startTimeStr = startTimeStr,
+                            endTimeStr = endTimeStr,
+                            durationStr = durationStr
+                        )
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Compartilhar Imagem",
+                        tint = OrangeNeon
+                    )
+                }
             }
         },
         text = {
@@ -936,6 +977,7 @@ private fun SessionDetailDialog(
                 DetailRow(label = "Rota:", value = routeName)
                 DetailRow(label = "Início:", value = startTimeStr)
                 DetailRow(label = "Término:", value = endTimeStr)
+                DetailRow(label = "Duração Rota:", value = durationStr)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                 DetailRow(label = "Pacotes Expedidos:", value = "${session.expectedPackageCount}")
                 DetailRow(label = "Pacotes Bipados:", value = "${session.scannedCount}")
@@ -1005,3 +1047,12 @@ private fun parseAmount(text: String): BigDecimal {
     }
     return normalized.toBigDecimalOrNull() ?: BigDecimal.ZERO
 }
+
+private fun formatDuration(startTime: OffsetDateTime?, endTime: OffsetDateTime?): String {
+    if (startTime == null || endTime == null) return "--:--"
+    val totalMinutes = Duration.between(startTime, endTime).toMinutes().coerceAtLeast(0)
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return String.format(Locale.getDefault(), "%02d:%02d", hours, minutes)
+}
+
