@@ -1,6 +1,7 @@
 package com.fernando.centraldomotorista.data.remote.dto
 
 import com.fernando.centraldomotorista.data.model.Profile
+import com.fernando.centraldomotorista.util.parseToLocalOffsetDateTime
 import com.google.gson.annotations.SerializedName
 import java.math.BigDecimal
 import java.time.OffsetDateTime
@@ -77,9 +78,7 @@ fun ProfileDto.toDomain(): Profile {
         tireSizeFront = tireSizeFront,
         tireSizeRear = tireSizeRear,
         hasBag = hasBag ?: false,
-        lastOilChangeAt = lastOilChangeAt?.let {
-            try { OffsetDateTime.parse(it) } catch (e: Exception) { null }
-        }
+        lastOilChangeAt = parseToLocalOffsetDateTime(lastOilChangeAt)
     )
 }
 

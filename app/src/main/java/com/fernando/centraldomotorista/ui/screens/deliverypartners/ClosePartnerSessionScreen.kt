@@ -31,6 +31,7 @@ import com.fernando.centraldomotorista.ui.theme.*
 import com.fernando.centraldomotorista.ui.utils.CurrencyVisualTransformation
 import com.fernando.centraldomotorista.ui.utils.cleanCurrencyInput
 import com.fernando.centraldomotorista.ui.utils.parseCurrency
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -44,7 +45,7 @@ fun ClosePartnerSessionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm") }
+    val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR")) }
 
     LaunchedEffect(sessionId) {
         viewModel.loadData(sessionId)
@@ -226,8 +227,11 @@ fun ClosePartnerSessionScreen(
                             ) {
                                 Column {
                                     Text("Início da Sessão", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val formattedStartTime = remember(session?.startTime) {
+                                        session?.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(timeFormatter) ?: "--:--"
+                                    }
                                     Text(
-                                        text = session?.startTime?.format(timeFormatter) ?: "--:--",
+                                        text = formattedStartTime,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -271,7 +275,7 @@ fun ClosePartnerSessionScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val curTime = uiState.endTime
+                                    val curTime = uiState.endTime.atZoneSameInstant(ZoneId.systemDefault())
                                     TimePickerDialog(
                                         context,
                                         { _, hour, min ->
@@ -298,7 +302,7 @@ fun ClosePartnerSessionScreen(
                                 ) {
                                     Icon(Icons.Default.AccessTime, contentDescription = null, tint = OrangeNeon)
                                     Text(
-                                        text = uiState.endTime.format(timeFormatter),
+                                        text = uiState.endTime.atZoneSameInstant(ZoneId.systemDefault()).format(timeFormatter),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp,
                                         color = MaterialTheme.colorScheme.onSurface

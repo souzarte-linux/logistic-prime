@@ -1,6 +1,7 @@
 package com.fernando.centraldomotorista.data.remote.dto
 
 import com.fernando.centraldomotorista.data.model.DailyTotal
+import com.fernando.centraldomotorista.util.parseToLocalOffsetDateTime
 import com.google.gson.annotations.SerializedName
 import java.math.BigDecimal
 import java.time.OffsetDateTime
@@ -31,9 +32,7 @@ data class DailyTotalDto(
 )
 
 fun DailyTotalDto.toDomain(): DailyTotal {
-    val parsedOccurredAt = occurredAt?.let {
-        try { OffsetDateTime.parse(it) } catch (e: Exception) { OffsetDateTime.now() }
-    } ?: OffsetDateTime.now()
+    val parsedOccurredAt = parseToLocalOffsetDateTime(occurredAt) ?: OffsetDateTime.now()
 
     return DailyTotal(
         id = id ?: "",

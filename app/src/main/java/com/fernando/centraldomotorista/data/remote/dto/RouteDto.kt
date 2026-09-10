@@ -1,6 +1,7 @@
 package com.fernando.centraldomotorista.data.remote.dto
 
 import com.fernando.centraldomotorista.data.model.Route
+import com.fernando.centraldomotorista.util.parseToLocalOffsetDateTime
 import com.google.gson.annotations.SerializedName
 import java.math.BigDecimal
 import java.time.OffsetDateTime
@@ -57,9 +58,7 @@ data class RouteDto(
 )
 
 fun RouteDto.toDomain(): Route {
-    val parsedOccurredAt = occurredAt?.let {
-        try { OffsetDateTime.parse(it) } catch (e: Exception) { OffsetDateTime.now() }
-    } ?: OffsetDateTime.now()
+    val parsedOccurredAt = parseToLocalOffsetDateTime(occurredAt) ?: OffsetDateTime.now()
 
     return Route(
         id = id ?: "",
@@ -78,8 +77,8 @@ fun RouteDto.toDomain(): Route {
         smallPackagesCount = smallPackagesCount ?: 0,
         largePackagesCount = largePackagesCount ?: 0,
         largePackagesPrices = largePackagesPrices ?: emptyList(),
-        startedAt = startedAt?.let { try { OffsetDateTime.parse(it) } catch (e: Exception) { null } },
-        endedAt = endedAt?.let { try { OffsetDateTime.parse(it) } catch (e: Exception) { null } },
+        startedAt = parseToLocalOffsetDateTime(startedAt),
+        endedAt = parseToLocalOffsetDateTime(endedAt),
         breakMinutes = breakMinutes,
         startKm = startKm,
         endKm = endKm,

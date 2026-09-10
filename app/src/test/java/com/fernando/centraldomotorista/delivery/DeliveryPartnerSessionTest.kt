@@ -15,8 +15,9 @@ class DeliveryPartnerSessionTest {
 
     @Test
     fun testDeliveryPartnerSessionDtoMapping() {
-        val now = OffsetDateTime.of(2026, 9, 9, 10, 30, 0, 0, ZoneOffset.UTC)
-        val end = OffsetDateTime.of(2026, 9, 9, 18, 0, 0, 0, ZoneOffset.UTC)
+        val localOffset = java.time.ZoneId.systemDefault().rules.getOffset(java.time.Instant.now())
+        val now = OffsetDateTime.of(2026, 9, 9, 10, 30, 0, 0, localOffset)
+        val end = OffsetDateTime.of(2026, 9, 9, 18, 0, 0, 0, localOffset)
 
         val session = DeliveryPartnerSession(
             id = "session-123",
@@ -63,6 +64,28 @@ class DeliveryPartnerSessionTest {
         assertEquals(session.expenseId, domain.expenseId)
         assertEquals(session.startTime, domain.startTime)
         assertEquals(session.endTime, domain.endTime)
+    }
+
+    @Test
+    fun testUtcStringToLocalDomainConversion() {
+        val dto = DeliveryPartnerSessionDto(
+            userId = "user-abc",
+            partnerId = "partner-xyz",
+            startTime = "2026-09-09T18:30:00Z",
+            endTime = "2026-09-09T22:00:00Z"
+        )
+        val domain = dto.toDomain()
+        assertNotNull(domain.startTime)
+        assertNotNull(domain.endTime)
+
+        // Deve converter para o fuso local do dispositivo
+        val expectedLocalHour = java.time.Instant.parse("2026-09-09T18:30:00Z")
+            .atZone(java.time.ZoneId.systemDefault()).hour
+        val expectedLocalEndHour = java.time.Instant.parse("2026-09-09T22:00:00Z")
+            .atZone(java.time.ZoneId.systemDefault()).hour
+
+        assertEquals(expectedLocalHour, domain.startTime!!.hour)
+        assertEquals(expectedLocalEndHour, domain.endTime!!.hour)
     }
 
     @Test

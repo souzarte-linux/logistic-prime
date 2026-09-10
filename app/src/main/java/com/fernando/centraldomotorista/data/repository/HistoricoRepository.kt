@@ -12,6 +12,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -23,7 +24,7 @@ class HistoricoRepository(
     private val profileRepository: ProfileRepository = ProfileRepository(),
     private val billingCycleApi: BillingCycleApi = RetrofitClient.billingCycleApi
 ) {
-    private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+    private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR"))
 
     suspend fun loadHistoricoData(userId: String): Pair<Profile, List<TransactionItem>> = withContext(Dispatchers.IO) {
         coroutineScope {
@@ -73,7 +74,7 @@ class HistoricoRepository(
 
                 val originAbbr = r.origin?.trim()?.take(3)?.uppercase() ?: "---"
                 val destAbbr = r.destination?.trim()?.take(3)?.uppercase() ?: "---"
-                val timeStr = r.occurredAt.format(timeFormatter)
+                val timeStr = r.occurredAt.atZoneSameInstant(ZoneId.systemDefault()).format(timeFormatter)
                 val subtitle = "$originAbbr - $destAbbr • $timeStr"
 
                 val meta1 = "$pkgs Pac${if (pkgs == 1) "" else "s"} • $km KM"
@@ -114,7 +115,7 @@ class HistoricoRepository(
             // 2. Mapear DailyTotals (Ganhos Consolidados)
             allDailyTotals.forEach { d ->
                 val platName = platformsMap[d.platformId] ?: "AVULSO"
-                val timeStr = d.occurredAt.format(timeFormatter)
+                val timeStr = d.occurredAt.atZoneSameInstant(ZoneId.systemDefault()).format(timeFormatter)
                 val subtitle = "$platName • $timeStr"
 
                 val netAmount = EarningsCalculator.calcularGanhoLiquidoDoDia(
@@ -153,7 +154,7 @@ class HistoricoRepository(
                 }
 
                 val title = e.title.trim().ifBlank { catFormatted }
-                val timeStr = e.occurredAt.format(timeFormatter)
+                val timeStr = e.occurredAt.atZoneSameInstant(ZoneId.systemDefault()).format(timeFormatter)
                 val subtitle = "${e.vendor ?: "—"} • $timeStr"
 
                 var meta1: String? = null

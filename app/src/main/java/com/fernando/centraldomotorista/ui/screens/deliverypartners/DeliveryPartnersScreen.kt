@@ -1595,7 +1595,7 @@ private fun PartnerRecentSessionsSection(
     onOpenCloseSession: (String) -> Unit
 ) {
     val routeMap = remember(routes) { routes.associateBy { it.id } }
-    val timeFormatter = remember { java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm") }
+    val timeFormatter = remember { java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")) }
 
     SectionHeader(title = "SESSÕES RECENTES", icon = Icons.Default.History)
 
@@ -1655,8 +1655,11 @@ private fun PartnerRecentSessionsSection(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val formattedStartTime = remember(session.startTime) {
+                                session.startTime?.atZoneSameInstant(java.time.ZoneId.systemDefault())?.format(timeFormatter) ?: "Data não informada"
+                            }
                             Text(
-                                text = session.startTime?.format(timeFormatter) ?: "Data não informada",
+                                text = formattedStartTime,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface

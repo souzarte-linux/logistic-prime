@@ -84,7 +84,7 @@ class ClosePartnerSessionViewModel(
                 val calculatedSuggested = BigDecimal(initialDelivered).multiply(packageRate).add(defaultBonus)
                 val formattedAmount = String.format(Locale("pt", "BR"), "%.2f", calculatedSuggested)
 
-                val sessionDate = session.startTime?.toLocalDate() ?: LocalDate.now()
+                val sessionDate = session.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.toLocalDate() ?: LocalDate.now()
                 val nowTime = LocalTime.now().withSecond(0).withNano(0)
                 val initialEndTime = LocalDateTime.of(sessionDate, nowTime).atZone(ZoneId.systemDefault()).toOffsetDateTime()
 
@@ -112,8 +112,8 @@ class ClosePartnerSessionViewModel(
     }
 
     fun onEndTimeChanged(hour: Int, minute: Int) {
-        val current = _uiState.value.endTime
-        val updated = current.withHour(hour).withMinute(minute).withSecond(0)
+        val current = _uiState.value.endTime.atZoneSameInstant(ZoneId.systemDefault())
+        val updated = current.withHour(hour).withMinute(minute).withSecond(0).toOffsetDateTime()
         _uiState.update { it.copy(endTime = updated) }
     }
 

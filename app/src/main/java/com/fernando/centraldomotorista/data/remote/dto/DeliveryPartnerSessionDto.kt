@@ -5,6 +5,8 @@ import com.google.gson.annotations.SerializedName
 import java.math.BigDecimal
 import java.time.OffsetDateTime
 
+import com.fernando.centraldomotorista.util.parseToLocalOffsetDateTime
+
 data class DeliveryPartnerSessionDto(
     @SerializedName("id")
     val id: String? = null,
@@ -37,15 +39,9 @@ data class DeliveryPartnerSessionDto(
 )
 
 fun DeliveryPartnerSessionDto.toDomain(): DeliveryPartnerSession {
-    val parsedStartTime = startTime?.let {
-        try { OffsetDateTime.parse(it) } catch (e: Exception) { null }
-    }
-    val parsedEndTime = endTime?.let {
-        try { OffsetDateTime.parse(it) } catch (e: Exception) { null }
-    }
-    val parsedCreatedAt = createdAt?.let {
-        try { OffsetDateTime.parse(it) } catch (e: Exception) { null }
-    }
+    val parsedStartTime = parseToLocalOffsetDateTime(startTime)
+    val parsedEndTime = parseToLocalOffsetDateTime(endTime)
+    val parsedCreatedAt = parseToLocalOffsetDateTime(createdAt)
 
     return DeliveryPartnerSession(
         id = id ?: "",
