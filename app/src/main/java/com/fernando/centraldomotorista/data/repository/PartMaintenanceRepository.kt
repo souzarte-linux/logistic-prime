@@ -28,8 +28,22 @@ class PartMaintenanceRepository(
             val updated = partMaintenanceApi.updatePartMaintenance("eq.${part.id}", dto)
             updated.firstOrNull()?.toDomain() ?: part
         } else {
-            val created = partMaintenanceApi.createPartMaintenance(dto)
-            created.firstOrNull()?.toDomain() ?: part
+            // Verifica se já existe registro com mesmo user_id e part_name para atualizar ao invés de duplicar (evita HTTP 409)
+            val existing = try {
+                val userFilter = "eq.${part.userId}"
+                partMaintenanceApi.getPartMaintenances(userFilter, "created_at.desc")
+                    .firstOrNull { it.partName.trim().equals(part.partName.trim(), ignoreCase = true) }
+            } catch (e: Exception) {
+                null
+            }
+
+            if (existing != null && !existing.id.isNullOrBlank()) {
+                val updated = partMaintenanceApi.updatePartMaintenance("eq.${existing.id}", dto.copy(id = existing.id))
+                updated.firstOrNull()?.toDomain() ?: part.copy(id = existing.id)
+            } else {
+                val created = partMaintenanceApi.createPartMaintenance(dto)
+                created.firstOrNull()?.toDomain() ?: part
+            }
         }
     }
 

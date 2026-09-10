@@ -1,5 +1,6 @@
 package com.fernando.centraldomotorista.ui.screens.pecas
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.*
@@ -181,8 +182,11 @@ class PartMaintenanceViewModel(
 
             // Se tiver expenseId vinculado, busca os dados financeiros para preenchimento
             if (!part.expenseId.isNullOrBlank()) {
-                val expenses = expenseRepository.getExpenses(currentUserId)
-                val linkedExpense = expenses.firstOrNull { it.id == part.expenseId }
+                val linkedExpense = try {
+                    expenseRepository.getExpenseById(part.expenseId)
+                } catch (e: Exception) {
+                    null
+                }
                 if (linkedExpense != null) {
                     val cardData = if (linkedExpense.paymentMethod == "cartao" && linkedExpense.cardId != null) {
                         CardPaymentData(
@@ -206,6 +210,7 @@ class PartMaintenanceViewModel(
                             paymentMethod = linkedExpense.paymentMethod,
                             partBrand = linkedExpense.partBrand ?: it.partBrand,
                             partModel = linkedExpense.partModel ?: it.partModel,
+                            selectedCompanyId = it.selectedCompanyId ?: linkedExpense.companyId,
                             cardPaymentData = cardData
                         )
                     }
@@ -406,7 +411,8 @@ class PartMaintenanceViewModel(
 
     fun savePartMaintenance(onSuccess: () -> Unit = {}) {
         val state = _uiState.value
-        if (state.partName.isBlank()) {
+        val trimmedPartName = state.partName.trim()
+        if (trimmedPartName.isBlank()) {
             _uiState.update { it.copy(error = "Informe o nome da peça.") }
             return
         }
@@ -420,13 +426,25 @@ class PartMaintenanceViewModel(
         val lastChangeKmDecimal = state.lastChangeKm.toBigDecimalOrNull() ?: BigDecimal.ZERO
         val finalOffsetDateTime = state.lastChangeDateTime.atZone(ZoneId.systemDefault()).toOffsetDateTime()
 
+        // 1. Validar duplicidade com outras peças
+        val existingPart = state.parts.firstOrNull {
+            it.partName.trim().equals(trimmedPartName, ignoreCase = true)
+        }
+        if (state.editingPartId != null && existingPart != null && existingPart.id != state.editingPartId) {
+            _uiState.update { it.copy(error = "Já existe outra peça cadastrada com o nome '$trimmedPartName'.") }
+            return
+        }
+
+        // Se editingPartId for null mas já existir uma peça com este nome, reutiliza o id existente para atualizar
+        val partIdToUse = state.editingPartId ?: existingPart?.id ?: ""
+
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
 
             var savedExpenseId: String? = state.editingExpenseId
             val amountDecimal = state.totalAmountText.toBigDecimalOrNull()
 
-            // 1. Criar ou Atualizar Registro Financeiro (Expense) se houver valor informado
+            // 2. Criar ou Atualizar Registro Financeiro (Expense) se houver valor informado
             if (amountDecimal != null && amountDecimal > BigDecimal.ZERO) {
                 try {
                     val companyName = state.companies.firstOrNull { it.id == state.selectedCompanyId }?.name
@@ -434,7 +452,7 @@ class PartMaintenanceViewModel(
                         id = state.editingExpenseId ?: "",
                         userId = currentUserId,
                         category = "manutencao",
-                        title = "Manutenção: ${state.partName.trim()}",
+                        title = "Manutenção: $trimmedPartName",
                         vendor = companyName,
                         amount = amountDecimal,
                         odometerKm = lastChangeKmDecimal.takeIf { it > BigDecimal.ZERO },
@@ -457,35 +475,38 @@ class PartMaintenanceViewModel(
                     if (state.editingExpenseId.isNullOrBlank()) {
                         val createdExpense = expenseRepository.createExpense(expense)
                         savedExpenseId = createdExpense.id
+                        // Salva o id no state imediatamente para evitar recriação duplicada em caso de retry
+                        _uiState.update { it.copy(editingExpenseId = savedExpenseId) }
                     } else {
                         val updatedExpense = expenseRepository.updateExpense(expense)
                         savedExpenseId = updatedExpense.id
                     }
                 } catch (e: Exception) {
-                    // Log or handle expense creation error
+                    Log.e("PartMaintViewModel", "Erro ao salvar despesa vinculada: ${e.message}", e)
                 }
             }
 
-            // 2. Salvar Registro de Monitoramento de Peça (PartMaintenance)
+            // 3. Salvar Registro de Monitoramento de Peça (PartMaintenance)
             val part = PartMaintenance(
-                id = state.editingPartId ?: "",
+                id = partIdToUse,
                 userId = currentUserId,
-                partName = state.partName.trim(),
+                partName = trimmedPartName,
                 lifeKm = lifeKmDecimal,
                 lastChangeKm = lastChangeKmDecimal,
                 lastChangeAt = finalOffsetDateTime,
                 companyId = state.selectedCompanyId?.takeIf { it.isNotBlank() },
                 partProductId = state.selectedPartProductId?.takeIf { it.isNotBlank() },
-                expenseId = savedExpenseId
+                expenseId = savedExpenseId ?: existingPart?.expenseId
             )
 
             try {
-                partRepository.savePartMaintenance(part)
+                val savedPart = partRepository.savePartMaintenance(part)
                 _uiState.update {
                     it.copy(
                         isSaving = false,
                         isFormOpen = false,
-                        message = if (state.editingPartId != null) "Manutenção atualizada com sucesso!" else "Manutenção lançada com sucesso!"
+                        editingPartId = savedPart.id,
+                        message = if (state.editingPartId != null || existingPart != null) "Manutenção atualizada com sucesso!" else "Manutenção lançada com sucesso!"
                     )
                 }
                 loadData()
@@ -500,16 +521,18 @@ class PartMaintenanceViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val part = _uiState.value.parts.firstOrNull { it.id == partId }
-            if (part?.expenseId != null) {
-                try {
-                    expenseRepository.deleteExpense(part.expenseId)
-                } catch (e: Exception) {
-                    // Ignore expense delete error
-                }
-            }
+            val expId = part?.expenseId
 
+            // Exclui a peça de monitoramento primeiro para remover a dependência de chave estrangeira
             val success = partRepository.deletePartMaintenance(partId)
             if (success) {
+                if (!expId.isNullOrBlank()) {
+                    try {
+                        expenseRepository.deleteExpense(expId)
+                    } catch (e: Exception) {
+                        Log.e("PartMaintViewModel", "Erro ao excluir despesa vinculada: ${e.message}", e)
+                    }
+                }
                 _uiState.update {
                     it.copy(
                         isFormOpen = false,
@@ -551,28 +574,39 @@ class PartMaintenanceViewModel(
                                 )
                             } else null
 
+                            val cleanedPartName = exp.title.removePrefix("Manutenção: ").trim()
+                            val matchingPart = partsList.firstOrNull {
+                                it.partName.trim().equals(cleanedPartName, ignoreCase = true)
+                            }
+                            val linkedProduct = matchingPart?.partProductId?.let { prodId ->
+                                _uiState.value.partProducts.firstOrNull { it.id == prodId }
+                            }
+
                             _uiState.update {
                                 it.copy(
                                     isFormOpen = true,
-                                    editingPartId = null,
+                                    editingPartId = matchingPart?.id,
                                     editingExpenseId = exp.id,
-                                    partName = exp.title.removePrefix("Manutenção: ").trim(),
-                                    lifeKm = "10000",
-                                    lastChangeKm = exp.odometerKm?.toPlainString() ?: "",
-                                    selectedCompanyId = exp.companyId,
+                                    partName = cleanedPartName,
+                                    lifeKm = matchingPart?.lifeKm?.toPlainString() ?: "10000",
+                                    lastChangeKm = exp.odometerKm?.toPlainString()
+                                        ?: matchingPart?.lastChangeKm?.toPlainString()
+                                        ?: "",
+                                    selectedCompanyId = exp.companyId ?: matchingPart?.companyId,
+                                    selectedPartProductId = matchingPart?.partProductId,
+                                    partBrand = exp.partBrand ?: linkedProduct?.brand ?: "",
+                                    partModel = exp.partModel ?: linkedProduct?.model ?: "",
                                     totalAmountText = exp.amount.toPlainString(),
                                     lastChangeDateTime = exp.occurredAt.toLocalDateTime(),
                                     receiptNumber = exp.receiptNumber ?: "",
                                     notes = exp.description ?: "",
                                     paymentMethod = exp.paymentMethod,
-                                    partBrand = exp.partBrand ?: "",
-                                    partModel = exp.partModel ?: "",
                                     cardPaymentData = cardData
                                 )
                             }
                         }
                     } catch (e: Exception) {
-                        // ignore
+                        Log.e("PartMaintViewModel", "Erro ao carregar despesa $itemId: ${e.message}", e)
                     }
                 }
             }
