@@ -59,8 +59,11 @@ object SessionShareHelper {
                 📋 *Central do Motorista — Detalhes da Sessão*
                 👤 *Entregador:* $partnerName
                 🛣️ *Rota:* $routeName
+                ▶️ *Início:* $startTimeStr
+                🏁 *Fim:* $endTimeStr
                 ⏱️ *Duração:* $durationStr
-                📦 *Entregues:* ${session.deliveredCount} | *Devolvidos:* ${session.returnedCount}
+                📦 *Entregues:* ${session.deliveredCount}
+                ↩️ *Devolvidos:* ${session.returnedCount}
                 💰 *Total Pago:* R$ ${String.format(Locale("pt", "BR"), "%.2f", session.amountPaid)}
             """.trimIndent()
 
