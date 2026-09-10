@@ -238,99 +238,7 @@ fun PartnerRoutesScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 48.dp)
             ) {
-                // 1. TOPO DA TELA: Dois números em destaque (Sessões finalizadas NO MÊS)
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Total de pacotes entregues no mês
-                        Card(
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .border(1.dp, GreenNeon.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                                    .padding(14.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(16.dp))
-                                    Text(
-                                        text = "ENTREGUES NO MÊS",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.5.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Text(
-                                    text = "${uiState.monthDeliveredCount}",
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = GreenNeon
-                                )
-                                Text(
-                                    text = "pacotes",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        // Valor total pago no mês (R$)
-                        Card(
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .border(1.dp, OrangeNeon.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                                    .padding(14.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(Icons.Default.AttachMoney, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
-                                    Text(
-                                        text = "TOTAL PAGO NO MÊS",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.5.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Text(
-                                    text = "R$ ${String.format(Locale("pt", "BR"), "%.2f", uiState.monthTotalAmountPaid)}",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = OrangeNeon,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "em repasses",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 2. SEÇÃO "DADOS MOTORISTA" (Somente visualização + atalho WhatsApp + Lápis)
+                // 1. SEÇÃO "DADOS MOTORISTA" (Somente visualização + atalho WhatsApp + Lápis)
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -489,6 +397,133 @@ fun PartnerRoutesScreen(
                     }
                 }
 
+                // 2. MÉTRICAS DO MÊS (Entregues no mês e Total Pago no mês — tamanho perfeitamente simétrico)
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Total de pacotes entregues no mês
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .border(1.dp, GreenNeon.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = GreenNeon,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = "ENTREGUES NO MÊS",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(34.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${uiState.monthDeliveredCount}",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = GreenNeon,
+                                        maxLines = 1
+                                    )
+                                }
+                                Text(
+                                    text = "pacotes",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        // Valor total pago no mês (R$)
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .border(1.dp, OrangeNeon.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.AttachMoney,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = "TOTAL PAGO NO MÊS",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(34.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "R$ ${String.format(Locale("pt", "BR"), "%.2f", uiState.monthTotalAmountPaid)}",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = OrangeNeon,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Text(
+                                    text = "em repasses",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // 3. BOTÃO "INICIAR SESSÃO DE ENTREGA"
                 item {
                     Button(
@@ -603,8 +638,17 @@ private fun PartnerSessionCard(
     onDelete: () -> Unit
 ) {
     val isInProgress = session.endTime == null
-    val formattedStartTime = remember(session.startTime) {
-        session.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(timeFormatter) ?: "--/-- --:--"
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("pt", "BR")) }
+    val hourFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR")) }
+
+    val startDate = remember(session.startTime) {
+        session.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(dateFormatter) ?: "--/--/----"
+    }
+    val startHour = remember(session.startTime) {
+        session.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(hourFormatter) ?: "--:--"
+    }
+    val endHour = remember(session.endTime) {
+        session.endTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(hourFormatter) ?: "--:--"
     }
 
     Card(
@@ -625,7 +669,7 @@ private fun PartnerSessionCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Linha Superior: Data/Hora de Início + Badge Status + Ações (Editar, Excluir)
+            // Linha Superior: Data + Horas embaixo + Badge Status + Ações (Editar, Excluir)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -636,17 +680,25 @@ private fun PartnerSessionCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AccessTime,
+                        imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
                         tint = if (isInProgress) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
-                    Text(
-                        text = formattedStartTime,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            text = startDate,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isInProgress) startHour else "$startHour - $endHour",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 Row(

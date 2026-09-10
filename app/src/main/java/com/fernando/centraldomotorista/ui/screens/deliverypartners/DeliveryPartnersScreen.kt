@@ -382,31 +382,19 @@ private fun DeliveryPartnerCard(
         ) {
             // -------------------------------------------------------------
             // CABEÇALHO DO CARD:
-            // Esquerda: Switch Ativar/Desativar
-            // Direita: Avatar + Nome e Sobrenome + Ícone tipo de entrega + Estrelas
+            // Esquerda: Avatar + Nome e Sobrenome + Ícone tipo de entrega + Estrelas
+            // Direita: Switch Ativar/Desativar (alinhado ao lado direito)
             // -------------------------------------------------------------
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Lado esquerdo: Switch/Slider Ativar / Desativar entregador
-                Switch(
-                    checked = partner.active,
-                    onCheckedChange = { onToggleActive() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.Black,
-                        checkedTrackColor = OrangeNeon,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
-
-                // Lado direito: Círculo (foto ou iniciais) + Nome/Sobrenome + Ícone de entrega + Estrelas
+                // Lado esquerdo: Círculo (foto ou iniciais) + Nome/Sobrenome + Ícone de entrega + Estrelas
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 12.dp),
+                        .padding(end = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -452,6 +440,18 @@ private fun DeliveryPartnerCard(
                         }
                     }
                 }
+
+                // Lado direito: Switch/Slider Ativar / Desativar entregador
+                Switch(
+                    checked = partner.active,
+                    onCheckedChange = { onToggleActive() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.Black,
+                        checkedTrackColor = OrangeNeon,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
             }
 
             // -------------------------------------------------------------
@@ -524,63 +524,29 @@ private fun DeliveryPartnerCard(
             }
 
             // -------------------------------------------------------------
-            // TERCEIRA SEÇÃO: Sessão Ativa (Mostrar SOMENTE se endTime == null)
+            // TERCEIRA SEÇÃO: Sessão Ativa (Mostrar SOMENTE o botão "Fechar Sessão")
             // -------------------------------------------------------------
             if (activeSession != null) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
 
-                Surface(
-                    color = OrangeNeon.copy(alpha = 0.15f),
+                Button(
+                    onClick = onOpenActiveSession,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GreenNeon,
+                        contentColor = Color.Black
+                    ),
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Surface(
-                                color = OrangeNeon,
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    text = "SESSÃO ATIVA",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.Black,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                            Text(
-                                text = "${activeSession.scannedCount} pacotes pendentes",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = OrangeNeon,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Button(
-                            onClick = onOpenActiveSession,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = GreenNeon,
-                                contentColor = Color.Black
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text("Fechar Sessão", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Fechar Sessão", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
