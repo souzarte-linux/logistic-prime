@@ -32,6 +32,8 @@ import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.Pa
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.formatShortName
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeEmoji
 import com.fernando.centraldomotorista.ui.theme.*
+import java.math.BigDecimal
+import java.time.OffsetDateTime
 import java.util.Locale
 
 /**
@@ -320,18 +322,12 @@ fun DeliveryPartnersScreen(
             if (!uiState.isLoading) {
                 items(filteredPartners, key = { it.id }) { partner ->
                     val activeSession = uiState.activeSessionsMap[partner.id]
-                    val recentSessions = uiState.sessionsByPartnerMap[partner.id]
-                        ?.sortedWith(
-                            compareByDescending<DeliveryPartnerSession> { it.startTime }
-                                .thenByDescending { it.createdAt }
-                        )
-                        ?.take(7)
-                        ?: emptyList()
+                    val sessions = uiState.sessionsByPartnerMap[partner.id] ?: emptyList()
 
                     DeliveryPartnerCard(
                         partner = partner,
                         routeMap = routeMap,
-                        recentSessions = recentSessions,
+                        sessions = sessions,
                         activeSession = activeSession,
                         onToggleActive = { viewModel.togglePartnerActive(partner) },
                         onCardClick = { onNavigateToPartnerRoutes(partner.id) },
@@ -343,25 +339,58 @@ fun DeliveryPartnersScreen(
     }
 }
 
+private data class GroupedPartnerRoute(
+    val routeName: String,
+    val totalPackages: Int,
+    val totalAmount: BigDecimal,
+    val latestDate: OffsetDateTime? = null
+)
+
 /**
  * Card estruturado do Entregador Parceiro:
- * - Cabeçalho: Switch Ativar/Desativar (esquerda), Avatar + Nome/Sobrenome + Tipo + Estrelas (direita).
+ * - Cabeçalho: Switch Ativar/Desativar (direita), Avatar + Nome/Sobrenome + Tipo + Estrelas (esquerda).
  * - Divisória fina cinza.
- * - Subseção "Rotas recentes": últimas 7 sessões (Rota, pacotes, valor ganho).
+ * - Subseção "Rotas": agrupadas por nome independente do dia, exibindo quantidade de pacotes e valor total em R$.
  * - Divisória fina cinza.
- * - Subseção "Sessão Ativa": badge, pacotes pendentes e botão "Fechar Sessão".
+ * - Subseção "Sessão Ativa": botão "Fechar Sessão".
  * - O card inteiro é clicável e navega para Tela 2.
  */
 @Composable
 private fun DeliveryPartnerCard(
     partner: DeliveryPartner,
     routeMap: Map<String, DeliveryRoute>,
-    recentSessions: List<DeliveryPartnerSession>,
+    sessions: List<DeliveryPartnerSession>,
     activeSession: DeliveryPartnerSession?,
     onToggleActive: () -> Unit,
     onCardClick: () -> Unit,
     onOpenActiveSession: () -> Unit
 ) {
+    val groupedRoutes = remember(sessions, routeMap) {
+        sessions
+            .groupBy { session ->
+                session.routeId?.let { routeMap[it]?.name } ?: "Sem Rota"
+            }
+            .map { (routeName, sessionList) ->
+                val totalPackages = sessionList.sumOf { s ->
+                    if (s.endTime == null) s.scannedCount else s.deliveredCount
+                }
+                val totalAmount = sessionList.fold(BigDecimal.ZERO) { acc, s ->
+                    acc.add(s.amountPaid)
+                }
+                val latestDate = sessionList.mapNotNull { it.startTime ?: it.createdAt }.maxOrNull()
+                GroupedPartnerRoute(
+                    routeName = routeName,
+                    totalPackages = totalPackages,
+                    totalAmount = totalAmount,
+                    latestDate = latestDate
+                )
+            }
+            .sortedWith(
+                compareByDescending<GroupedPartnerRoute> { it.latestDate }
+                    .thenByDescending { it.totalPackages }
+            )
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -455,8 +484,8 @@ private fun DeliveryPartnerCard(
             }
 
             // -------------------------------------------------------------
-            // SEGUNDA SEÇÃO: Linha divisória cinza claro + "Rotas recentes"
-            // (últimos 7 registros: Nome rota | Quantidade de pacotes | Valor recebido)
+            // SEGUNDA SEÇÃO: Linha divisória cinza claro + "Rotas"
+            // (Rotas agrupadas por nome: Nome rota | Quantidade de pacotes | Valor recebido)
             // -------------------------------------------------------------
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
 
@@ -465,23 +494,21 @@ private fun DeliveryPartnerCard(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "Rotas recentes",
+                    text = "Rotas",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                if (recentSessions.isEmpty()) {
+                if (groupedRoutes.isEmpty()) {
                     Text(
-                        text = "Nenhuma rota recente realizada.",
+                        text = "Nenhuma rota realizada.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
                 } else {
-                    recentSessions.forEach { session ->
-                        val routeName = session.routeId?.let { routeMap[it]?.name } ?: "Sem Rota"
-                        val count = if (session.endTime == null) session.scannedCount else session.deliveredCount
+                    groupedRoutes.forEach { route ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -491,7 +518,7 @@ private fun DeliveryPartnerCard(
                         ) {
                             // Esquerda: Nome da rota
                             Text(
-                                text = routeName,
+                                text = route.routeName,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -502,7 +529,7 @@ private fun DeliveryPartnerCard(
 
                             // Centro: Quantidade de pacotes entregues
                             Text(
-                                text = "$count pacotes",
+                                text = "${route.totalPackages} pacotes",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f),
@@ -511,10 +538,10 @@ private fun DeliveryPartnerCard(
 
                             // Direita: Valor recebido nessa rota
                             Text(
-                                text = "R$ ${String.format(Locale("pt", "BR"), "%.2f", session.amountPaid)}",
+                                text = "R$ ${String.format(Locale("pt", "BR"), "%.2f", route.totalAmount)}",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (session.endTime == null) OrangeNeon else GreenNeon,
+                                color = GreenNeon,
                                 modifier = Modifier.weight(1f),
                                 textAlign = TextAlign.End
                             )

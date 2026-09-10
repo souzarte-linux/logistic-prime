@@ -776,12 +776,25 @@ private fun PartnerSessionCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (!isInProgress) {
-                        Text(
-                            text = "Entregues: ${session.deliveredCount} | Devolvidos: ${session.returnedCount}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = GreenNeon
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Entregues: ${session.deliveredCount}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = GreenNeon
+                            )
+                            Text(
+                                text = " | ",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Devolvidos: ${session.returnedCount}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = RedAlert
+                            )
+                        }
                         val durationStr = formatDuration(session.startTime, session.endTime)
                         Text(
                             text = "Duração Rota: $durationStr",
@@ -1033,8 +1046,8 @@ private fun SessionDetailDialog(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                 DetailRow(label = "Pacotes Expedidos:", value = "${session.expectedPackageCount}")
                 DetailRow(label = "Pacotes Bipados:", value = "${session.scannedCount}")
-                DetailRow(label = "Pacotes Entregues:", value = "${session.deliveredCount}")
-                DetailRow(label = "Pacotes Devolvidos:", value = "${session.returnedCount}")
+                DetailRow(label = "Pacotes Entregues:", value = "${session.deliveredCount}", valueColor = GreenNeon)
+                DetailRow(label = "Pacotes Devolvidos:", value = "${session.returnedCount}", valueColor = RedAlert)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1068,13 +1081,17 @@ private fun SessionDetailDialog(
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
+private fun DetailRow(
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-        Text(text = value, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = value, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = valueColor)
     }
 }
 
