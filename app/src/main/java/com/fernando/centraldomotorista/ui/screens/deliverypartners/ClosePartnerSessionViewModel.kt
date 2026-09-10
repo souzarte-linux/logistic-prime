@@ -38,6 +38,8 @@ data class ClosePartnerSessionUiState(
     val suggestedAmount: BigDecimal = BigDecimal.ZERO,
     val amountPaidText: String = "0,00",
     val amountPaid: BigDecimal = BigDecimal.ZERO,
+    val returnedBarcodes: Set<String> = emptySet(),
+    val isScannerOpen: Boolean = false,
     val isLoading: Boolean = false,
     val isFinalizing: Boolean = false,
     val error: String? = null,
@@ -102,6 +104,8 @@ class ClosePartnerSessionViewModel(
                         deliveredCountText = initialDelivered.toString(),
                         returnedCount = 0,
                         returnedCountText = "0",
+                        returnedBarcodes = emptySet(),
+                        isScannerOpen = false,
                         suggestedAmount = calculatedSuggested,
                         amountPaid = calculatedSuggested,
                         amountPaidText = formattedAmount,
@@ -112,6 +116,72 @@ class ClosePartnerSessionViewModel(
                 Log.e("CloseSessionVM", "Erro ao carregar sessão: ${e.message}", e)
                 _uiState.update { it.copy(isLoading = false, error = "Erro ao carregar sessão.") }
             }
+        }
+    }
+
+    fun openScanner() {
+        _uiState.update { it.copy(isScannerOpen = true) }
+    }
+
+    fun closeScanner() {
+        _uiState.update { it.copy(isScannerOpen = false) }
+    }
+
+    fun onReturnedBarcodeScanned(barcode: String) {
+        val trimmed = barcode.trim()
+        if (trimmed.isBlank()) return
+        _uiState.update { current ->
+            val updatedBarcodes = current.returnedBarcodes + trimmed
+            val newReturnedCount = updatedBarcodes.size
+            val session = current.session
+            val partner = current.partner
+            val base = current.basePackageCount
+
+            val delivered = (base - newReturnedCount).coerceAtLeast(0)
+
+            val packageRate = if (session != null && session.packageRate > BigDecimal.ZERO) session.packageRate else (partner?.packageRate ?: BigDecimal.ZERO)
+            val defaultBonus = if (session != null && session.defaultBonus > BigDecimal.ZERO) session.defaultBonus else (partner?.defaultBonus ?: BigDecimal.ZERO)
+            val suggested = BigDecimal(delivered).multiply(packageRate).add(defaultBonus)
+            val formatted = String.format(Locale("pt", "BR"), "%.2f", suggested)
+
+            current.copy(
+                returnedBarcodes = updatedBarcodes,
+                returnedCount = newReturnedCount,
+                returnedCountText = newReturnedCount.toString(),
+                deliveredCount = delivered,
+                deliveredCountText = delivered.toString(),
+                suggestedAmount = suggested,
+                amountPaid = suggested,
+                amountPaidText = formatted
+            )
+        }
+    }
+
+    fun removeReturnedBarcode(barcode: String) {
+        _uiState.update { current ->
+            val updatedBarcodes = current.returnedBarcodes - barcode
+            val newReturnedCount = updatedBarcodes.size
+            val session = current.session
+            val partner = current.partner
+            val base = current.basePackageCount
+
+            val delivered = (base - newReturnedCount).coerceAtLeast(0)
+
+            val packageRate = if (session != null && session.packageRate > BigDecimal.ZERO) session.packageRate else (partner?.packageRate ?: BigDecimal.ZERO)
+            val defaultBonus = if (session != null && session.defaultBonus > BigDecimal.ZERO) session.defaultBonus else (partner?.defaultBonus ?: BigDecimal.ZERO)
+            val suggested = BigDecimal(delivered).multiply(packageRate).add(defaultBonus)
+            val formatted = String.format(Locale("pt", "BR"), "%.2f", suggested)
+
+            current.copy(
+                returnedBarcodes = updatedBarcodes,
+                returnedCount = newReturnedCount,
+                returnedCountText = newReturnedCount.toString(),
+                deliveredCount = delivered,
+                deliveredCountText = delivered.toString(),
+                suggestedAmount = suggested,
+                amountPaid = suggested,
+                amountPaidText = formatted
+            )
         }
     }
 
