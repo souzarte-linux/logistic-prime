@@ -3,6 +3,13 @@ package com.fernando.centraldomotorista.ui.screens.deliverypartners
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,8 +26,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,16 +40,24 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
+import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.PartnerAvatar
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeEmoji
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeLabel
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
+import java.text.NumberFormat
 import java.time.Duration
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private fun BigDecimal.formatCurrency(): String {
+    val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
+    return formatter.format(this)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -238,7 +257,7 @@ fun PartnerRoutesScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 48.dp)
             ) {
-                // 1. SEÇÃO "DADOS MOTORISTA" (Somente visualização + atalho WhatsApp + Lápis)
+                // 1. SEÇÃO "DADOS MOTORISTA" (Visualização + atalho WhatsApp + Lápis de edição)
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -397,7 +416,7 @@ fun PartnerRoutesScreen(
                     }
                 }
 
-                // 2. MÉTRICAS DO MÊS (Entregues no mês e Total Pago no mês — tamanho perfeitamente simétrico)
+                // 2. MÉTRICAS DO PERÍODO (Cards simétricos - com BigDecimal.formatCurrency())
                 item {
                     Row(
                         modifier = Modifier
@@ -405,7 +424,7 @@ fun PartnerRoutesScreen(
                             .height(IntrinsicSize.Min),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Total de pacotes entregues no mês
+                        // Total de pacotes entregues no período
                         Card(
                             modifier = Modifier
                                 .weight(1f)
@@ -432,8 +451,8 @@ fun PartnerRoutesScreen(
                                         modifier = Modifier.size(15.dp)
                                     )
                                     Text(
-                                        text = "ENTREGUES NO MÊS",
-                                        fontSize = 10.sp,
+                                        text = "ENTREGUES NO PERÍODO",
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.5.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -463,7 +482,7 @@ fun PartnerRoutesScreen(
                             }
                         }
 
-                        // Valor total pago no mês (R$)
+                        // Valor total pago no período (R$) em BigDecimal
                         Card(
                             modifier = Modifier
                                 .weight(1f)
@@ -490,8 +509,8 @@ fun PartnerRoutesScreen(
                                         modifier = Modifier.size(15.dp)
                                     )
                                     Text(
-                                        text = "TOTAL PAGO NO MÊS",
-                                        fontSize = 10.sp,
+                                        text = "TOTAL PAGO NO PERÍODO",
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.5.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -505,8 +524,8 @@ fun PartnerRoutesScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "R$ ${String.format(Locale("pt", "BR"), "%.2f", uiState.monthTotalAmountPaid)}",
-                                        fontSize = 18.sp,
+                                        text = uiState.monthTotalAmountPaid.formatCurrency(),
+                                        fontSize = 17.sp,
                                         fontWeight = FontWeight.Black,
                                         color = OrangeNeon,
                                         maxLines = 1,
@@ -547,12 +566,23 @@ fun PartnerRoutesScreen(
                     }
                 }
 
-                // 4. LISTA DE SESSÕES (Cards abaixo do botão)
+                // 4. SELETOR DE PERÍODO (PRESETS + INTERVALO PERSONALIZADO)
+                item {
+                    PartnerPeriodSelector(
+                        periodFilter = uiState.periodFilter,
+                        isDropdownExpanded = uiState.isPeriodDropdownExpanded,
+                        onToggleDropdown = { viewModel.togglePeriodDropdown() },
+                        onSelectPreset = { preset -> viewModel.applyPeriodPreset(preset) },
+                        onApplyCustomRange = { start, end -> viewModel.applyCustomPeriod(start, end) }
+                    )
+                }
+
+                // 5. CABEÇALHO DA LISTA
                 item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -564,7 +594,7 @@ fun PartnerRoutesScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "${uiState.sessions.size} sessão(ões)",
+                            text = "${uiState.monthGroups.sumOf { it.weeks.sumOf { w -> w.days.sumOf { d -> d.sessions.size } } }} sessão(ões)",
                             fontSize = 12.sp,
                             color = OrangeNeon,
                             fontWeight = FontWeight.SemiBold
@@ -572,7 +602,8 @@ fun PartnerRoutesScreen(
                     }
                 }
 
-                if (uiState.sessions.isEmpty()) {
+                // 6. CASCATA HIERÁRQUICA MULTINÍVEL (Mês ➔ Semana ➔ Dia ➔ Sessão)
+                if (uiState.monthGroups.isEmpty()) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -584,42 +615,667 @@ fun PartnerRoutesScreen(
                                     .fillMaxWidth()
                                     .padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(32.dp))
                                 Text(
-                                    text = "Nenhuma sessão registrada",
+                                    text = if (uiState.sessions.isEmpty()) "Nenhuma sessão registrada" else "Nenhuma sessão encontrada no período selecionado",
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Toque em 'Iniciar Sessão de Entrega' acima para abrir a primeira rota deste parceiro.",
+                                    text = if (uiState.sessions.isEmpty()) {
+                                        "Toque em 'Iniciar Sessão de Entrega' acima para abrir a primeira rota deste parceiro."
+                                    } else {
+                                        "Altere o período de exibição acima para visualizar outros lançamentos."
+                                    },
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                 )
+
+                                if (uiState.sessions.isNotEmpty() && uiState.periodFilter.preset != PartnerPeriodPreset.SEMANA) {
+                                    OutlinedButton(
+                                        onClick = { viewModel.resetPeriodFilter() },
+                                        border = BorderStroke(1.dp, OrangeNeon)
+                                    ) {
+                                        Text("Redefinir para Esta Semana", color = OrangeNeon, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
                             }
                         }
                     }
                 } else {
-                    items(uiState.sessions, key = { it.id }) { session ->
-                        val routeName = session.routeId?.let { routeMap[it]?.name } ?: "Sem Rota"
-                        PartnerSessionCard(
-                            session = session,
-                            routeName = routeName,
-                            timeFormatter = timeFormatter,
-                            onClick = {
+                    items(uiState.monthGroups, key = { it.monthKey }) { monthGroup ->
+                        val isExpanded = uiState.expandedMonths.contains(monthGroup.monthKey)
+                        PartnerMonthAccordionItem(
+                            month = monthGroup,
+                            isExpanded = isExpanded,
+                            expandedWeeks = uiState.expandedWeeks,
+                            onToggleMonth = { viewModel.toggleMonth(monthGroup.monthKey) },
+                            onToggleWeek = { viewModel.toggleWeek(it) },
+                            onSessionClick = { session ->
                                 if (session.endTime == null) {
                                     onNavigateToCloseSession(session.id)
                                 } else {
                                     viewModel.openViewDetailSession(session)
                                 }
                             },
-                            onEdit = { viewModel.openEditSession(session) },
-                            onDelete = { viewModel.promptDeleteSession(session) }
+                            onEditSession = { session -> viewModel.openEditSession(session) },
+                            onDeleteSession = { session -> viewModel.promptDeleteSession(session) },
+                            routeMap = routeMap,
+                            timeFormatter = timeFormatter
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Componente de seleção de período (Presets + Intervalo Customizado).
+ */
+@Composable
+private fun PartnerPeriodSelector(
+    periodFilter: PartnerPeriodFilter,
+    isDropdownExpanded: Boolean,
+    onToggleDropdown: () -> Unit,
+    onSelectPreset: (PartnerPeriodPreset) -> Unit,
+    onApplyCustomRange: (LocalDate, LocalDate) -> Unit
+) {
+    val context = LocalContext.current
+    val chevronRotation by animateFloatAsState(targetValue = if (isDropdownExpanded) 180f else 0f)
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("pt", "BR")) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Cabeçalho do seletor (Barra clicável)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, if (isDropdownExpanded) OrangeNeon.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            onClick = onToggleDropdown
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FilterAlt,
+                        contentDescription = "Filtro de Período",
+                        tint = OrangeNeon,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "PERÍODO: ${periodFilter.preset.label.uppercase()}",
+                        style = TextStyle(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            letterSpacing = 0.5.sp
+                        )
+                    )
+                }
+
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isDropdownExpanded) "Recolher opções" else "Expandir opções",
+                    tint = OrangeNeon,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .rotate(chevronRotation)
+                )
+            }
+        }
+
+        // Grade de Presets (Dia, Semana, Quinzena, Mês, Ano, Intervalo)
+        AnimatedVisibility(
+            visible = isDropdownExpanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Selecione o intervalo de exibição:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val presets = PartnerPeriodPreset.values()
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (rowPresets in presets.toList().chunked(3)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                rowPresets.forEach { preset ->
+                                    val isSelected = preset == periodFilter.preset
+                                    Surface(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(38.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                        onClick = { onSelectPreset(preset) }
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = preset.label,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Quando INTERVALO (Personalizado) está ativo: exibe dois campos de data lado a lado
+        if (periodFilter.preset == PartnerPeriodPreset.PERSONALIZADO) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Campo "De"
+                OutlinedCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            showNativeDatePicker(
+                                context = context,
+                                currentDate = periodFilter.customStart,
+                                maxDate = periodFilter.customEnd
+                            ) { newStart ->
+                                onApplyCustomRange(newStart, periodFilter.customEnd)
+                            }
+                        },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        Text(
+                            text = "De",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = periodFilter.customStart.format(dateFormatter),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                imageVector = Icons.Default.CalendarToday,
+                                contentDescription = null,
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Campo "Até"
+                OutlinedCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            showNativeDatePicker(
+                                context = context,
+                                currentDate = periodFilter.customEnd,
+                                minDate = periodFilter.customStart,
+                                maxDate = LocalDate.now()
+                            ) { newEnd ->
+                                onApplyCustomRange(periodFilter.customStart, newEnd)
+                            }
+                        },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        Text(
+                            text = "Até",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = periodFilter.customEnd.format(dateFormatter),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                imageVector = Icons.Default.CalendarToday,
+                                contentDescription = null,
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Item acordeão de Nível Mês.
+ */
+@Composable
+private fun PartnerMonthAccordionItem(
+    month: PartnerSessionMonthGroup,
+    isExpanded: Boolean,
+    expandedWeeks: Set<String>,
+    onToggleMonth: () -> Unit,
+    onToggleWeek: (String) -> Unit,
+    onSessionClick: (DeliveryPartnerSession) -> Unit,
+    onEditSession: (DeliveryPartnerSession) -> Unit,
+    onDeleteSession: (DeliveryPartnerSession) -> Unit,
+    routeMap: Map<String, DeliveryRoute>,
+    timeFormatter: DateTimeFormatter
+) {
+    val rotation by animateFloatAsState(targetValue = if (isExpanded) 180f else 0f)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Cabeçalho do Mês
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, if (isExpanded) OrangeNeon.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+            onClick = onToggleMonth
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = OrangeNeon,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = month.label,
+                        style = TextStyle(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontStyle = FontStyle.Italic,
+                            color = OrangeNeon
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!isExpanded) {
+                        Text(
+                            text = "${month.totalDelivered} pacs • ${month.totalAmountPaid.formatCurrency()}",
+                            style = TextStyle(
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeNeon
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isExpanded) "Recolher mês" else "Expandir mês",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .rotate(rotation)
+                    )
+                }
+            }
+        }
+
+        // Conteúdo do Mês (Semanas)
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                month.weeks.forEach { week ->
+                    val isWeekExpanded = expandedWeeks.contains(week.weekKey)
+                    PartnerWeekAccordionItem(
+                        week = week,
+                        isExpanded = isWeekExpanded,
+                        onToggleWeek = { onToggleWeek(week.weekKey) },
+                        onSessionClick = onSessionClick,
+                        onEditSession = onEditSession,
+                        onDeleteSession = onDeleteSession,
+                        routeMap = routeMap,
+                        timeFormatter = timeFormatter
+                    )
+                }
+
+                // Card de Fechamento do Mês
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = OrangeNeon
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "TOTAL DO MÊS (${month.label}): ${month.totalDelivered} PACOTES • ${month.totalAmountPaid.formatCurrency()}",
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.Black
+                            ),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Item acordeão de Nível Semana com linha guia vertical.
+ */
+@Composable
+private fun PartnerWeekAccordionItem(
+    week: PartnerSessionWeekGroup,
+    isExpanded: Boolean,
+    onToggleWeek: () -> Unit,
+    onSessionClick: (DeliveryPartnerSession) -> Unit,
+    onEditSession: (DeliveryPartnerSession) -> Unit,
+    onDeleteSession: (DeliveryPartnerSession) -> Unit,
+    routeMap: Map<String, DeliveryRoute>,
+    timeFormatter: DateTimeFormatter
+) {
+    val rotation by animateFloatAsState(targetValue = if (isExpanded) 180f else 0f)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        // Cabeçalho da Semana
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = if (isExpanded) OrangeNeon.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, if (isExpanded) OrangeNeon.copy(alpha = 0.25f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+            onClick = onToggleWeek
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = null,
+                        tint = OrangeNeon,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = week.label,
+                        style = TextStyle(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OrangeNeon
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!isExpanded) {
+                        Text(
+                            text = "${week.totalDelivered} pacs • ${week.totalAmountPaid.formatCurrency()}",
+                            style = TextStyle(
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeNeon
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isExpanded) "Recolher semana" else "Expandir semana",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .rotate(rotation)
+                    )
+                }
+            }
+        }
+
+        // Conteúdo da Semana (Dias) com Ramificação em Cascata (Linha Conectora Vertical)
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+                    .padding(start = 10.dp, end = 2.dp)
+            ) {
+                // Linha Guia Vertical
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    week.days.forEach { day ->
+                        PartnerDaySection(
+                            day = day,
+                            onSessionClick = onSessionClick,
+                            onEditSession = onEditSession,
+                            onDeleteSession = onDeleteSession,
+                            routeMap = routeMap,
+                            timeFormatter = timeFormatter
+                        )
+                    }
+
+                    // Card de Fechamento da Semana
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = OrangeNeon.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.25f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "FECHAMENTO DA SEMANA",
+                                style = TextStyle(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = OrangeNeon
+                                )
+                            )
+                            Text(
+                                text = "${week.totalDelivered} pacotes • ${week.totalAmountPaid.formatCurrency()}",
+                                style = TextStyle(
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = OrangeNeon
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Seção de Nível Dia.
+ */
+@Composable
+private fun PartnerDaySection(
+    day: PartnerSessionDayGroup,
+    onSessionClick: (DeliveryPartnerSession) -> Unit,
+    onEditSession: (DeliveryPartnerSession) -> Unit,
+    onDeleteSession: (DeliveryPartnerSession) -> Unit,
+    routeMap: Map<String, DeliveryRoute>,
+    timeFormatter: DateTimeFormatter
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        // Indicador visual em bullet vertical
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = day.label,
+                style = TextStyle(
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 0.5.sp
+                )
+            )
+        }
+
+        // Cards de sessão do dia
+        day.sessions.forEach { session ->
+            val routeName = session.routeId?.let { routeMap[it]?.name } ?: "Sem Rota"
+            PartnerSessionCard(
+                session = session,
+                routeName = routeName,
+                timeFormatter = timeFormatter,
+                onClick = { onSessionClick(session) },
+                onEdit = { onEditSession(session) },
+                onDelete = { onDeleteSession(session) }
+            )
+        }
+
+        // Linha "Total do Dia"
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Total do Dia:",
+                    style = TextStyle(
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 0.5.sp
+                    )
+                )
+                Text(
+                    text = "${day.totalDelivered} pacotes • ${day.totalAmountPaid.formatCurrency()}",
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black,
+                        color = OrangeNeon
+                    )
+                )
             }
         }
     }
@@ -806,7 +1462,7 @@ private fun PartnerSessionCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = if (isInProgress) "Aberto" else "R$ ${String.format(Locale("pt", "BR"), "%.2f", session.amountPaid)}",
+                        text = if (isInProgress) "Aberto" else session.amountPaid.formatCurrency(),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Black,
                         color = if (isInProgress) OrangeNeon else GreenNeon
@@ -832,14 +1488,14 @@ private fun PartnerSessionCard(
 @Composable
 private fun EditSessionDialog(
     session: DeliveryPartnerSession,
-    routes: List<com.fernando.centraldomotorista.data.model.DeliveryRoute>,
+    routes: List<DeliveryRoute>,
     onDismiss: () -> Unit,
     onSave: (DeliveryPartnerSession) -> Unit
 ) {
     var expectedText by remember { mutableStateOf(session.expectedPackageCount.toString()) }
     var deliveredText by remember { mutableStateOf(session.deliveredCount.toString()) }
     var returnedText by remember { mutableStateOf(session.returnedCount.toString()) }
-    var amountPaidText by remember { mutableStateOf(String.format(Locale("pt", "BR"), "%.2f", session.amountPaid)) }
+    var amountPaidText by remember { mutableStateOf(session.amountPaid.toPlainString()) }
     var selectedRouteId by remember { mutableStateOf(session.routeId) }
     var routeDropdownOpen by remember { mutableStateOf(false) }
 
@@ -1056,7 +1712,7 @@ private fun SessionDetailDialog(
                 ) {
                     Text("Valor Total Pago:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text(
-                        text = "R$ ${String.format(Locale("pt", "BR"), "%.2f", session.amountPaid)}",
+                        text = session.amountPaid.formatCurrency(),
                         fontWeight = FontWeight.Black,
                         fontSize = 16.sp,
                         color = GreenNeon
@@ -1125,3 +1781,27 @@ private fun formatDuration(startTime: OffsetDateTime?, endTime: OffsetDateTime?)
     return String.format(Locale.getDefault(), "%02d:%02d", hours, minutes)
 }
 
+private fun showNativeDatePicker(
+    context: android.content.Context,
+    currentDate: LocalDate,
+    minDate: LocalDate? = null,
+    maxDate: LocalDate? = null,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    val dialog = android.app.DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            onDateSelected(LocalDate.of(year, month + 1, dayOfMonth))
+        },
+        currentDate.year,
+        currentDate.monthValue - 1,
+        currentDate.dayOfMonth
+    )
+    minDate?.let {
+        dialog.datePicker.minDate = it.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }
+    maxDate?.let {
+        dialog.datePicker.maxDate = it.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }
+    dialog.show()
+}
