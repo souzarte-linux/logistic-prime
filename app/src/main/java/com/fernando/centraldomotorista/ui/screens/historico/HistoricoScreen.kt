@@ -45,6 +45,9 @@ import com.fernando.centraldomotorista.data.model.Route
 import com.fernando.centraldomotorista.data.model.TransactionItem
 import com.fernando.centraldomotorista.data.model.TransactionSourceType
 import com.fernando.centraldomotorista.data.model.TransactionType
+import com.fernando.centraldomotorista.ui.common.period.PeriodFilter
+import com.fernando.centraldomotorista.ui.common.period.PeriodPreset
+import com.fernando.centraldomotorista.ui.common.period.PeriodSelector
 import com.fernando.centraldomotorista.ui.components.RouteDetailsDialog
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
@@ -135,23 +138,38 @@ fun HistoricoScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(bottom = 32.dp)
                 ) {
-                    // 3. Card "SALDO DE HOJE"
+                    // 3. Seletor de Período (Presets + Intervalo Customizado)
+                    item {
+                        PeriodSelector(
+                            periodFilter = uiState.periodFilter,
+                            isDropdownExpanded = uiState.isPeriodDropdownExpanded,
+                            onToggleDropdown = { viewModel.togglePeriodDropdown() },
+                            onSelectPreset = { preset -> viewModel.applyPeriodPreset(preset) },
+                            onApplyCustomRange = { start, end -> viewModel.applyCustomPeriod(start, end) }
+                        )
+                    }
+
+                    // 4. Card "SALDO DO PERÍODO" (Dinâmico)
                     item {
                         SaldoDeHojeCard(
-                            saldoHoje = uiState.saldoHoje,
-                            entradasHoje = uiState.entradasHoje,
-                            saidasHoje = uiState.saidasHoje,
-                            metaDiaria = uiState.metaDiaria,
+                            cardTitle = uiState.saldoCardTitle,
+                            saldoHoje = uiState.saldoPeriodo,
+                            entradasHoje = uiState.entradasPeriodo,
+                            saidasHoje = uiState.saidasPeriodo,
+                            metaDiaria = uiState.metaPeriodo,
                             metaPercent = uiState.metaPercent,
                             faltamParaMeta = uiState.faltamParaMeta,
                             onEditGoalClick = { viewModel.openEditGoalDialog() }
                         )
                     }
 
-                    // 4. Lista Hierárquica de Meses / Semanas / Dias
+                    // 5. Lista Hierárquica de Meses / Semanas / Dias
                     if (uiState.monthGroups.isEmpty()) {
                         item {
-                            EmptyHistoryState()
+                            EmptyHistoryState(
+                                showResetFilter = uiState.allTransactions.isNotEmpty() && uiState.periodFilter.preset != PeriodPreset.SEMANA,
+                                onResetFilter = { viewModel.resetPeriodFilter() }
+                            )
                         }
                     } else {
                         items(uiState.monthGroups, key = { it.monthKey }) { monthGroup ->
@@ -415,6 +433,7 @@ fun TabsSegmentedControl(
 
 @Composable
 fun SaldoDeHojeCard(
+    cardTitle: String = "SALDO DE HOJE",
     saldoHoje: BigDecimal,
     entradasHoje: BigDecimal,
     saidasHoje: BigDecimal,
@@ -436,7 +455,7 @@ fun SaldoDeHojeCard(
         ) {
             // Label superior
             Text(
-                text = "SALDO DE HOJE",
+                text = cardTitle,
                 style = TextStyle(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -1181,7 +1200,10 @@ fun TransactionCard(
 }
 
 @Composable
-fun EmptyHistoryState() {
+fun EmptyHistoryState(
+    showResetFilter: Boolean = false,
+    onResetFilter: () -> Unit = {}
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1195,7 +1217,7 @@ fun EmptyHistoryState() {
                 .fillMaxWidth()
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.History,
@@ -1204,13 +1226,27 @@ fun EmptyHistoryState() {
                 modifier = Modifier.size(40.dp)
             )
             Text(
-                text = "Nenhuma transação encontrada.",
+                text = "Nenhuma transação encontrada no período.",
                 style = TextStyle(
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 textAlign = TextAlign.Center
             )
+            if (showResetFilter) {
+                OutlinedButton(
+                    onClick = onResetFilter,
+                    border = BorderStroke(1.dp, OrangeNeon),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "Voltar para Esta Semana",
+                        color = OrangeNeon,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
     }
 }

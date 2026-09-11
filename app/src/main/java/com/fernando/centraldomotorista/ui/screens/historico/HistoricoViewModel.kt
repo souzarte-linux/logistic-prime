@@ -8,8 +8,11 @@ import com.fernando.centraldomotorista.data.model.TransactionSourceType
 import com.fernando.centraldomotorista.data.model.TransactionType
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.HistoricoRepository
+import com.fernando.centraldomotorista.ui.common.period.PeriodFilter
+import com.fernando.centraldomotorista.ui.common.period.PeriodPreset
 import com.fernando.centraldomotorista.util.AppDataSync
 import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,12 +27,32 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 enum class HistoricoTab {
     TODOS, GANHOS, DESPESAS
 }
+
+fun PeriodPreset.toSaldoCardTitle(): String = when (this) {
+    PeriodPreset.DIA -> "SALDO DE HOJE"
+    PeriodPreset.SEMANA -> "SALDO DA SEMANA"
+    PeriodPreset.QUINZENA -> "SALDO DA QUINZENA"
+    PeriodPreset.MES -> "SALDO MENSAL"
+    PeriodPreset.ANO -> "SALDO ANUAL"
+    PeriodPreset.PERSONALIZADO -> "SALDO DO PERÍODO"
+}
+
+data class PeriodMetrics(
+    val cardTitle: String,
+    val saldoPeriodo: BigDecimal,
+    val entradasPeriodo: BigDecimal,
+    val saidasPeriodo: BigDecimal,
+    val metaPeriodo: BigDecimal,
+    val metaPercent: Int,
+    val faltamParaMeta: BigDecimal
+)
 
 data class DayGroup(
     val dateKey: String,
@@ -67,7 +90,18 @@ data class HistoricoUiState(
     val searchQuery: String = "",
     val profile: Profile? = null,
 
-    // Resumo de hoje
+    // Filtro de período
+    val periodFilter: PeriodFilter = PeriodFilter(),
+    val isPeriodDropdownExpanded: Boolean = false,
+
+    // Card dinâmico de saldo
+    val saldoCardTitle: String = "SALDO DA SEMANA",
+    val saldoPeriodo: BigDecimal = BigDecimal.ZERO,
+    val entradasPeriodo: BigDecimal = BigDecimal.ZERO,
+    val saidasPeriodo: BigDecimal = BigDecimal.ZERO,
+    val metaPeriodo: BigDecimal = BigDecimal("320.00"),
+
+    // Resumo de hoje / compatibilidade
     val saldoHoje: BigDecimal = BigDecimal.ZERO,
     val entradasHoje: BigDecimal = BigDecimal.ZERO,
     val saidasHoje: BigDecimal = BigDecimal.ZERO,
@@ -88,8 +122,14 @@ data class HistoricoUiState(
 )
 
 class HistoricoViewModel(
-    private val historicoRepository: HistoricoRepository = HistoricoRepository()
+    private val historicoRepository: HistoricoRepository = HistoricoRepository(),
+    private val externalScope: CoroutineScope? = null,
+    observeDataSync: Boolean = true,
+    autoLoad: Boolean = true
 ) : ViewModel() {
+
+    private val scope: CoroutineScope
+        get() = externalScope ?: viewModelScope
 
     private val _uiState = MutableStateFlow(HistoricoUiState())
     val uiState: StateFlow<HistoricoUiState> = _uiState.asStateFlow()
@@ -103,66 +143,57 @@ class HistoricoViewModel(
         get() = supabase.auth.currentUserOrNull()?.id ?: "anonymous"
 
     init {
-        loadData()
-        viewModelScope.launch {
-            AppDataSync.dataChangedEvents.collect {
-                loadData()
+        if (autoLoad) {
+            loadData()
+        }
+        if (observeDataSync) {
+            scope.launch {
+                AppDataSync.dataChangedEvents.collect {
+                    loadData()
+                }
             }
         }
     }
 
     fun loadData() {
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val (profile, items) = historicoRepository.loadHistoricoData(currentUserId)
                 val today = LocalDate.now()
-                val zone = ZoneId.systemDefault()
-
-                var entradasHoje = BigDecimal.ZERO
-                var saidasHoje = BigDecimal.ZERO
-
-                items.forEach { tx ->
-                    val txLocalDate = tx.occurredAt.atZoneSameInstant(zone).toLocalDate()
-                    if (txLocalDate == today) {
-                        if (tx.type == TransactionType.GANHO) {
-                            entradasHoje = entradasHoje.add(tx.netAmount)
-                        } else {
-                            saidasHoje = saidasHoje.add(tx.amount)
-                        }
-                    }
-                }
-
-                val saldoHoje = entradasHoje.subtract(saidasHoje)
                 val metaDiaria = profile.dailyGoal ?: BigDecimal("320.00")
-                val metaPercent = if (metaDiaria > BigDecimal.ZERO) {
-                    val ratio = maxOf(BigDecimal.ZERO, saldoHoje).multiply(BigDecimal(100)).divide(metaDiaria, 0, RoundingMode.HALF_UP)
-                    ratio.toInt()
-                } else 0
-                val faltamParaMeta = maxOf(BigDecimal.ZERO, metaDiaria.subtract(saldoHoje))
+                val currentFilter = _uiState.value.periodFilter
 
-                val todayMonthKey = today.format(DateTimeFormatter.ofPattern("yyyy-MM"))
-                val todayWeekKey = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString()
-
-                val currentExpandedMonths = if (_uiState.value.expandedMonths.isEmpty()) {
-                    setOf(todayMonthKey)
-                } else {
-                    _uiState.value.expandedMonths
-                }
-
-                val currentExpandedWeeks = if (_uiState.value.expandedWeeks.isEmpty()) {
-                    setOf(todayWeekKey)
-                } else {
-                    _uiState.value.expandedWeeks
-                }
+                val periodMetrics = calculatePeriodMetrics(
+                    items = items,
+                    periodFilter = currentFilter,
+                    dailyGoal = metaDiaria,
+                    today = today
+                )
 
                 val (monthGroups, filteredList) = withContext(Dispatchers.Default) {
                     buildGroups(
                         items = items,
                         tab = _uiState.value.selectedTab,
                         query = _uiState.value.searchQuery,
+                        periodFilter = currentFilter,
                         today = today
                     )
+                }
+
+                val periodMonthKeys = monthGroups.map { it.monthKey }.toSet()
+                val periodWeekKeys = monthGroups.flatMap { it.weeks.map { w -> w.weekKey } }.toSet()
+
+                val currentExpandedMonths = if (_uiState.value.expandedMonths.isEmpty()) {
+                    periodMonthKeys
+                } else {
+                    _uiState.value.expandedMonths.intersect(periodMonthKeys).ifEmpty { periodMonthKeys }
+                }
+
+                val currentExpandedWeeks = if (_uiState.value.expandedWeeks.isEmpty()) {
+                    periodWeekKeys
+                } else {
+                    _uiState.value.expandedWeeks.intersect(periodWeekKeys).ifEmpty { periodWeekKeys }
                 }
 
                 _uiState.update {
@@ -171,12 +202,17 @@ class HistoricoViewModel(
                         profile = profile,
                         allTransactions = items,
                         filteredTransactions = filteredList,
-                        saldoHoje = saldoHoje,
-                        entradasHoje = entradasHoje,
-                        saidasHoje = saidasHoje,
-                        metaDiaria = metaDiaria,
-                        metaPercent = metaPercent,
-                        faltamParaMeta = faltamParaMeta,
+                        saldoCardTitle = periodMetrics.cardTitle,
+                        saldoPeriodo = periodMetrics.saldoPeriodo,
+                        entradasPeriodo = periodMetrics.entradasPeriodo,
+                        saidasPeriodo = periodMetrics.saidasPeriodo,
+                        metaPeriodo = periodMetrics.metaPeriodo,
+                        metaPercent = periodMetrics.metaPercent,
+                        faltamParaMeta = periodMetrics.faltamParaMeta,
+                        saldoHoje = periodMetrics.saldoPeriodo,
+                        entradasHoje = periodMetrics.entradasPeriodo,
+                        saidasHoje = periodMetrics.saidasPeriodo,
+                        metaDiaria = periodMetrics.metaPeriodo,
                         monthGroups = monthGroups,
                         expandedMonths = currentExpandedMonths,
                         expandedWeeks = currentExpandedWeeks
@@ -188,15 +224,44 @@ class HistoricoViewModel(
         }
     }
 
+    fun applyPeriodPreset(preset: PeriodPreset) {
+        val currentFilter = _uiState.value.periodFilter.copy(preset = preset)
+        _uiState.update { it.copy(periodFilter = currentFilter, isPeriodDropdownExpanded = false) }
+        rebuildGroupsAndMetrics(expandAllInPeriod = true)
+    }
+
+    fun applyCustomPeriod(start: LocalDate, end: LocalDate) {
+        val (finalStart, finalEnd) = if (start.isAfter(end)) end to start else start to end
+        val filter = _uiState.value.periodFilter.copy(
+            preset = PeriodPreset.PERSONALIZADO,
+            customStart = finalStart,
+            customEnd = finalEnd
+        )
+        _uiState.update { it.copy(periodFilter = filter, isPeriodDropdownExpanded = false) }
+        rebuildGroupsAndMetrics(expandAllInPeriod = true)
+    }
+
+    fun resetPeriodFilter() {
+        applyPeriodPreset(PeriodPreset.SEMANA)
+    }
+
+    fun togglePeriodDropdown() {
+        _uiState.update { it.copy(isPeriodDropdownExpanded = !it.isPeriodDropdownExpanded) }
+    }
+
+    fun closePeriodDropdown() {
+        _uiState.update { it.copy(isPeriodDropdownExpanded = false) }
+    }
+
     fun setTab(tab: HistoricoTab) {
         if (_uiState.value.selectedTab == tab) return
         _uiState.update { it.copy(selectedTab = tab) }
-        rebuildGroups()
+        rebuildGroupsAndMetrics(expandAllInPeriod = false)
     }
 
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
-        rebuildGroups()
+        rebuildGroupsAndMetrics(expandAllInPeriod = false)
     }
 
     fun toggleMonth(monthKey: String) {
@@ -233,7 +298,7 @@ class HistoricoViewModel(
 
     fun confirmDelete() {
         val item = _uiState.value.itemToDelete ?: return
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update { it.copy(itemToDelete = null, isLoading = true) }
             val ok = historicoRepository.deleteTransaction(item)
             if (ok) {
@@ -254,7 +319,7 @@ class HistoricoViewModel(
     }
 
     fun saveDailyGoal(newGoal: BigDecimal) {
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update { it.copy(isEditGoalDialogOpen = false, isLoading = true) }
             val ok = historicoRepository.updateDailyGoal(currentUserId, newGoal)
             if (ok) {
@@ -286,35 +351,124 @@ class HistoricoViewModel(
         }
     }
 
-    private fun rebuildGroups() {
-        viewModelScope.launch {
+    private fun rebuildGroupsAndMetrics(expandAllInPeriod: Boolean = false) {
+        scope.launch {
             val state = _uiState.value
             val today = LocalDate.now()
+            val metaDiaria = state.profile?.dailyGoal ?: state.metaDiaria
+
+            val periodMetrics = calculatePeriodMetrics(
+                items = state.allTransactions,
+                periodFilter = state.periodFilter,
+                dailyGoal = metaDiaria,
+                today = today
+            )
+
             val (monthGroups, filteredList) = withContext(Dispatchers.Default) {
                 buildGroups(
                     items = state.allTransactions,
                     tab = state.selectedTab,
                     query = state.searchQuery,
+                    periodFilter = state.periodFilter,
                     today = today
                 )
             }
+
+            val periodMonthKeys = monthGroups.map { it.monthKey }.toSet()
+            val periodWeekKeys = monthGroups.flatMap { it.weeks.map { w -> w.weekKey } }.toSet()
+
+            val currentExpandedMonths = if (expandAllInPeriod || state.expandedMonths.isEmpty()) {
+                periodMonthKeys
+            } else {
+                state.expandedMonths.intersect(periodMonthKeys).ifEmpty { periodMonthKeys }
+            }
+
+            val currentExpandedWeeks = if (expandAllInPeriod || state.expandedWeeks.isEmpty()) {
+                periodWeekKeys
+            } else {
+                state.expandedWeeks.intersect(periodWeekKeys).ifEmpty { periodWeekKeys }
+            }
+
             _uiState.update {
                 it.copy(
+                    saldoCardTitle = periodMetrics.cardTitle,
+                    saldoPeriodo = periodMetrics.saldoPeriodo,
+                    entradasPeriodo = periodMetrics.entradasPeriodo,
+                    saidasPeriodo = periodMetrics.saidasPeriodo,
+                    metaPeriodo = periodMetrics.metaPeriodo,
+                    metaPercent = periodMetrics.metaPercent,
+                    faltamParaMeta = periodMetrics.faltamParaMeta,
+                    saldoHoje = periodMetrics.saldoPeriodo,
+                    entradasHoje = periodMetrics.entradasPeriodo,
+                    saidasHoje = periodMetrics.saidasPeriodo,
+                    metaDiaria = periodMetrics.metaPeriodo,
                     monthGroups = monthGroups,
-                    filteredTransactions = filteredList
+                    filteredTransactions = filteredList,
+                    expandedMonths = currentExpandedMonths,
+                    expandedWeeks = currentExpandedWeeks
                 )
             }
         }
     }
 
-    private fun buildGroups(
+    fun calculatePeriodMetrics(
+        items: List<TransactionItem>,
+        periodFilter: PeriodFilter,
+        dailyGoal: BigDecimal,
+        today: LocalDate = LocalDate.now(),
+        zone: ZoneId = ZoneId.systemDefault()
+    ): PeriodMetrics {
+        val (rangeStart, rangeEnd) = periodFilter.resolveRange(today)
+        var entradas = BigDecimal.ZERO
+        var saidas = BigDecimal.ZERO
+
+        items.forEach { tx ->
+            val txLocalDate = tx.occurredAt.atZoneSameInstant(zone).toLocalDate()
+            if (!txLocalDate.isBefore(rangeStart) && !txLocalDate.isAfter(rangeEnd)) {
+                if (tx.type == TransactionType.GANHO) {
+                    entradas = entradas.add(tx.netAmount)
+                } else {
+                    saidas = saidas.add(tx.amount)
+                }
+            }
+        }
+
+        val saldo = entradas.subtract(saidas)
+        val diasNoIntervalo = ChronoUnit.DAYS.between(rangeStart, rangeEnd) + 1
+        val metaPeriodo = dailyGoal.multiply(BigDecimal(diasNoIntervalo))
+        val metaPercent = if (metaPeriodo > BigDecimal.ZERO) {
+            val ratio = maxOf(BigDecimal.ZERO, saldo)
+                .multiply(BigDecimal(100))
+                .divide(metaPeriodo, 0, RoundingMode.HALF_UP)
+            ratio.toInt()
+        } else 0
+        val faltamParaMeta = maxOf(BigDecimal.ZERO, metaPeriodo.subtract(saldo))
+
+        return PeriodMetrics(
+            cardTitle = periodFilter.preset.toSaldoCardTitle(),
+            saldoPeriodo = saldo,
+            entradasPeriodo = entradas,
+            saidasPeriodo = saidas,
+            metaPeriodo = metaPeriodo,
+            metaPercent = metaPercent,
+            faltamParaMeta = faltamParaMeta
+        )
+    }
+
+    fun buildGroups(
         items: List<TransactionItem>,
         tab: HistoricoTab,
         query: String,
+        periodFilter: PeriodFilter,
         today: LocalDate,
         zone: ZoneId = ZoneId.systemDefault()
     ): Pair<List<MonthGroup>, List<TransactionItem>> {
+        val (rangeStart, rangeEnd) = periodFilter.resolveRange(today)
+
         val filtered = items.filter { item ->
+            val localDate = item.occurredAt.atZoneSameInstant(zone).toLocalDate()
+            if (localDate.isBefore(rangeStart) || localDate.isAfter(rangeEnd)) return@filter false
+
             val matchTab = when (tab) {
                 HistoricoTab.TODOS -> true
                 HistoricoTab.GANHOS -> item.type == TransactionType.GANHO
