@@ -212,7 +212,7 @@ class HistoricoViewModel(
                         saldoHoje = periodMetrics.saldoPeriodo,
                         entradasHoje = periodMetrics.entradasPeriodo,
                         saidasHoje = periodMetrics.saidasPeriodo,
-                        metaDiaria = periodMetrics.metaPeriodo,
+                        metaDiaria = metaDiaria,
                         monthGroups = monthGroups,
                         expandedMonths = currentExpandedMonths,
                         expandedWeeks = currentExpandedWeeks
@@ -401,7 +401,7 @@ class HistoricoViewModel(
                     saldoHoje = periodMetrics.saldoPeriodo,
                     entradasHoje = periodMetrics.entradasPeriodo,
                     saidasHoje = periodMetrics.saidasPeriodo,
-                    metaDiaria = periodMetrics.metaPeriodo,
+                    metaDiaria = metaDiaria,
                     monthGroups = monthGroups,
                     filteredTransactions = filteredList,
                     expandedMonths = currentExpandedMonths,

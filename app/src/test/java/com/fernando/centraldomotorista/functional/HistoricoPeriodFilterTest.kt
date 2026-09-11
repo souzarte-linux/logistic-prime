@@ -333,4 +333,30 @@ class HistoricoPeriodFilterTest {
         vm.resetPeriodFilter()
         assertEquals(PeriodPreset.SEMANA, vm.uiState.value.periodFilter.preset)
     }
+
+    // =========================================================================
+    // 6. PRESERVAÇÃO DA META DIÁRIA (metaDiaria vs metaPeriodo)
+    // =========================================================================
+    @Test
+    fun testMetaDiariaPreservedInUiStateWhenPeriodPresetIsWeeklyOrMonthly() {
+        val vm = HistoricoViewModel(externalScope = testScope, observeDataSync = false, autoLoad = false)
+
+        // Com preset SEMANA ativo (padrão inicial)
+        vm.applyPeriodPreset(PeriodPreset.SEMANA)
+        // metaDiaria no uiState deve ser rigorosamente a meta DIÁRIA real (320.00), e NÃO a semanal
+        assertEquals(
+            "uiState.metaDiaria deve sempre manter a meta diária (usada no diálogo de edição)",
+            BigDecimal("320.00"),
+            vm.uiState.value.metaDiaria
+        )
+
+        // Com preset MÊS ativo
+        vm.applyPeriodPreset(PeriodPreset.MES)
+        assertEquals(
+            "uiState.metaDiaria não deve ser sobrescrita pela meta mensal",
+            BigDecimal("320.00"),
+            vm.uiState.value.metaDiaria
+        )
+    }
 }
+
