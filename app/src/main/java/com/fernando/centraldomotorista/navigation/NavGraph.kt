@@ -51,15 +51,16 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object MealExpense : Screen("meal_expense", "Lançamento de Alimentação", Icons.Default.Restaurant)
     object LancarManutencao : Screen("lancar-manutencao", "Lançar Manutenção", Icons.Default.Build)
     
-    // Menu Lateral - Cadastro
+    // Menu Lateral - Cadastro & Operacional
     object Empresas : Screen("empresas", "Empresas", Icons.Default.Business)
     object GasStations : Screen("postos", "Postos de Gasolina", Icons.Default.LocalGasStation)
     object Emissores : Screen("emissores", "Emissores", Icons.Default.ReceiptLong)
-    object Plataformas : Screen("plataformas", "Apps & Plataformas", Icons.Default.Smartphone)
+    object Plataformas : Screen("plataformas", "App & Plataforma", Icons.Default.Smartphone)
     object Bandeiras : Screen("bandeiras", "Bandeiras", Icons.Default.CreditCard)
     object MonitoramentoPecas : Screen("monitoramento-pecas", "Monitoramento Peças", Icons.Default.Build)
     object DeliveryRoutes : Screen("delivery_routes", "Rotas", Icons.Default.AltRoute)
     object DeliveryPartners : Screen("delivery_partners", "Entregadores Parceiros", Icons.Default.TwoWheeler)
+    object CreateDeliveryPartner : Screen("create_delivery_partner", "Novo Entregador", Icons.Default.PersonAdd)
     
     // Suporte a telas auxiliares existentes
     object CreditCards : Screen("credit_cards", "Gerenciamento de Cartões", Icons.Default.CreditCard)
@@ -406,7 +407,15 @@ fun CentralDoMotoristaApp(
             }
 
             // Formulário de Cadastro de Novo Entregador
-            composable("create_delivery_partner") {
+            composable(Screen.CreateDeliveryPartner.route) {
+                val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnerFormScreen(
+                    partnerId = null,
+                    viewModel = deliveryPartnersViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable("novo_entregador") {
                 val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnerFormScreen(
                     partnerId = null,

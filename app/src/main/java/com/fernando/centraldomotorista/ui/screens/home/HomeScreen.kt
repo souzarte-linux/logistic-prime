@@ -112,6 +112,7 @@ fun HomeScreen(
     }
 
     var isCadastroExpanded by remember { mutableStateOf(true) }
+    var isFinanceiroExpanded by remember { mutableStateOf(true) }
     var showLogoutConfirmation by remember { mutableStateOf(false) }
     var showNotificationsModal by remember { mutableStateOf(false) }
     var showReceivablesModal by remember { mutableStateOf(false) }
@@ -260,7 +261,7 @@ fun HomeScreen(
                                     color = OrangeNeon
                                 )
                                 Text(
-                                    text = "Empresas, Postos, Operadoras...",
+                                    text = "Empresas, Postos, Rotas...",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -316,41 +317,15 @@ fun HomeScreen(
                                 }
                             )
 
-                            // 📱 Apps & Plataformas
+                            // 📱 App & Plataforma
                             DrawerCadastroItem(
                                 icon = Icons.Default.Smartphone,
-                                title = "Apps & Plataformas",
+                                title = "App & Plataforma",
                                 subtitle = "Plataformas de entrega e repasse",
                                 onClick = {
                                     coroutineScope.launch {
                                         drawerState.close()
                                         onNavigateToRoute("plataformas")
-                                    }
-                                }
-                            )
-
-                            // 💳 Gerenciamento de Cartões (Cartões, Emissores e Bandeiras)
-                            DrawerCadastroItem(
-                                icon = Icons.Default.CreditCard,
-                                title = "Gerenciamento de Cartões",
-                                subtitle = "Cartões, emissores e bandeiras",
-                                onClick = {
-                                    coroutineScope.launch {
-                                        drawerState.close()
-                                        onNavigateToRoute("credit_cards")
-                                    }
-                                }
-                            )
-
-                            // 🔧 Monitoramento Peças
-                            DrawerCadastroItem(
-                                icon = Icons.Default.Build,
-                                title = "Monitoramento Peças",
-                                subtitle = "Controle de trocas e manutenção",
-                                onClick = {
-                                    coroutineScope.launch {
-                                        drawerState.close()
-                                        onNavigateToRoute("monitoramento-pecas")
                                     }
                                 }
                             )
@@ -368,15 +343,133 @@ fun HomeScreen(
                                 }
                             )
 
+                            // 👤 Novo Entregador
+                            DrawerCadastroItem(
+                                icon = Icons.Default.PersonAdd,
+                                title = "Novo Entregador",
+                                subtitle = "Cadastrar novo entregador",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("create_delivery_partner")
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+
+                    // Seção FINANCEIRO & OPERACIONAL (Expansível / Colapsável, expandida por padrão)
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { isFinanceiroExpanded = !isFinanceiroExpanded },
+                        color = OrangeNeon.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Ícone de carteira / finanças
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(OrangeNeon.copy(alpha = 0.18f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountBalanceWallet,
+                                    contentDescription = "Financeiro & Operacional",
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            // Título em destaque + subtítulo
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "FINANCEIRO & OPERACIONAL",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp,
+                                    letterSpacing = 0.5.sp,
+                                    color = OrangeNeon
+                                )
+                                Text(
+                                    text = "Cartões, Parceiros, Peças...",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // Seta indicando expansível/colapsável
+                            Icon(
+                                imageVector = if (isFinanceiroExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isFinanceiroExpanded) "Recolher" else "Expandir",
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+
+                    // Itens da Seção Financeiro & Operacional
+                    AnimatedVisibility(
+                        visible = isFinanceiroExpanded,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 6.dp, end = 6.dp, top = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            // 💳 Gerenciamento de Cartões
+                            DrawerCadastroItem(
+                                icon = Icons.Default.CreditCard,
+                                title = "Gerenciamento de Cartões",
+                                subtitle = "Cartões, emissores e bandeiras",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("credit_cards")
+                                    }
+                                }
+                            )
+
                             // 🛵 Entregadores Parceiros
                             DrawerCadastroItem(
                                 icon = Icons.Default.TwoWheeler,
                                 title = "Entregadores Parceiros",
-                                subtitle = "Cadastro de motoristas e entregadores",
+                                subtitle = "Cadastro e gestão de motoristas",
                                 onClick = {
                                     coroutineScope.launch {
                                         drawerState.close()
                                         onNavigateToRoute("delivery_partners")
+                                    }
+                                }
+                            )
+
+                            // 🔧 Monitoramento Peças
+                            DrawerCadastroItem(
+                                icon = Icons.Default.Build,
+                                title = "Monitoramento Peças",
+                                subtitle = "Controle de trocas e manutenção",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToRoute("monitoramento-pecas")
                                     }
                                 }
                             )
