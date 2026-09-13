@@ -577,7 +577,32 @@ fun CentralDoMotoristaApp(
             }
 
             composable(Screen.Painel.route) {
-                GenericScreenPlaceholder(title = "Painel de Corridas e Ganhos")
+                val painelViewModel: com.fernando.centraldomotorista.ui.screens.painel.PainelViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.painel.PainelScreen(
+                    viewModel = painelViewModel,
+                    onNavigateToCreateRoute = {
+                        navController.navigate(Screen.LancarRota.route)
+                    },
+                    onNavigateToCreateDailyTotal = {
+                        navController.navigate(Screen.LancarTotalDia.route)
+                    },
+                    onNavigateToFuelExpense = {
+                        navController.navigate(Screen.FuelExpense.route)
+                    },
+                    onNavigateToMaintenanceExpense = {
+                        partMaintenanceViewModel.openAddDialog()
+                        navController.navigate(Screen.LancarManutencao.route)
+                    },
+                    onNavigateToMealExpense = {
+                        navController.navigate(Screen.MealExpense.route)
+                    },
+                    onNavigateToApps = {
+                        navController.navigate(Screen.Plataformas.route)
+                    },
+                    onNavigateToHistory = {
+                        navController.navigate(Screen.Historico.route)
+                    }
+                )
             }
 
             composable(Screen.Relatorios.route) {
