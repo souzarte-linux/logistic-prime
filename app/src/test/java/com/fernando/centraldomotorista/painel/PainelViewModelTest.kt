@@ -256,7 +256,7 @@ class PainelViewModelTest {
         vm.setTestData(expenses = listOf(exp1))
 
         val state = vm.uiState.value
-        assertEquals(3, state.expensesByCategory.size)
+        assertEquals(4, state.expensesByCategory.size)
 
         val combustivel = state.expensesByCategory.first { it.category == "combustivel" }
         assertEquals(BigDecimal("120.00"), combustivel.total)
@@ -266,6 +266,9 @@ class PainelViewModelTest {
 
         val alimentacao = state.expensesByCategory.first { it.category == "alimentacao" }
         assertEquals(BigDecimal.ZERO, alimentacao.total)
+
+        val equipe = state.expensesByCategory.first { it.category == "equipe" }
+        assertEquals(BigDecimal.ZERO, equipe.total)
     }
 
     @Test
@@ -373,5 +376,120 @@ class PainelViewModelTest {
         assertFalse(preventiveItem.isOverdue)
         assertEquals(BigDecimal("95.0"), preventiveItem.wearPercentage)
         assertEquals(BigDecimal("50"), preventiveItem.remainingKm)
+    }
+
+    @Test
+    fun testTeamExpensesGroupedByVendorAndAppearsInCategorySummary() {
+        val vm = createViewModel()
+
+        // 3 despesas de equipe no mês de setembro de 2026
+        // Carlos: 2 despesas (300.00 + 200.00 = 500.00)
+        // Marcos: 1 despesa (250.00)
+        val exp1 = Expense(
+            id = "e-1",
+            userId = "user-1",
+            category = "equipe",
+            vendor = "Carlos Silva",
+            title = "Diária de entrega",
+            amount = BigDecimal("300.00"),
+            occurredAt = OffsetDateTime.of(2026, 9, 3, 10, 0, 0, 0, testZone)
+        )
+        val exp2 = Expense(
+            id = "e-2",
+            userId = "user-1",
+            category = "equipe",
+            vendor = "Carlos Silva",
+            title = "Diária de entrega",
+            amount = BigDecimal("200.00"),
+            occurredAt = OffsetDateTime.of(2026, 9, 5, 10, 0, 0, 0, testZone)
+        )
+        val exp3 = Expense(
+            id = "e-3",
+            userId = "user-1",
+            category = "equipe",
+            vendor = "Marcos Souza",
+            title = "Diária de entrega",
+            amount = BigDecimal("250.00"),
+            occurredAt = OffsetDateTime.of(2026, 9, 8, 10, 0, 0, 0, testZone)
+        )
+
+        vm.setTestData(expenses = listOf(exp1, exp2, exp3))
+
+        val state = vm.uiState.value
+
+        // 1. Categoria equipe no resumo geral
+        val equipeCategory = state.expensesByCategory.first { it.category == "equipe" }
+        assertEquals(BigDecimal("750.00"), equipeCategory.total)
+
+        // 2. Detalhamento por parceiro
+        assertEquals(2, state.teamExpensesByPartner.size)
+        assertEquals(BigDecimal("750.00"), state.totalTeamExpenses)
+
+        // 1º: Carlos Silva (500.00 / 750.00 ≈ 66.7%)
+        val partner1 = state.teamExpensesByPartner[0]
+        assertEquals("Carlos Silva", partner1.vendorName)
+        assertEquals(BigDecimal("500.00"), partner1.total)
+        assertEquals(66.7f, partner1.percentageOfTotal, 0.1f)
+
+        // 2º: Marcos Souza (250.00 / 750.00 ≈ 33.3%)
+        val partner2 = state.teamExpensesByPartner[1]
+        assertEquals("Marcos Souza", partner2.vendorName)
+        assertEquals(BigDecimal("250.00"), partner2.total)
+        assertEquals(33.3f, partner2.percentageOfTotal, 0.1f)
+
+        // 3. Consistência: a soma dos itens do card de parceiros é exatamente igual à linha equipe
+        val sumPartnerCard = state.teamExpensesByPartner.fold(BigDecimal.ZERO) { acc, p -> acc.add(p.total) }
+        assertEquals(equipeCategory.total, sumPartnerCard)
+    }
+
+    @Test
+    fun testTeamExpensesEmptyWhenNoPaymentsThisMonth() {
+        val vm = createViewModel()
+
+        // Nenhuma despesa de equipe no mês
+        val expFuel = Expense(
+            id = "e-fuel",
+            userId = "user-1",
+            category = "combustivel",
+            vendor = "Posto Ipiranga",
+            title = "Abastecimento",
+            amount = BigDecimal("150.00"),
+            occurredAt = OffsetDateTime.of(2026, 9, 5, 10, 0, 0, 0, testZone)
+        )
+
+        vm.setTestData(expenses = listOf(expFuel))
+
+        val state = vm.uiState.value
+
+        // Linha "equipe" deve existir com R$ 0.00 no resumo geral
+        val equipeCategory = state.expensesByCategory.first { it.category == "equipe" }
+        assertEquals(BigDecimal.ZERO, equipeCategory.total)
+
+        // Card de parceiros deve estar vazio
+        assertTrue(state.teamExpensesByPartner.isEmpty())
+        assertEquals(BigDecimal.ZERO, state.totalTeamExpenses)
+    }
+
+    @Test
+    fun testTeamExpensesIgnoresBlankVendor() {
+        val vm = createViewModel()
+
+        val expNoVendor = Expense(
+            id = "e-no-vendor",
+            userId = "user-1",
+            category = "equipe",
+            vendor = "   ", // Em branco
+            title = "Pagamento",
+            amount = BigDecimal("180.00"),
+            occurredAt = OffsetDateTime.of(2026, 9, 7, 10, 0, 0, 0, testZone)
+        )
+
+        vm.setTestData(expenses = listOf(expNoVendor))
+
+        val state = vm.uiState.value
+        assertEquals(1, state.teamExpensesByPartner.size)
+        assertEquals("Sem identificação", state.teamExpensesByPartner[0].vendorName)
+        assertEquals(BigDecimal("180.00"), state.teamExpensesByPartner[0].total)
+        assertEquals(100.0f, state.teamExpensesByPartner[0].percentageOfTotal, 0.1f)
     }
 }

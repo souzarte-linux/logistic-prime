@@ -18,9 +18,15 @@ data class PlatformEarningItem(
 )
 
 data class CategoryExpenseItem(
-    val category: String, // "combustivel", "manutencao", "alimentacao"
+    val category: String, // "combustivel", "manutencao", "alimentacao", "equipe"
     val label: String,
     val total: BigDecimal
+)
+
+data class PartnerExpenseItem(
+    val vendorName: String, // Expense.vendor (nome do parceiro no momento do pagamento)
+    val total: BigDecimal,
+    val percentageOfTotal: Float // 0..100, mesmo padrão de PlatformEarningItem
 )
 
 data class DailyTrendBucket(
@@ -61,6 +67,8 @@ data class PainelUiState(
     val platformEarnings: List<PlatformEarningItem> = emptyList(),
     val totalPlatformEarnings: BigDecimal = BigDecimal.ZERO,
     val expensesByCategory: List<CategoryExpenseItem> = emptyList(),
+    val teamExpensesByPartner: List<PartnerExpenseItem> = emptyList(),
+    val totalTeamExpenses: BigDecimal = BigDecimal.ZERO,
     val trendRange: TrendRange = TrendRange.SEVEN_DAYS,
     val trendBuckets: List<DailyTrendBucket> = emptyList(),
     val maxTrendAmount: BigDecimal = BigDecimal.ONE,

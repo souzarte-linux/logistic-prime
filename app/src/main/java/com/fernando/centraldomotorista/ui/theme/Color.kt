@@ -27,3 +27,4 @@ val GreenNeon = Color(0xFF00A152)   // lucro / positivo / ativo
 val RedAlert = Color(0xFFD32F2F)    // custo / atraso / inativo
 val BlueInfo = Color(0xFF1565C0)    // óleo / filtros
 val YellowGold = Color(0xFFB8860B)  // "a receber"
+val PurpleTeam = Color(0xFF7B1FA2)  // equipe / entregadores parceiros

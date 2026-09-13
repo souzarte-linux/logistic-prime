@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
@@ -22,6 +23,7 @@ import com.fernando.centraldomotorista.ui.screens.painel.CategoryExpenseItem
 import com.fernando.centraldomotorista.ui.theme.BlueInfo
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
+import com.fernando.centraldomotorista.ui.theme.PurpleTeam
 
 @Composable
 fun ExpenseSummaryCard(
@@ -29,7 +31,8 @@ fun ExpenseSummaryCard(
     modifier: Modifier = Modifier,
     onNavigateToFuelExpense: () -> Unit = {},
     onNavigateToMaintenanceExpense: () -> Unit = {},
-    onNavigateToMealExpense: () -> Unit = {}
+    onNavigateToMealExpense: () -> Unit = {},
+    onNavigateToPartners: () -> Unit = {}
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -61,6 +64,7 @@ fun ExpenseSummaryCard(
                         "combustivel" -> Triple(Icons.Default.LocalGasStation, OrangeNeon, onNavigateToFuelExpense)
                         "manutencao" -> Triple(Icons.Default.Build, BlueInfo, onNavigateToMaintenanceExpense)
                         "alimentacao" -> Triple(Icons.Default.Restaurant, GreenNeon, onNavigateToMealExpense)
+                        "equipe" -> Triple(Icons.Default.Groups, PurpleTeam, onNavigateToPartners)
                         else -> Triple(Icons.Default.Build, MaterialTheme.colorScheme.primary, {})
                     }
 

@@ -39,6 +39,7 @@ fun PainelScreen(
     onNavigateToMealExpense: () -> Unit,
     onNavigateToApps: () -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToPartners: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -224,13 +225,22 @@ fun PainelScreen(
                         )
                     }
 
-                    // 8. Despesas Operacionais do Mês (Combustível, Manutenção, Alimentação)
+                    // 8. Despesas Operacionais do Mês (Combustível, Manutenção, Alimentação, Equipe)
                     item {
                         ExpenseSummaryCard(
                             expenses = uiState.expensesByCategory,
                             onNavigateToFuelExpense = onNavigateToFuelExpense,
                             onNavigateToMaintenanceExpense = onNavigateToMaintenanceExpense,
-                            onNavigateToMealExpense = onNavigateToMealExpense
+                            onNavigateToMealExpense = onNavigateToMealExpense,
+                            onNavigateToPartners = onNavigateToPartners
+                        )
+                    }
+
+                    // 8.1 Gasto por Entregador Parceiro (quando houver pagamentos de equipe no mês)
+                    item {
+                        TeamExpensesCard(
+                            partners = uiState.teamExpensesByPartner,
+                            onNavigateToPartners = onNavigateToPartners
                         )
                     }
 

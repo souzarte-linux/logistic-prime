@@ -601,6 +601,9 @@ fun CentralDoMotoristaApp(
                     },
                     onNavigateToHistory = {
                         navController.navigate(Screen.Historico.route)
+                    },
+                    onNavigateToPartners = {
+                        navController.navigate(Screen.DeliveryPartners.route)
                     }
                 )
             }

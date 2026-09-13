@@ -349,7 +349,8 @@ class PainelViewModel(
         val expCategories = listOf(
             "combustivel" to "Combustível",
             "manutencao" to "Manutenção",
-            "alimentacao" to "Alimentação"
+            "alimentacao" to "Alimentação",
+            "equipe" to "Equipe"
         )
         val expensesByCategory = expCategories.map { (catKey, catLabel) ->
             val catTotal = monthExpenses
@@ -361,6 +362,23 @@ class PainelViewModel(
                 total = catTotal
             )
         }
+
+        // 6.1 GASTO POR ENTREGADOR PARCEIRO (a partir das mesmas despesas category == "equipe")
+        val teamExpenses = monthExpenses.filter { it.category.equals("equipe", ignoreCase = true) }
+        val teamByVendor = teamExpenses
+            .groupBy { it.vendor?.trim().takeUnless { v -> v.isNullOrBlank() } ?: "Sem identificação" }
+            .mapValues { (_, list) -> list.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.amount) } }
+
+        val totalTeamExpenses = teamByVendor.values.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+
+        val teamExpensesByPartner = teamByVendor.entries
+            .sortedByDescending { it.value }
+            .map { (vendorName, total) ->
+                val pct = if (totalTeamExpenses > BigDecimal.ZERO) {
+                    total.multiply(BigDecimal("100")).divide(totalTeamExpenses, 1, RoundingMode.HALF_UP).toFloat()
+                } else 0f
+                PartnerExpenseItem(vendorName = vendorName, total = total, percentageOfTotal = pct)
+            }
 
         // 7. ALERTAS DE MANUTENÇÃO DE PEÇAS (Desgaste >= 90%)
         val currentOdometerKm = maxOf(
@@ -432,6 +450,8 @@ class PainelViewModel(
                 platformEarnings = platformEarnings,
                 totalPlatformEarnings = totalPlatformSum,
                 expensesByCategory = expensesByCategory,
+                teamExpensesByPartner = teamExpensesByPartner,
+                totalTeamExpenses = totalTeamExpenses,
                 trendBuckets = buckets,
                 maxTrendAmount = maxTrend,
                 maintenanceAlerts = maintenanceAlerts,
