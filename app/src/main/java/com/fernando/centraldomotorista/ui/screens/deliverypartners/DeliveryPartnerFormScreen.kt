@@ -35,6 +35,9 @@ import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.Pa
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeIcon
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeLabel
 import com.fernando.centraldomotorista.ui.theme.*
+import com.fernando.centraldomotorista.ui.utils.CepVisualTransformation
+import com.fernando.centraldomotorista.ui.utils.CpfVisualTransformation
+import com.fernando.centraldomotorista.ui.utils.PhoneVisualTransformation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -879,86 +882,3 @@ private fun formOutlinedColors() = OutlinedTextFieldDefaults.colors(
     unfocusedTextColor = MaterialTheme.colorScheme.onSurface
 )
 
-// Máscaras de formatação
-class CpfVisualTransformation : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val trimmed = if (text.text.length >= 11) text.text.substring(0..10) else text.text
-        var out = ""
-        for (i in trimmed.indices) {
-            out += trimmed[i]
-            if (i == 2 || i == 5) out += "."
-            if (i == 8) out += "-"
-        }
-        val numberOffsetTranslator = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                if (offset <= 2) return offset
-                if (offset <= 5) return offset + 1
-                if (offset <= 8) return offset + 2
-                if (offset <= 11) return offset + 3
-                return 14
-            }
-            override fun transformedToOriginal(offset: Int): Int {
-                if (offset <= 3) return offset
-                if (offset <= 7) return offset - 1
-                if (offset <= 11) return offset - 2
-                if (offset <= 14) return offset - 3
-                return 11
-            }
-        }
-        return TransformedText(AnnotatedString(out), numberOffsetTranslator)
-    }
-}
-
-class PhoneVisualTransformation : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val trimmed = if (text.text.length >= 11) text.text.substring(0..10) else text.text
-        var out = ""
-        for (i in trimmed.indices) {
-            if (i == 0) out += "("
-            out += trimmed[i]
-            if (i == 1) out += ") "
-            if (i == 6) out += "-"
-        }
-        val numberOffsetTranslator = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                if (offset == 0) return 0
-                if (offset <= 2) return offset + 1
-                if (offset <= 7) return offset + 3
-                if (offset <= 11) return offset + 4
-                return 15
-            }
-            override fun transformedToOriginal(offset: Int): Int {
-                if (offset <= 1) return 0
-                if (offset <= 4) return offset - 1
-                if (offset <= 10) return offset - 3
-                if (offset <= 15) return offset - 4
-                return 11
-            }
-        }
-        return TransformedText(AnnotatedString(out), numberOffsetTranslator)
-    }
-}
-
-class CepVisualTransformation : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val trimmed = if (text.text.length >= 8) text.text.substring(0..7) else text.text
-        var out = ""
-        for (i in trimmed.indices) {
-            out += trimmed[i]
-            if (i == 4) out += "-"
-        }
-        val numberOffsetTranslator = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                if (offset <= 4) return offset
-                if (offset <= 8) return offset + 1
-                return 9
-            }
-            override fun transformedToOriginal(offset: Int): Int {
-                if (offset <= 5) return offset
-                if (offset <= 9) return offset - 1
-                return 8
-            }
-        }
-        return TransformedText(AnnotatedString(out), numberOffsetTranslator)
-    }
-}
