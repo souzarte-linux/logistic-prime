@@ -1,15 +1,14 @@
 package com.fernando.centraldomotorista.delivery
 
+import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
+import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.data.model.Expense
+import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
+import com.fernando.centraldomotorista.data.repository.DeliveryRouteRepository
 import com.fernando.centraldomotorista.data.repository.ExpenseRepository
-import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPerformanceMetrics
-import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPeriodFilter
-import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPeriodPreset
-import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerRoutesViewModel
-import com.fernando.centraldomotorista.ui.screens.deliverypartners.calculatePartnerPerformance
-import com.fernando.centraldomotorista.ui.screens.deliverypartners.formatDuration
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -548,10 +547,238 @@ class PartnerRoutesViewModelTest {
         // (150.00 + 200.00) / 2 = 175.00
         assertEquals(BigDecimal("175.00"), metrics.averageEarningsPerSession)
     }
+
+    @Test
+    fun testCostPerPackageCalculationWithAndWithoutDeliveries() {
+        // Com entregas zero -> retorna ZERO
+        val zeroResult = calculateCostPerPackage(BigDecimal("150.00"), 0)
+        assertEquals(BigDecimal.ZERO, zeroResult)
+
+        // Com entregas > 0 -> divisão com RoundingMode.HALF_UP
+        val normalResult = calculateCostPerPackage(BigDecimal("150.00"), 30)
+        assertEquals(BigDecimal("5.00"), normalResult)
+
+        val fractionalResult = calculateCostPerPackage(BigDecimal("100.00"), 3)
+        assertEquals(BigDecimal("33.33"), fractionalResult)
+    }
+
+    @Test
+    fun testOthersAverageCostPerPackageExcludesCurrentPartnerAndZeroDeliveryPartners() {
+        val sCurrent = DeliveryPartnerSession(
+            id = "s-curr",
+            partnerId = "p-current",
+            amountPaid = BigDecimal("300.00"),
+            deliveredCount = 50
+        )
+        val sB = DeliveryPartnerSession(
+            id = "s-b",
+            partnerId = "p-b",
+            amountPaid = BigDecimal("50.00"),
+            deliveredCount = 0
+        )
+        val sC = DeliveryPartnerSession(
+            id = "s-c",
+            partnerId = "p-c",
+            amountPaid = BigDecimal("100.00"),
+            deliveredCount = 20
+        )
+        val sD = DeliveryPartnerSession(
+            id = "s-d",
+            partnerId = "p-d",
+            amountPaid = BigDecimal("70.00"),
+            deliveredCount = 10
+        )
+
+        val allSessions = listOf(sCurrent, sB, sC, sD)
+        val avg = calculateOthersAverageCostPerPackage(allSessions, excludingPartnerId = "p-current")
+
+        assertNotNull(avg)
+        // Média de C (5.00) e D (7.00) = (5.00 + 7.00) / 2 = 6.00
+        assertEquals(BigDecimal("6.00"), avg)
+    }
+
+    @Test
+    fun testOthersAverageCostPerPackageReturnsNullWhenNoOtherActivePartner() {
+        val sCurrent = DeliveryPartnerSession(
+            id = "s-curr",
+            partnerId = "p-current",
+            amountPaid = BigDecimal("200.00"),
+            deliveredCount = 40
+        )
+        val resultSolo = calculateOthersAverageCostPerPackage(listOf(sCurrent), excludingPartnerId = "p-current")
+        assertNull(resultSolo)
+
+        val sZero = DeliveryPartnerSession(
+            id = "s-zero",
+            partnerId = "p-other",
+            amountPaid = BigDecimal("50.00"),
+            deliveredCount = 0
+        )
+        val resultZeroOnly = calculateOthersAverageCostPerPackage(listOf(sCurrent, sZero), excludingPartnerId = "p-current")
+        assertNull(resultZeroOnly)
+    }
+
+    @Test
+    fun testRegularityCountsDistinctDaysNotSessions() {
+        val today = LocalDate.of(2026, 9, 10)
+        val s1 = DeliveryPartnerSession(
+            id = "s-1",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 9, 2, 8, 0, 0, 0, ZoneOffset.UTC)
+        )
+        val s2 = DeliveryPartnerSession(
+            id = "s-2",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 9, 2, 14, 0, 0, 0, ZoneOffset.UTC)
+        )
+        val s3 = DeliveryPartnerSession(
+            id = "s-3",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 9, 5, 9, 0, 0, 0, ZoneOffset.UTC)
+        )
+        val sOld = DeliveryPartnerSession(
+            id = "s-old",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 8, 30, 9, 0, 0, 0, ZoneOffset.UTC)
+        )
+
+        val regularity = calculateRegularity(listOf(s1, s2, s3, sOld), today = today, zone = ZoneOffset.UTC)
+
+        assertEquals(2, regularity.daysWorkedThisMonth)
+        assertEquals(10, regularity.daysElapsedThisMonth)
+        assertEquals(BigDecimal("20.0"), regularity.regularityPercent)
+    }
+
+    @Test
+    fun testRegularityHandlesFirstDayOfMonth() {
+        val today = LocalDate.of(2026, 9, 1)
+
+        val s1 = DeliveryPartnerSession(
+            id = "s-1",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 9, 1, 8, 0, 0, 0, ZoneOffset.UTC)
+        )
+        val regWorked = calculateRegularity(listOf(s1), today = today, zone = ZoneOffset.UTC)
+        assertEquals(1, regWorked.daysWorkedThisMonth)
+        assertEquals(1, regWorked.daysElapsedThisMonth)
+        assertEquals(BigDecimal("100.0"), regWorked.regularityPercent)
+
+        val regEmpty = calculateRegularity(emptyList(), today = today, zone = ZoneOffset.UTC)
+        assertEquals(0, regEmpty.daysWorkedThisMonth)
+        assertEquals(1, regEmpty.daysElapsedThisMonth)
+        assertEquals(BigDecimal("0.0"), regEmpty.regularityPercent)
+    }
+
+    @Test
+    fun testLoadPartnerInsightsDoesNotRefetchIfAlreadyLoaded() {
+        val fakeSessionRepo = FakeSessionRepository()
+        val fakePartnerRepo = FakePartnerRepository()
+        val fakeRouteRepo = FakeRouteRepository()
+        val partnerA = DeliveryPartner(id = "p-a", fullName = "Parceiro A")
+        fakePartnerRepo.partnersToReturn = listOf(partnerA)
+
+        val sessionA = DeliveryPartnerSession(
+            id = "s-a",
+            partnerId = "p-a",
+            amountPaid = BigDecimal("100.00"),
+            deliveredCount = 20,
+            startTime = OffsetDateTime.now(ZoneOffset.UTC)
+        )
+        fakeSessionRepo.partnerSessionsToReturn = listOf(sessionA)
+        fakeSessionRepo.sessionsToReturn = listOf(sessionA)
+
+        val testScope = CoroutineScope(Dispatchers.Unconfined)
+        val testVm = PartnerRoutesViewModel(
+            partnerRepository = fakePartnerRepo,
+            routeRepository = fakeRouteRepo,
+            sessionRepository = fakeSessionRepo,
+            expenseRepository = FakeExpenseRepository(),
+            externalScope = testScope,
+            observeDataSync = false,
+            currentUserIdOverride = "test-user"
+        )
+
+        testVm.loadData("p-a")
+        assertEquals(0, fakeSessionRepo.getSessionsCalls)
+
+        // 1ª chamada -> busca da rede
+        testVm.loadPartnerInsights()
+        assertEquals(1, fakeSessionRepo.getSessionsCalls)
+        assertNotNull(testVm.uiState.value.costEfficiency)
+
+        // 2ª chamada -> guarda evita nova busca
+        testVm.loadPartnerInsights()
+        assertEquals(1, fakeSessionRepo.getSessionsCalls)
+    }
+
+    @Test
+    fun testLoadDataResetsInsightsWhenSwitchingPartner() {
+        val fakeSessionRepo = FakeSessionRepository()
+        val fakePartnerRepo = FakePartnerRepository()
+        val fakeRouteRepo = FakeRouteRepository()
+        val partnerA = DeliveryPartner(id = "p-a", fullName = "Parceiro A")
+        val partnerB = DeliveryPartner(id = "p-b", fullName = "Parceiro B")
+        fakePartnerRepo.partnersToReturn = listOf(partnerA, partnerB)
+
+        val sessionA = DeliveryPartnerSession(
+            id = "s-a",
+            partnerId = "p-a",
+            amountPaid = BigDecimal("100.00"),
+            deliveredCount = 20,
+            startTime = OffsetDateTime.now(ZoneOffset.UTC)
+        )
+        fakeSessionRepo.partnerSessionsToReturn = listOf(sessionA)
+        fakeSessionRepo.sessionsToReturn = listOf(sessionA)
+
+        val testScope = CoroutineScope(Dispatchers.Unconfined)
+        val testVm = PartnerRoutesViewModel(
+            partnerRepository = fakePartnerRepo,
+            routeRepository = fakeRouteRepo,
+            sessionRepository = fakeSessionRepo,
+            expenseRepository = FakeExpenseRepository(),
+            externalScope = testScope,
+            observeDataSync = false,
+            currentUserIdOverride = "test-user"
+        )
+
+        testVm.loadData("p-a")
+        testVm.loadPartnerInsights()
+        assertNotNull(testVm.uiState.value.costEfficiency)
+        assertNotNull(testVm.uiState.value.regularity)
+
+        // Ao trocar de parceiro, os insights devem ser resetados para null
+        fakeSessionRepo.partnerSessionsToReturn = emptyList()
+        testVm.loadData("p-b")
+        assertNull(testVm.uiState.value.costEfficiency)
+        assertNull(testVm.uiState.value.regularity)
+    }
+}
+
+private class FakePartnerRepository : DeliveryPartnerRepository() {
+    var partnersToReturn: List<DeliveryPartner> = emptyList()
+    override suspend fun getDeliveryPartners(userId: String): List<DeliveryPartner> = partnersToReturn
+}
+
+private class FakeRouteRepository : DeliveryRouteRepository() {
+    var routesToReturn: List<DeliveryRoute> = emptyList()
+    override suspend fun getDeliveryRoutes(userId: String): List<DeliveryRoute> = routesToReturn
 }
 
 private class FakeSessionRepository : DeliveryPartnerSessionRepository() {
     var lastSavedSession: DeliveryPartnerSession? = null
+    var getSessionsCalls = 0
+    var sessionsToReturn: List<DeliveryPartnerSession> = emptyList()
+    var partnerSessionsToReturn: List<DeliveryPartnerSession> = emptyList()
+
+    override suspend fun getSessions(userId: String): List<DeliveryPartnerSession> {
+        getSessionsCalls++
+        return sessionsToReturn
+    }
+
+    override suspend fun getSessionsForPartner(userId: String, partnerId: String): List<DeliveryPartnerSession> {
+        return partnerSessionsToReturn
+    }
+
     override suspend fun saveSession(session: DeliveryPartnerSession): DeliveryPartnerSession {
         lastSavedSession = session
         return session

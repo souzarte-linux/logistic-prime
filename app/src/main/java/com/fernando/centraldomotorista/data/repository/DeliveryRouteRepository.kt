@@ -9,10 +9,10 @@ import com.fernando.centraldomotorista.data.remote.dto.toDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class DeliveryRouteRepository(
+open class DeliveryRouteRepository(
     private val deliveryRouteApi: DeliveryRouteApi = RetrofitClient.deliveryRouteApi
 ) {
-    suspend fun getDeliveryRoutes(userId: String): List<DeliveryRoute> = withContext(Dispatchers.IO) {
+    open suspend fun getDeliveryRoutes(userId: String): List<DeliveryRoute> = withContext(Dispatchers.IO) {
         try {
             val userFilter = "eq.$userId"
             deliveryRouteApi.getDeliveryRoutes(userFilter, "name.asc").map { it.toDomain() }

@@ -9,10 +9,10 @@ import com.fernando.centraldomotorista.data.remote.dto.toDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class DeliveryPartnerRepository(
+open class DeliveryPartnerRepository(
     private val deliveryPartnerApi: DeliveryPartnerApi = RetrofitClient.deliveryPartnerApi
 ) {
-    suspend fun getDeliveryPartners(userId: String): List<DeliveryPartner> = withContext(Dispatchers.IO) {
+    open suspend fun getDeliveryPartners(userId: String): List<DeliveryPartner> = withContext(Dispatchers.IO) {
         try {
             val userFilter = "eq.$userId"
             deliveryPartnerApi.getDeliveryPartners(userFilter, "full_name.asc").map { it.toDomain() }

@@ -1,4 +1,4 @@
-package com.fernando.centraldomotorista.ui.screens.painel.components
+package com.fernando.centraldomotorista.ui.common.charts
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -18,11 +18,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.fernando.centraldomotorista.ui.screens.painel.DailyTrendBucket
-import com.fernando.centraldomotorista.ui.screens.painel.TrendRange
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.text.NumberFormat
+import java.util.Locale
+
+private fun BigDecimal.formatBrlCurrency(): String {
+    val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
+    return formatter.format(this)
+}
 
 @Composable
 fun PerformanceTrendChart(

@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.*
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.*
+import com.fernando.centraldomotorista.ui.common.charts.DailyTrendBucket
+import com.fernando.centraldomotorista.ui.common.charts.TrendRange
 import com.fernando.centraldomotorista.util.AppDataSync
 import com.fernando.centraldomotorista.util.EarningsCalculator
 import io.github.jan.supabase.auth.auth

@@ -2,13 +2,10 @@ package com.fernando.centraldomotorista.ui.screens.painel
 
 import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Profile
+import com.fernando.centraldomotorista.ui.common.charts.DailyTrendBucket
+import com.fernando.centraldomotorista.ui.common.charts.TrendRange
 import java.math.BigDecimal
 import java.time.LocalDate
-
-enum class TrendRange(val label: String) {
-    SEVEN_DAYS("7D"),
-    THIRTY_DAYS("30D")
-}
 
 data class PlatformEarningItem(
     val id: String,
@@ -27,16 +24,6 @@ data class PartnerExpenseItem(
     val vendorName: String, // Expense.vendor (nome do parceiro no momento do pagamento)
     val total: BigDecimal,
     val percentageOfTotal: Float // 0..100, mesmo padrão de PlatformEarningItem
-)
-
-data class DailyTrendBucket(
-    val date: LocalDate,
-    val dayOfWeekLabel: String, // "Seg", "Ter", etc.
-    val fullDayOfWeekLabel: String, // "Segunda-feira", etc.
-    val dateLabel: String, // "12/09"
-    val totalAmount: BigDecimal,
-    val packageCount: Int,
-    val isToday: Boolean
 )
 
 data class PartMaintenanceAlertItem(

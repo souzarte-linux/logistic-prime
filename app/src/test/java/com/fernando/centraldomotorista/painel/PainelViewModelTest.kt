@@ -1,9 +1,9 @@
 package com.fernando.centraldomotorista.painel
 
 import com.fernando.centraldomotorista.data.model.*
-import com.fernando.centraldomotorista.ui.screens.painel.DailyTrendBucket
+import com.fernando.centraldomotorista.ui.common.charts.DailyTrendBucket
+import com.fernando.centraldomotorista.ui.common.charts.TrendRange
 import com.fernando.centraldomotorista.ui.screens.painel.PainelViewModel
-import com.fernando.centraldomotorista.ui.screens.painel.TrendRange
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.*
