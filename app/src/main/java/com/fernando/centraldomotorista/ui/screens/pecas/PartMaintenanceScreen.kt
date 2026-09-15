@@ -361,34 +361,24 @@ fun PartMaintenanceCard(
     val nextDueKm = part.lastChangeKm + part.lifeKm
 
     // 1. Cálculo de Quilometragem e Progresso de Vida Útil
-    val usedKm = if (currentOdometerKm > part.lastChangeKm) {
-        currentOdometerKm - part.lastChangeKm
-    } else {
-        BigDecimal.ZERO
-    }
-
-    val progressRatio = if (part.lifeKm > BigDecimal.ZERO) {
-        (usedKm.toDouble() / part.lifeKm.toDouble()).coerceAtLeast(0.0)
-    } else {
-        0.0
-    }
-
-    val progressPercent = (progressRatio * 100.0).toInt()
+    val usedKm = part.usedKm(currentOdometerKm)
+    val progressRatio = part.usageRatio(currentOdometerKm)
+    val progressPercent = part.usagePercentage(currentOdometerKm)
     val progressFraction = progressRatio.toFloat().coerceIn(0f, 1f)
 
     // 2. Cores da linha e status conforme a regra:
-    // - Até 50% -> Verde
-    // - 51% até 85% -> Amarelo-Laranjado
-    // - Superior a 85% -> Vermelho
+    // - Abaixo de 75% -> Verde (Em dia)
+    // - 75% até 94% -> Amarelo (Atenção / Troca Preventiva)
+    // - Superior ou igual a 95% -> Vermelho (Troca Iminente / Vencida)
     val (statusColor, statusBgColor, statusText) = when {
-        progressPercent <= 50 -> Triple(
+        progressPercent < 75 -> Triple(
             Color(0xFF22C55E), // Verde
             Color(0xFF22C55E).copy(alpha = 0.15f),
             "Em dia (${progressPercent}% de uso)"
         )
-        progressPercent <= 85 -> Triple(
-            Color(0xFFFF9800), // Amarelo-Laranjado
-            Color(0xFFFF9800).copy(alpha = 0.15f),
+        progressPercent < 95 -> Triple(
+            Color(0xFFFFB300), // Amarelo
+            Color(0xFFFFB300).copy(alpha = 0.15f),
             "Atenção (${progressPercent}% de uso)"
         )
         else -> Triple(

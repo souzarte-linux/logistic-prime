@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.data.model.PartMaintenance
 import com.fernando.centraldomotorista.data.model.Route
+import com.fernando.centraldomotorista.data.repository.PartMaintenanceAlertItem
 import com.fernando.centraldomotorista.data.repository.ReceivableItem
 import com.fernando.centraldomotorista.data.repository.TipoAlertaManutencao
 import com.fernando.centraldomotorista.navigation.Screen
@@ -975,15 +976,32 @@ fun HomeScreen(
                                 }
                             }
 
-                            // C. Banner de Alerta de Manutenção Proativo (Item 2.3 - Crítico em Vermelho ou Preventivo em Amarelo)
-                            if (uiState.alertaManutencao != null && uiState.tipoAlertaManutencao != TipoAlertaManutencao.NENHUM) {
-                                val alerta = uiState.alertaManutencao!!
-                                val isCritico = uiState.tipoAlertaManutencao == TipoAlertaManutencao.CRITICO
-                                val alertColor = if (isCritico) RedAlert else Color(0xFFFFB300)
-                                val alertBgColor = if (isCritico) RedAlert.copy(alpha = 0.15f) else Color(0xFFFFD600).copy(alpha = 0.12f)
-                                val alertBorderColor = if (isCritico) RedAlert.copy(alpha = 0.5f) else Color(0xFFFFB300).copy(alpha = 0.5f)
+                            // C. Banners de Alerta de Manutenção Proativo (75% a 94% Amarelo, 95%+ Vermelho)
+                            val alertsToDisplay = if (uiState.alertasManutencao.isNotEmpty()) {
+                                uiState.alertasManutencao
+                            } else if (uiState.alertaManutencao != null && uiState.tipoAlertaManutencao != TipoAlertaManutencao.NENHUM) {
+                                listOf(
+                                    PartMaintenanceAlertItem(
+                                        part = uiState.alertaManutencao!!,
+                                        tipoAlerta = uiState.tipoAlertaManutencao,
+                                        percentage = 0,
+                                        kmRemaining = uiState.kmManutencao,
+                                        kmOverdue = uiState.kmManutencao,
+                                        isOverdue = uiState.tipoAlertaManutencao == TipoAlertaManutencao.CRITICO
+                                    )
+                                )
+                            } else {
+                                emptyList()
+                            }
 
-                                item {
+                            if (alertsToDisplay.isNotEmpty()) {
+                                items(alertsToDisplay, key = { "alerta_manutencao_${it.part.id}" }) { itemAlerta ->
+                                    val alerta = itemAlerta.part
+                                    val isCritico = itemAlerta.tipoAlerta == TipoAlertaManutencao.CRITICO
+                                    val alertColor = if (isCritico) RedAlert else Color(0xFFFFB300)
+                                    val alertBgColor = if (isCritico) RedAlert.copy(alpha = 0.15f) else Color(0xFFFFD600).copy(alpha = 0.12f)
+                                    val alertBorderColor = if (isCritico) RedAlert.copy(alpha = 0.5f) else Color(0xFFFFB300).copy(alpha = 0.5f)
+
                                     Card(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -1013,17 +1031,41 @@ fun HomeScreen(
                                                 )
                                             }
                                             Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (isCritico) "ALERTA: ${alerta.partName.uppercase()}" else "AVISO PREVENTIVO: ${alerta.partName.uppercase()}",
+                                                        color = alertColor,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp,
+                                                        modifier = Modifier.weight(1f, fill = false)
+                                                    )
+                                                    if (itemAlerta.percentage > 0) {
+                                                        Surface(
+                                                            color = alertColor.copy(alpha = 0.2f),
+                                                            shape = RoundedCornerShape(4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = "${itemAlerta.percentage}%",
+                                                                color = alertColor,
+                                                                fontWeight = FontWeight.Black,
+                                                                fontSize = 11.sp,
+                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                                 Text(
-                                                    text = if (isCritico) "ALERTA: ${alerta.partName.uppercase()}" else "AVISO PREVENTIVO: ${alerta.partName.uppercase()}",
-                                                    color = alertColor,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 13.sp
-                                                )
-                                                Text(
-                                                    text = if (isCritico)
-                                                        "Você ultrapassou em ${uiState.kmManutencao} KM a vida útil de ${alerta.lifeKm} KM."
-                                                    else
-                                                        "Faltam apenas ${uiState.kmManutencao} KM para a troca preventiva (vida útil de ${alerta.lifeKm} KM).",
+                                                    text = when {
+                                                        itemAlerta.isOverdue ->
+                                                            "Você ultrapassou em ${itemAlerta.kmOverdue.toPlainString()} KM a vida útil de ${alerta.lifeKm.toPlainString()} KM."
+                                                        isCritico ->
+                                                            "Faltam apenas ${itemAlerta.kmRemaining.toPlainString()} KM para a troca (vida útil de ${alerta.lifeKm.toPlainString()} KM)."
+                                                        else ->
+                                                            "Faltam ${itemAlerta.kmRemaining.toPlainString()} KM para a troca preventiva (vida útil de ${alerta.lifeKm.toPlainString()} KM)."
+                                                    },
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     fontSize = 12.sp
                                                 )

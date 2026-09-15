@@ -20,6 +20,15 @@ enum class TipoAlertaManutencao {
     CRITICO
 }
 
+data class PartMaintenanceAlertItem(
+    val part: PartMaintenance,
+    val tipoAlerta: TipoAlertaManutencao,
+    val percentage: Int,
+    val kmRemaining: BigDecimal,
+    val kmOverdue: BigDecimal,
+    val isOverdue: Boolean
+)
+
 data class ReceivableItem(
     val id: String,
     val title: String,
@@ -37,7 +46,8 @@ data class HomeData(
     val metaDiaria: BigDecimal,
     val faltamParaMeta: BigDecimal,
     val sessaoAtiva: Boolean,
-    val alertaManutencao: PartMaintenance?,
+    val alertasManutencao: List<PartMaintenanceAlertItem> = emptyList(),
+    val alertaManutencao: PartMaintenance? = null,
     val tipoAlertaManutencao: TipoAlertaManutencao = TipoAlertaManutencao.NENHUM,
     val kmManutencao: BigDecimal = BigDecimal.ZERO,
     val contasAReceber: BigDecimal,
@@ -158,49 +168,19 @@ class HomeRepository(
             // 2. Sessão Ativa (rota iniciada hoje e não finalizada)
             val sessaoAtiva = todayRoutes.any { it.startedAt != null && it.endedAt == null }
 
-            // 3. Alerta de Manutenção Proativo (Crítico se vencido, Preventivo se próximo do vencimento)
+            // 3. Alertas de Manutenção Proativo (75% para Amarelo, 95% para Vermelho)
             val currentOdometerKm = maxOf(
                 allExpenses.firstOrNull { it.odometerKm != null }?.odometerKm ?: BigDecimal.ZERO,
                 allRoutes.firstOrNull { it.endKm > BigDecimal.ZERO }?.endKm ?: BigDecimal.ZERO
             )
 
-            var alertaManutencao: PartMaintenance? = null
-            var tipoAlertaManutencao = TipoAlertaManutencao.NENHUM
-            var kmManutencao = BigDecimal.ZERO
-
-            if (allPartMaintenances.isNotEmpty()) {
-                val partsWithRemaining = allPartMaintenances.map { part ->
-                    val remaining = part.kmRemaining(currentOdometerKm)
-                    Pair(part, remaining)
-                }
-
-                // 1º Critérios: Peças vencidas (km restante <= 0) -> Alerta Vermelho
-                val vencidos = partsWithRemaining.filter { it.second <= BigDecimal.ZERO }
-                if (vencidos.isNotEmpty()) {
-                    val maisCritico = vencidos.minByOrNull { it.second }
-                    if (maisCritico != null) {
-                        alertaManutencao = maisCritico.first
-                        tipoAlertaManutencao = TipoAlertaManutencao.CRITICO
-                        kmManutencao = maisCritico.second.abs()
-                    }
-                } else {
-                    // 2º Critérios: Peças próximas do vencimento (restam <= 500 km ou restam <= 20% da vida útil) -> Alerta Amarelo
-                    val preventivos = partsWithRemaining.filter { (part, remaining) ->
-                        remaining > BigDecimal.ZERO && (
-                            remaining <= BigDecimal("500") ||
-                            (part.lifeKm > BigDecimal.ZERO && remaining <= part.lifeKm.multiply(BigDecimal("0.20")))
-                        )
-                    }
-                    if (preventivos.isNotEmpty()) {
-                        val maisProximo = preventivos.minByOrNull { it.second }
-                        if (maisProximo != null) {
-                            alertaManutencao = maisProximo.first
-                            tipoAlertaManutencao = TipoAlertaManutencao.PREVENTIVO
-                            kmManutencao = maisProximo.second
-                        }
-                    }
-                }
-            }
+            val alertasManutencao = calcularAlertasManutencao(allPartMaintenances, currentOdometerKm)
+            val alertaMaisCritico = alertasManutencao.firstOrNull()
+            val alertaManutencao = alertaMaisCritico?.part
+            val tipoAlertaManutencao = alertaMaisCritico?.tipoAlerta ?: TipoAlertaManutencao.NENHUM
+            val kmManutencao = alertaMaisCritico?.let {
+                if (it.isOverdue) it.kmOverdue else it.kmRemaining
+            } ?: BigDecimal.ZERO
 
             // 4. Contas a Receber e Detalhamento de Itens
             val pendingCycleIds = pendingCycles.map { it.id }.toSet()
@@ -248,6 +228,7 @@ class HomeRepository(
                 metaDiaria = metaDiaria,
                 faltamParaMeta = faltamParaMeta,
                 sessaoAtiva = sessaoAtiva,
+                alertasManutencao = alertasManutencao,
                 alertaManutencao = alertaManutencao,
                 tipoAlertaManutencao = tipoAlertaManutencao,
                 kmManutencao = kmManutencao,
@@ -272,6 +253,55 @@ class HomeRepository(
         } catch (e: Exception) {
             Log.e("HomeRepository", "Erro ao marcar notificação como lida: ${e.message}", e)
             false
+        }
+    }
+
+    companion object {
+        /**
+         * Calcula a lista de alertas de peças monitoradas:
+         * - Abaixo de 75%: não exibe alerta (lista vazia para a peça).
+         * - De 75% a 94%: Alerta PREVENTIVO (Amarelo).
+         * - A partir de 95%: Alerta CRÍTICO (Vermelho).
+         * As peças são ordenadas da maior porcentagem de uso para a menor.
+         */
+        fun calcularAlertasManutencao(
+            parts: List<PartMaintenance>,
+            currentOdometerKm: BigDecimal
+        ): List<PartMaintenanceAlertItem> {
+            return parts.mapNotNull { part ->
+                if (part.lifeKm <= BigDecimal.ZERO) return@mapNotNull null
+                val percentage = part.usagePercentage(currentOdometerKm)
+                val remaining = part.kmRemaining(currentOdometerKm)
+                val isOverdue = remaining <= BigDecimal.ZERO
+                val overdueKm = if (isOverdue) remaining.abs() else BigDecimal.ZERO
+
+                when {
+                    percentage >= 95 -> {
+                        PartMaintenanceAlertItem(
+                            part = part,
+                            tipoAlerta = TipoAlertaManutencao.CRITICO,
+                            percentage = percentage,
+                            kmRemaining = maxOf(BigDecimal.ZERO, remaining),
+                            kmOverdue = overdueKm,
+                            isOverdue = isOverdue
+                        )
+                    }
+                    percentage >= 75 -> {
+                        PartMaintenanceAlertItem(
+                            part = part,
+                            tipoAlerta = TipoAlertaManutencao.PREVENTIVO,
+                            percentage = percentage,
+                            kmRemaining = maxOf(BigDecimal.ZERO, remaining),
+                            kmOverdue = overdueKm,
+                            isOverdue = isOverdue
+                        )
+                    }
+                    else -> null // Antes de 75% não deve ser mostrado o card de aviso na aba início
+                }
+            }.sortedWith(
+                compareByDescending<PartMaintenanceAlertItem> { it.percentage }
+                    .thenBy { it.kmRemaining }
+            )
         }
     }
 }

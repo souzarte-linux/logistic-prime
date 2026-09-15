@@ -152,6 +152,23 @@ data class PartMaintenance(
         val nextDueKm = lastChangeKm + lifeKm
         return nextDueKm - currentOdometerKm
     }
+
+    /** Quilometragem percorrida desde a última troca. */
+    fun usedKm(currentOdometerKm: BigDecimal): BigDecimal {
+        return if (currentOdometerKm > lastChangeKm) currentOdometerKm - lastChangeKm else BigDecimal.ZERO
+    }
+
+    /** Razão de uso em relação à vida útil da peça (0.0 a 1.0+). */
+    fun usageRatio(currentOdometerKm: BigDecimal): Double {
+        if (lifeKm <= BigDecimal.ZERO) return 0.0
+        val used = usedKm(currentOdometerKm)
+        return (used.toDouble() / lifeKm.toDouble()).coerceAtLeast(0.0)
+    }
+
+    /** Porcentagem de vida útil consumida (ex: 75 para 75%). */
+    fun usagePercentage(currentOdometerKm: BigDecimal): Int {
+        return (usageRatio(currentOdometerKm) * 100.0).toInt()
+    }
 }
 
 data class BillingCycle(

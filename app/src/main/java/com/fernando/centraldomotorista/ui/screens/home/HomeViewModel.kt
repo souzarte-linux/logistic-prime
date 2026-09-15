@@ -20,6 +20,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.math.BigDecimal
 
+import com.fernando.centraldomotorista.data.repository.PartMaintenanceAlertItem
 import com.fernando.centraldomotorista.data.repository.ReceivableItem
 import com.fernando.centraldomotorista.data.repository.TipoAlertaManutencao
 
@@ -31,6 +32,7 @@ data class HomeUiState(
     val metaDiaria: BigDecimal = BigDecimal("200"),
     val faltamParaMeta: BigDecimal = BigDecimal("200"),
     val sessaoAtiva: Boolean = false,
+    val alertasManutencao: List<PartMaintenanceAlertItem> = emptyList(),
     val alertaManutencao: PartMaintenance? = null,
     val tipoAlertaManutencao: TipoAlertaManutencao = TipoAlertaManutencao.NENHUM,
     val kmManutencao: BigDecimal = BigDecimal.ZERO,
@@ -129,6 +131,7 @@ class HomeViewModel(
                         metaDiaria = data.metaDiaria,
                         faltamParaMeta = data.faltamParaMeta,
                         sessaoAtiva = data.sessaoAtiva,
+                        alertasManutencao = data.alertasManutencao,
                         alertaManutencao = data.alertaManutencao,
                         tipoAlertaManutencao = data.tipoAlertaManutencao,
                         kmManutencao = data.kmManutencao,
