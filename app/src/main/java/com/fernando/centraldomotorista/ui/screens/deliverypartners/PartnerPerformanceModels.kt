@@ -17,6 +17,7 @@ import java.util.Locale
 
 data class TimedRouteDetail(
     val sessionId: String,
+    val session: DeliveryPartnerSession? = null,
     val date: LocalDate,
     val routeId: String?,
     val startTime: OffsetDateTime,
@@ -99,6 +100,7 @@ fun calculatePartnerDurationMetrics(
         timedRoutes.add(
             TimedRouteDetail(
                 sessionId = session.id,
+                session = session,
                 date = sessionDate,
                 routeId = session.routeId,
                 startTime = start,

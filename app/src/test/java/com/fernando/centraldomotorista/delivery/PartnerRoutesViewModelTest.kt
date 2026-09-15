@@ -793,6 +793,8 @@ class PartnerRoutesViewModelTest {
         assertEquals("2h 30min", durationMetrics.formattedLongest)
         assertEquals(2, durationMetrics.timedRoutes.size)
         assertEquals("s-2", durationMetrics.timedRoutes[0].sessionId) // ordenada decrescente por data/hora
+        assertEquals(s2, durationMetrics.timedRoutes[0].session)
+        assertEquals(s1, durationMetrics.timedRoutes[1].session)
     }
 
     @Test

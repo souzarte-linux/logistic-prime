@@ -961,11 +961,30 @@ fun PartnerRoutesScreen(
 
                         // 5. Card: Tempo de Duração de Cada Rota
                         item {
+                            val sessionsMap = remember(uiState.sessions) {
+                                uiState.sessions.associateBy { it.id }
+                            }
                             RouteDurationCard(
                                 durationMetrics = metrics.durationMetrics,
                                 routeMap = routeMap,
+                                partnerName = partner?.fullName ?: "",
+                                sessionsMap = sessionsMap,
                                 timeFormatter = timeFormatter,
-                                dateFormatter = PerformanceDateFormatter
+                                dateFormatter = PerformanceDateFormatter,
+                                onSessionClick = { session ->
+                                    viewModel.openViewDetailSession(session)
+                                },
+                                onShareSession = { session, rName, startStr, endStr, durStr ->
+                                    SessionShareHelper.shareSessionImage(
+                                        context = context,
+                                        session = session,
+                                        partnerName = partner?.fullName ?: "",
+                                        routeName = rName,
+                                        startTimeStr = startStr,
+                                        endTimeStr = endStr,
+                                        durationStr = durStr
+                                    )
+                                }
                             )
                         }
                     }
@@ -1858,6 +1877,15 @@ private fun SessionDetailDialog(
                 DetailRow(label = "Pacotes Bipados:", value = "${session.scannedCount}")
                 DetailRow(label = "Pacotes Entregues:", value = "${session.deliveredCount}", valueColor = GreenNeon)
                 DetailRow(label = "Pacotes Devolvidos:", value = "${session.returnedCount}", valueColor = RedAlert)
+                if (session.packageRate > java.math.BigDecimal.ZERO) {
+                    DetailRow(label = "Taxa por Pacote:", value = session.packageRate.formatCurrency())
+                }
+                if (session.defaultBonus > java.math.BigDecimal.ZERO) {
+                    DetailRow(label = "Bônus / Diária Fixa:", value = session.defaultBonus.formatCurrency())
+                }
+                if (session.scannedBarcodes.isNotEmpty()) {
+                    DetailRow(label = "Códigos Bipados:", value = "${session.scannedBarcodes.size} registrado(s)")
+                }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1939,8 +1967,12 @@ internal fun formatDuration(startTime: OffsetDateTime?, endTime: OffsetDateTime?
 private fun RouteDurationCard(
     durationMetrics: PartnerDurationMetrics,
     routeMap: Map<String, DeliveryRoute>,
+    partnerName: String = "",
+    sessionsMap: Map<String, DeliveryPartnerSession> = emptyMap(),
     timeFormatter: DateTimeFormatter,
     dateFormatter: DateTimeFormatter,
+    onSessionClick: (DeliveryPartnerSession) -> Unit = {},
+    onShareSession: (session: DeliveryPartnerSession, routeName: String, startTimeStr: String, endTimeStr: String, durationStr: String) -> Unit = { _, _, _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -2131,13 +2163,19 @@ private fun RouteDurationCard(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         routesToShow.forEach { item ->
+                            val targetSession = item.session ?: sessionsMap[item.sessionId]
                             val rName = item.routeId?.let { routeMap[it]?.name } ?: "Sem rota definida"
                             val dateStr = item.date.format(dateFormatter)
                             val startStr = item.startTime.format(timeFormatter)
                             val endStr = item.endTime.format(timeFormatter)
 
                             Surface(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable(enabled = targetSession != null) {
+                                        targetSession?.let { onSessionClick(it) }
+                                    },
                                 shape = RoundedCornerShape(10.dp),
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
@@ -2182,16 +2220,45 @@ private fun RouteDurationCard(
                                         )
                                     }
 
-                                    Surface(
-                                        color = OrangeNeon.copy(alpha = 0.15f),
-                                        shape = RoundedCornerShape(8.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        Text(
-                                            text = item.formattedDuration,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = OrangeNeon,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        Surface(
+                                            color = OrangeNeon.copy(alpha = 0.15f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = item.formattedDuration,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = OrangeNeon,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+
+                                        if (targetSession != null) {
+                                            IconButton(
+                                                onClick = {
+                                                    val durStr = formatDuration(targetSession.startTime, targetSession.endTime)
+                                                    onShareSession(targetSession, rName, startStr, endStr, durStr)
+                                                },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Share,
+                                                    contentDescription = "Compartilhar Rota",
+                                                    tint = OrangeNeon,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Icon(
+                                            imageVector = Icons.Default.ChevronRight,
+                                            contentDescription = "Ver Detalhes e Editar",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 }
