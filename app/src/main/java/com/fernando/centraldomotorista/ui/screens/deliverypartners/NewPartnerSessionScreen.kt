@@ -55,6 +55,7 @@ fun NewPartnerSessionScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    var barcodeToDelete by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(partnerId) {
         viewModel.loadData(partnerId)
@@ -86,6 +87,7 @@ fun NewPartnerSessionScreen(
             expectedCount = uiState.expectedPackageCount,
             scannedBarcodes = uiState.scannedBarcodes,
             onBarcodeScanned = { code -> viewModel.onBarcodeScanned(code) },
+            onRemoveBarcode = { code -> viewModel.removeBarcode(code) },
             onCloseScanner = { viewModel.closeScanner() }
         )
         return
@@ -664,7 +666,7 @@ fun NewPartnerSessionScreen(
                                                         }
 
                                                         IconButton(
-                                                            onClick = { viewModel.removeBarcode(code) },
+                                                            onClick = { barcodeToDelete = code },
                                                             modifier = Modifier.size(26.dp)
                                                         ) {
                                                             Icon(
@@ -686,5 +688,43 @@ fun NewPartnerSessionScreen(
                 }
             }
         }
+    }
+
+    // Diálogo de Confirmação de Exclusão de Código Bipado
+    if (barcodeToDelete != null) {
+        val codeTarget = barcodeToDelete!!
+        AlertDialog(
+            onDismissRequest = { barcodeToDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DeleteForever,
+                    contentDescription = null,
+                    tint = RedAlert,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Excluir Código Bipado", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            },
+            text = {
+                Text("Deseja realmente remover o código \"$codeTarget\" da lista de pacotes bipados?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeBarcode(codeTarget)
+                        barcodeToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
+                ) {
+                    Text("Excluir", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { barcodeToDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }

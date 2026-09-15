@@ -48,6 +48,8 @@ import com.fernando.centraldomotorista.ui.common.cards.PainelStatCard
 import com.fernando.centraldomotorista.ui.common.charts.PerformanceTrendChart
 import com.fernando.centraldomotorista.ui.common.period.PeriodSelector
 import com.fernando.centraldomotorista.ui.theme.*
+import com.fernando.centraldomotorista.util.WhatsAppHelper
+import com.fernando.centraldomotorista.util.WhatsAppVariant
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.time.Duration
@@ -105,6 +107,7 @@ fun PartnerRoutesScreen(
     val partner = uiState.partner
     val routeMap = remember(uiState.routes) { uiState.routes.associateBy { it.id } }
     var selectedTab by remember { mutableStateOf(PartnerRoutesTab.SESSOES) }
+    var showWhatsAppChooserPhone by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(selectedTab) {
         if (selectedTab == PartnerRoutesTab.PAINEL) {
             viewModel.loadPartnerInsights()
@@ -203,6 +206,89 @@ fun PartnerRoutesScreen(
             onDismiss = { viewModel.closeViewDetailSession() },
             onEdit = {
                 viewModel.openEditSession(viewDetailSession)
+            }
+        )
+    }
+
+    // Diálogo de Seleção de WhatsApp (Pessoal vs Business)
+    val phoneForWhatsApp = showWhatsAppChooserPhone
+    if (phoneForWhatsApp != null) {
+        AlertDialog(
+            onDismissRequest = { showWhatsAppChooserPhone = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.ChatBubble,
+                    contentDescription = null,
+                    tint = GreenNeon,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Escolha o WhatsApp", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Identificamos mais de um aplicativo do WhatsApp instalado. Por qual deles você deseja abrir a conversa?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                WhatsAppHelper.openWhatsApp(context, phoneForWhatsApp, WhatsAppVariant.STANDARD.packageName)
+                                showWhatsAppChooserPhone = null
+                            },
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, GreenNeon.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Default.Phone, contentDescription = null, tint = GreenNeon)
+                            Column {
+                                Text("WhatsApp Pessoal", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Aplicativo padrão", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                WhatsAppHelper.openWhatsApp(context, phoneForWhatsApp, WhatsAppVariant.BUSINESS.packageName)
+                                showWhatsAppChooserPhone = null
+                            },
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, GreenNeon.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Default.Business, contentDescription = null, tint = GreenNeon)
+                            Column {
+                                Text("WhatsApp Business", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Conta comercial", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                OutlinedButton(onClick = { showWhatsAppChooserPhone = null }) {
+                    Text("Cancelar")
+                }
             }
         )
     }
@@ -370,13 +456,13 @@ fun PartnerRoutesScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            val fullNumber = if (phoneDigits.startsWith("55")) phoneDigits else "55$phoneDigits"
-                                            val url = "https://wa.me/$fullNumber"
-                                            try {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                Toast.makeText(context, "Não foi possível abrir o WhatsApp", Toast.LENGTH_SHORT).show()
+                                            val installed = WhatsAppHelper.getInstalledWhatsAppVariants(context)
+                                            if (installed.size > 1) {
+                                                showWhatsAppChooserPhone = phoneDigits
+                                            } else if (installed.isNotEmpty()) {
+                                                WhatsAppHelper.openWhatsApp(context, phoneDigits, installed.first().packageName)
+                                            } else {
+                                                WhatsAppHelper.openWhatsApp(context, phoneDigits, null)
                                             }
                                         }
                                         .padding(vertical = 4.dp),

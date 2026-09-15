@@ -54,6 +54,7 @@ fun ClosePartnerSessionScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR")) }
+    var barcodeToDelete by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(sessionId) {
         viewModel.loadData(sessionId)
@@ -85,6 +86,7 @@ fun ClosePartnerSessionScreen(
             expectedCount = uiState.basePackageCount,
             scannedBarcodes = uiState.returnedBarcodes,
             onBarcodeScanned = { code -> viewModel.onReturnedBarcodeScanned(code) },
+            onRemoveBarcode = { code -> viewModel.removeReturnedBarcode(code) },
             onCloseScanner = { viewModel.closeScanner() }
         )
         return
@@ -583,7 +585,7 @@ fun ClosePartnerSessionScreen(
                                                         }
 
                                                         IconButton(
-                                                            onClick = { viewModel.removeReturnedBarcode(code) },
+                                                            onClick = { barcodeToDelete = code },
                                                             modifier = Modifier.size(26.dp)
                                                         ) {
                                                             Icon(
@@ -782,5 +784,43 @@ fun ClosePartnerSessionScreen(
                 }
             }
         }
+    }
+
+    // Diálogo de Confirmação de Exclusão de Código Devolvido
+    if (barcodeToDelete != null) {
+        val codeTarget = barcodeToDelete!!
+        AlertDialog(
+            onDismissRequest = { barcodeToDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DeleteForever,
+                    contentDescription = null,
+                    tint = RedAlert,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Excluir Código Bipado", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            },
+            text = {
+                Text("Deseja realmente remover o código \"$codeTarget\" da lista de pacotes devolvidos?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeReturnedBarcode(codeTarget)
+                        barcodeToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
+                ) {
+                    Text("Excluir", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { barcodeToDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }

@@ -21,6 +21,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,6 +38,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,6 +48,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
+import com.fernando.centraldomotorista.ui.theme.RedAlert
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -57,6 +61,7 @@ fun BarcodeScannerScreen(
     expectedCount: Int,
     scannedBarcodes: Set<String>,
     onBarcodeScanned: (String) -> Unit,
+    onRemoveBarcode: (String) -> Unit = {},
     onCloseScanner: () -> Unit
 ) {
     val context = LocalContext.current
@@ -122,6 +127,7 @@ fun BarcodeScannerScreen(
             expectedCount = expectedCount,
             scannedBarcodes = scannedBarcodes,
             onBarcodeScanned = onBarcodeScanned,
+            onRemoveBarcode = onRemoveBarcode,
             onCloseScanner = onCloseScanner
         )
     } else {
@@ -169,6 +175,7 @@ fun ContinuousBarcodeScanner(
     expectedCount: Int,
     scannedBarcodes: Set<String>,
     onBarcodeScanned: (String) -> Unit,
+    onRemoveBarcode: (String) -> Unit = {},
     onCloseScanner: () -> Unit
 ) {
     val context = LocalContext.current
@@ -177,6 +184,8 @@ fun ContinuousBarcodeScanner(
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var isTorchOn by remember { mutableStateOf(false) }
     var lastScannedCode by remember { mutableStateOf<String?>(null) }
+    var barcodeToDelete by remember { mutableStateOf<String?>(null) }
+    var showScannedListDialog by remember { mutableStateOf(false) }
 
     // Feedback helpers: Vibration + Audio Beep
     val toneGenerator = remember {
@@ -391,23 +400,36 @@ fun ContinuousBarcodeScanner(
                         }
                     }
 
-                    // Torch Toggle
-                    IconButton(
-                        onClick = {
-                            isTorchOn = !isTorchOn
-                            cameraControl?.enableTorch(isTorchOn)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (scannedCount > 0) {
+                            IconButton(onClick = { showScannedListDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.FormatListBulleted,
+                                    contentDescription = "Ver Códigos Bipados",
+                                    tint = OrangeNeon
+                                )
+                            }
                         }
-                    ) {
-                        Icon(
-                            imageVector = if (isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                            contentDescription = "Lanterna",
-                            tint = if (isTorchOn) Color.Yellow else Color.White
-                        )
+
+                        // Torch Toggle
+                        IconButton(
+                            onClick = {
+                                isTorchOn = !isTorchOn
+                                cameraControl?.enableTorch(isTorchOn)
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                                contentDescription = "Lanterna",
+                                tint = if (isTorchOn) Color.Yellow else Color.White
+                            )
+                        }
                     }
                 }
 
                 // Status chip / feedback
                 if (lastScannedCode != null) {
+                    val codeTarget = lastScannedCode!!
                     Surface(
                         color = GreenNeon.copy(alpha = 0.2f),
                         shape = RoundedCornerShape(20.dp),
@@ -420,15 +442,154 @@ fun ContinuousBarcodeScanner(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(16.dp))
                             Text(
-                                text = "Lido: $lastScannedCode",
+                                text = "Lido: $codeTarget",
                                 color = GreenNeon,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            IconButton(
+                                onClick = { barcodeToDelete = codeTarget },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Excluir código lido",
+                                    tint = RedAlert,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
+
+        // Diálogo de Confirmação de Exclusão de Código durante a Bipagem
+        if (barcodeToDelete != null) {
+            val codeToDelete = barcodeToDelete!!
+            AlertDialog(
+                onDismissRequest = { barcodeToDelete = null },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.DeleteForever,
+                        contentDescription = null,
+                        tint = RedAlert,
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text("Excluir Código Bipado", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                },
+                text = {
+                    Text("Deseja realmente remover o código \"$codeToDelete\" da lista de pacotes bipados?")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onRemoveBarcode(codeToDelete)
+                            if (lastScannedCode == codeToDelete) {
+                                lastScannedCode = null
+                            }
+                            barcodeToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
+                    ) {
+                        Text("Excluir", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { barcodeToDelete = null }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
+
+        // Modal / Diálogo para Consultar e Gerenciar Códigos durante a Bipagem
+        if (showScannedListDialog) {
+            AlertDialog(
+                onDismissRequest = { showScannedListDialog = false },
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Códigos Bipados ($scannedCount)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        IconButton(onClick = { showScannedListDialog = false }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = "Fechar", tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                },
+                text = {
+                    if (scannedBarcodes.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Nenhum código bipado até o momento.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 320.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(scannedBarcodes.toList()) { code ->
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = code,
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(
+                                            onClick = { barcodeToDelete = code },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteOutline,
+                                                contentDescription = "Excluir código",
+                                                tint = RedAlert,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    Button(
+                        onClick = { showScannedListDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
+                    ) {
+                        Text("Continuar Bipando", fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
         }
 
         // Bottom Controls: Complete Scanning button

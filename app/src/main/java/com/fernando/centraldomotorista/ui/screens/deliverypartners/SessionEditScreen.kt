@@ -27,6 +27,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,6 +96,8 @@ fun SessionEditScreen(
     // Bipagens (Códigos Bipados)
     var barcodes by remember { mutableStateOf(session.scannedBarcodes) }
     var newBarcodeInput by remember { mutableStateOf("") }
+    var barcodeToDelete by remember { mutableStateOf<String?>(null) }
+    var showClearAllConfirmation by remember { mutableStateOf(false) }
 
     // Duração calculada em tempo real
     val calculatedDurationStr = remember(startDateTime, hasEndTime, endDateTime) {
@@ -363,16 +366,20 @@ fun SessionEditScreen(
                         // INÍCIO DA SESSÃO
                         Text("Início:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Data de Início
-                            Box(modifier = Modifier.weight(1f)) {
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                 OutlinedTextField(
                                     value = startDateTime.atZoneSameInstant(zone).format(dateFormatter),
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Data Início") },
+                                    singleLine = true,
+                                    maxLines = 1,
+                                    label = { Text("Data Início", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     trailingIcon = {
                                         IconButton(onClick = {
                                             val currentLocal = startDateTime.atZoneSameInstant(zone).toLocalDate()
@@ -386,7 +393,7 @@ fun SessionEditScreen(
                                         }
                                     },
                                     shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
                                 )
                                 Box(
                                     modifier = Modifier
@@ -404,12 +411,14 @@ fun SessionEditScreen(
                             }
 
                             // Hora de Início
-                            Box(modifier = Modifier.weight(1f)) {
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                 OutlinedTextField(
                                     value = startDateTime.atZoneSameInstant(zone).format(timeFormatter),
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Hora Início") },
+                                    singleLine = true,
+                                    maxLines = 1,
+                                    label = { Text("Hora Início", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     trailingIcon = {
                                         IconButton(onClick = {
                                             val currentLocalTime = startDateTime.atZoneSameInstant(zone).toLocalTime()
@@ -423,7 +432,7 @@ fun SessionEditScreen(
                                         }
                                     },
                                     shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
                                 )
                                 Box(
                                     modifier = Modifier
@@ -465,16 +474,20 @@ fun SessionEditScreen(
 
                         if (hasEndTime) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 // Data de Término
-                                Box(modifier = Modifier.weight(1f)) {
+                                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                     OutlinedTextField(
                                         value = endDateTime.atZoneSameInstant(zone).format(dateFormatter),
                                         onValueChange = {},
                                         readOnly = true,
-                                        label = { Text("Data Término") },
+                                        singleLine = true,
+                                        maxLines = 1,
+                                        label = { Text("Data Término", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         trailingIcon = {
                                             IconButton(onClick = {
                                                 val currentLocal = endDateTime.atZoneSameInstant(zone).toLocalDate()
@@ -488,7 +501,7 @@ fun SessionEditScreen(
                                             }
                                         },
                                         shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
                                     )
                                     Box(
                                         modifier = Modifier
@@ -506,12 +519,14 @@ fun SessionEditScreen(
                                 }
 
                                 // Hora de Término
-                                Box(modifier = Modifier.weight(1f)) {
+                                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                     OutlinedTextField(
                                         value = endDateTime.atZoneSameInstant(zone).format(timeFormatter),
                                         onValueChange = {},
                                         readOnly = true,
-                                        label = { Text("Hora Término") },
+                                        singleLine = true,
+                                        maxLines = 1,
+                                        label = { Text("Hora Término", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         trailingIcon = {
                                             IconButton(onClick = {
                                                 val currentLocalTime = endDateTime.atZoneSameInstant(zone).toLocalTime()
@@ -525,7 +540,7 @@ fun SessionEditScreen(
                                             }
                                         },
                                         shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
                                     )
                                     Box(
                                         modifier = Modifier
@@ -574,40 +589,47 @@ fun SessionEditScreen(
                             color = OrangeNeon
                         )
 
-                        // Pacotes Expedidos
-                        OutlinedTextField(
-                            value = expectedText,
-                            onValueChange = { expectedText = it.filter { c -> c.isDigit() } },
-                            label = { Text("Pacotes Expedidos") },
-                            leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null, tint = OrangeNeon) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // Pacotes Entregues e Devolvidos
+                        // 3 Campos de Volumetria na mesma linha com alturas e larguras padronizadas
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            OutlinedTextField(
+                                value = expectedText,
+                                onValueChange = { expectedText = it.filter { c -> c.isDigit() } },
+                                label = { Text("Expedidos", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                singleLine = true,
+                                maxLines = 1,
+                                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f).fillMaxHeight()
+                            )
+
                             OutlinedTextField(
                                 value = deliveredText,
                                 onValueChange = { deliveredText = it.filter { c -> c.isDigit() } },
-                                label = { Text("Entregues") },
-                                leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenNeon) },
+                                label = { Text("Entregues", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                singleLine = true,
+                                maxLines = 1,
+                                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = GreenNeon),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).fillMaxHeight()
                             )
 
                             OutlinedTextField(
                                 value = returnedText,
                                 onValueChange = { returnedText = it.filter { c -> c.isDigit() } },
-                                label = { Text("Devolvidos") },
-                                leadingIcon = { Icon(Icons.Default.RemoveCircleOutline, contentDescription = null, tint = RedAlert) },
+                                label = { Text("Devolvidos", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                singleLine = true,
+                                maxLines = 1,
+                                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = RedAlert),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).fillMaxHeight()
                             )
                         }
 
@@ -681,33 +703,43 @@ fun SessionEditScreen(
                         }
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedTextField(
                                 value = packageRateText,
                                 onValueChange = { packageRateText = it },
-                                label = { Text("Taxa por Pacote (R$)") },
+                                label = { Text("Taxa / Pacote", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                prefix = { Text("R$ ", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.Bold) },
+                                singleLine = true,
+                                maxLines = 1,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).fillMaxHeight()
                             )
 
                             OutlinedTextField(
                                 value = defaultBonusText,
                                 onValueChange = { defaultBonusText = it },
-                                label = { Text("Bônus Padrão (R$)") },
+                                label = { Text("Bônus Fixo", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                prefix = { Text("R$ ", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.Bold) },
+                                singleLine = true,
+                                maxLines = 1,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).fillMaxHeight()
                             )
                         }
 
                         OutlinedTextField(
                             value = amountPaidText,
                             onValueChange = { amountPaidText = it },
-                            label = { Text("Valor Total Pago ao Parceiro (R$)") },
+                            label = { Text("Valor Total Pago ao Parceiro", maxLines = 1) },
                             leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = GreenNeon) },
+                            singleLine = true,
+                            maxLines = 1,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -778,7 +810,7 @@ fun SessionEditScreen(
                                     }
 
                                     OutlinedButton(
-                                        onClick = { barcodes = emptyList() },
+                                        onClick = { showClearAllConfirmation = true },
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                         shape = RoundedCornerShape(8.dp),
                                         modifier = Modifier.height(28.dp),
@@ -794,18 +826,21 @@ fun SessionEditScreen(
 
                         // Campo para adicionar novo código de barra manualmente
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedTextField(
                                 value = newBarcodeInput,
                                 onValueChange = { newBarcodeInput = it.trim() },
-                                label = { Text("Adicionar código manual") },
+                                label = { Text("Adicionar código manual", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 placeholder = { Text("Ex: 100827392817") },
                                 singleLine = true,
+                                maxLines = 1,
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).fillMaxHeight()
                             )
 
                             Button(
@@ -823,7 +858,7 @@ fun SessionEditScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.height(54.dp)
+                                modifier = Modifier.fillMaxHeight().defaultMinSize(minWidth = 52.dp)
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = "Adicionar")
                             }
@@ -905,7 +940,7 @@ fun SessionEditScreen(
 
                             IconButton(
                                 onClick = {
-                                    barcodes = barcodes.filterIndexed { i, _ -> i != index }
+                                    barcodeToDelete = code
                                 },
                                 modifier = Modifier.size(28.dp)
                             ) {
@@ -921,6 +956,81 @@ fun SessionEditScreen(
                 }
             }
         }
+    }
+
+    // Diálogo de Confirmação de Exclusão Individual de Código
+    if (barcodeToDelete != null) {
+        val codeTarget = barcodeToDelete!!
+        AlertDialog(
+            onDismissRequest = { barcodeToDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DeleteForever,
+                    contentDescription = null,
+                    tint = RedAlert,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Excluir Código Bipado", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            },
+            text = {
+                Text("Deseja realmente remover o código \"$codeTarget\" desta sessão?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        barcodes = barcodes.filter { it != codeTarget }
+                        barcodeToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
+                ) {
+                    Text("Excluir", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { barcodeToDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Diálogo de Confirmação para Limpar Todos os Códigos
+    if (showClearAllConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearAllConfirmation = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DeleteForever,
+                    contentDescription = null,
+                    tint = RedAlert,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Limpar Todos os Códigos", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            },
+            text = {
+                Text("Deseja realmente remover todos os ${barcodes.size} códigos bipados desta sessão?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        barcodes = emptyList()
+                        showClearAllConfirmation = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
+                ) {
+                    Text("Limpar Todos", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showClearAllConfirmation = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 
