@@ -4,9 +4,11 @@ import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.Expense
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
 import com.fernando.centraldomotorista.data.repository.ExpenseRepository
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPerformanceMetrics
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPeriodFilter
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPeriodPreset
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerRoutesViewModel
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.calculatePartnerPerformance
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.formatDuration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -412,6 +414,139 @@ class PartnerRoutesViewModelTest {
         assertEquals("--:--", formatDuration(start, null))
         assertEquals("--:--", formatDuration(null, end8h30))
         assertEquals("--:--", formatDuration(null, null))
+    }
+
+    @Test
+    fun testPerformanceTabAggregatesEarningsPackagesAndReturnRate() {
+        val today = LocalDate.of(2026, 9, 10)
+        val s1 = DeliveryPartnerSession(
+            id = "s-1",
+            partnerId = "p-1",
+            expectedPackageCount = 50,
+            deliveredCount = 45,
+            returnedCount = 5,
+            amountPaid = BigDecimal("100.00"),
+            startTime = OffsetDateTime.of(2026, 9, 8, 8, 0, 0, 0, testZone)
+        )
+        val s2 = DeliveryPartnerSession(
+            id = "s-2",
+            partnerId = "p-1",
+            expectedPackageCount = 50,
+            deliveredCount = 45,
+            returnedCount = 5,
+            amountPaid = BigDecimal("150.00"),
+            startTime = OffsetDateTime.of(2026, 9, 9, 8, 0, 0, 0, testZone)
+        )
+
+        val metrics = calculatePartnerPerformance(listOf(s1, s2), today = today, zone = testZone)
+
+        assertEquals(BigDecimal("250.00"), metrics.totalEarnings)
+        assertEquals(BigDecimal("250.00"), metrics.currentMonthEarnings)
+        assertEquals(90, metrics.totalDelivered)
+        assertEquals(10, metrics.totalReturned)
+        // 10 / (90 + 10) * 100 = 10.00%
+        assertEquals(BigDecimal("10.00"), metrics.returnRate)
+        assertEquals(2, metrics.totalSessions)
+    }
+
+    @Test
+    fun testBestPerformanceDayPicksHighestEarningDay() {
+        val today = LocalDate.of(2026, 9, 10)
+        // Dia 1: mais pacotes (100 entregues), mas menor valor (120.00)
+        val sDay1 = DeliveryPartnerSession(
+            id = "s-day1",
+            partnerId = "p-1",
+            deliveredCount = 100,
+            returnedCount = 0,
+            amountPaid = BigDecimal("120.00"),
+            startTime = OffsetDateTime.of(2026, 9, 8, 8, 0, 0, 0, testZone)
+        )
+        // Dia 2: menos pacotes (40 entregues), mas maior valor (200.00)
+        val sDay2 = DeliveryPartnerSession(
+            id = "s-day2",
+            partnerId = "p-1",
+            deliveredCount = 40,
+            returnedCount = 2,
+            amountPaid = BigDecimal("200.00"),
+            startTime = OffsetDateTime.of(2026, 9, 9, 8, 0, 0, 0, testZone)
+        )
+
+        val metrics = calculatePartnerPerformance(listOf(sDay1, sDay2), today = today, zone = testZone)
+
+        assertNotNull(metrics.bestDay)
+        val best = metrics.bestDay!!
+        assertEquals(LocalDate.of(2026, 9, 9), best.date)
+        assertEquals(BigDecimal("200.00"), best.totalEarnings)
+        assertEquals(40, best.deliveredCount)
+        assertEquals(2, best.returnedCount)
+        assertEquals(1, best.sessionCount)
+    }
+
+    @Test
+    fun testPerformanceTabHandlesPartnerWithNoSessions() {
+        val metrics = calculatePartnerPerformance(emptyList())
+
+        assertEquals(BigDecimal.ZERO, metrics.totalEarnings)
+        assertEquals(BigDecimal.ZERO, metrics.currentMonthEarnings)
+        assertEquals(0, metrics.totalDelivered)
+        assertEquals(0, metrics.totalReturned)
+        assertEquals(BigDecimal.ZERO, metrics.returnRate)
+        assertEquals(BigDecimal.ZERO, metrics.averageEarningsPerSession)
+        assertNull(metrics.bestDay)
+        assertEquals(0, metrics.totalSessions)
+    }
+
+    @Test
+    fun testCalculatePartnerPerformanceIgnoresActivePeriodFilterAndUsesAllSessions() {
+        val today = LocalDate.of(2026, 9, 10)
+        val sAug = DeliveryPartnerSession(
+            id = "s-aug",
+            partnerId = "p-1",
+            deliveredCount = 30,
+            returnedCount = 2,
+            amountPaid = BigDecimal("100.00"),
+            startTime = OffsetDateTime.of(2026, 8, 15, 8, 0, 0, 0, testZone)
+        )
+        val sSep = DeliveryPartnerSession(
+            id = "s-sep",
+            partnerId = "p-1",
+            deliveredCount = 50,
+            returnedCount = 3,
+            amountPaid = BigDecimal("150.00"),
+            startTime = OffsetDateTime.of(2026, 9, 5, 8, 0, 0, 0, testZone)
+        )
+
+        val allSessions = listOf(sAug, sSep)
+        val metrics = calculatePartnerPerformance(allSessions, today = today, zone = testZone)
+
+        // Deve somar ambas as sessões (agosto + setembro), totalizando 250.00
+        assertEquals(BigDecimal("250.00"), metrics.totalEarnings)
+        // Mês corrente (setembro) deve somar apenas sSep
+        assertEquals(BigDecimal("150.00"), metrics.currentMonthEarnings)
+        assertEquals(80, metrics.totalDelivered)
+        assertEquals(5, metrics.totalReturned)
+        assertEquals(2, metrics.totalSessions)
+    }
+
+    @Test
+    fun testAverageEarningsPerSessionIsZeroWhenNoSessions() {
+        val emptyMetrics = calculatePartnerPerformance(emptyList())
+        assertEquals(BigDecimal.ZERO, emptyMetrics.averageEarningsPerSession)
+
+        val s1 = DeliveryPartnerSession(
+            id = "s-1",
+            partnerId = "p-1",
+            amountPaid = BigDecimal("150.00")
+        )
+        val s2 = DeliveryPartnerSession(
+            id = "s-2",
+            partnerId = "p-1",
+            amountPaid = BigDecimal("200.00")
+        )
+
+        val metrics = calculatePartnerPerformance(listOf(s1, s2))
+        // (150.00 + 200.00) / 2 = 175.00
+        assertEquals(BigDecimal("175.00"), metrics.averageEarningsPerSession)
     }
 }
 

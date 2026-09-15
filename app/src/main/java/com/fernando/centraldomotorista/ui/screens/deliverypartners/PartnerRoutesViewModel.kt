@@ -42,6 +42,7 @@ data class PartnerRoutesUiState(
     val isPeriodDropdownExpanded: Boolean = false,
     val monthDeliveredCount: Int = 0,
     val monthTotalAmountPaid: BigDecimal = BigDecimal.ZERO,
+    val performanceMetrics: PartnerPerformanceMetrics = PartnerPerformanceMetrics(),
     val isLoading: Boolean = false,
     val message: String? = null,
     val error: String? = null,
@@ -102,6 +103,9 @@ class PartnerRoutesViewModel(
                 val (monthGroups, deliveredTotal, amountPaidTotal) = withContext(Dispatchers.Default) {
                     buildHierarchy(allSessions, filter, today)
                 }
+                val performanceMetrics = withContext(Dispatchers.Default) {
+                    calculatePartnerPerformance(allSessions, today)
+                }
 
                 val initialExpandedMonths = resolveInitialExpandedMonths(monthGroups, _uiState.value.expandedMonths)
                 val initialExpandedWeeks = resolveInitialExpandedWeeks(monthGroups, _uiState.value.expandedWeeks)
@@ -116,6 +120,7 @@ class PartnerRoutesViewModel(
                         expandedWeeks = initialExpandedWeeks,
                         monthDeliveredCount = deliveredTotal,
                         monthTotalAmountPaid = amountPaidTotal,
+                        performanceMetrics = performanceMetrics,
                         isLoading = false
                     )
                 }

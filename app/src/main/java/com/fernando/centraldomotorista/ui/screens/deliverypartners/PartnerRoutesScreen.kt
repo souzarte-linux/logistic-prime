@@ -44,6 +44,7 @@ import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.PartnerAvatar
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeEmoji
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeLabel
+import com.fernando.centraldomotorista.ui.common.cards.PainelStatCard
 import com.fernando.centraldomotorista.ui.common.period.PeriodSelector
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
@@ -54,6 +55,13 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val PerformanceDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+enum class PartnerRoutesTab(val label: String) {
+    SESSOES("Sessões"),
+    DESEMPENHO("Desempenho")
+}
 
 private fun BigDecimal.formatCurrency(): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
@@ -94,6 +102,7 @@ fun PartnerRoutesScreen(
 
     val partner = uiState.partner
     val routeMap = remember(uiState.routes) { uiState.routes.associateBy { it.id } }
+    var selectedTab by remember { mutableStateOf(PartnerRoutesTab.SESSOES) }
 
     // Diálogo de Confirmação de Exclusão de Sessão
     val deletingSession = uiState.deletingSession
@@ -417,9 +426,41 @@ fun PartnerRoutesScreen(
                     }
                 }
 
-                // 2. MÉTRICAS DO PERÍODO (Cards simétricos - com BigDecimal.formatCurrency())
+                // SELETOR DE ABAS LOCAL (Sessões vs Desempenho)
                 item {
-                    Row(
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TabRow(
+                            selectedTabIndex = selectedTab.ordinal,
+                            containerColor = Color.Transparent,
+                            contentColor = OrangeNeon
+                        ) {
+                            PartnerRoutesTab.entries.forEach { tab ->
+                                val selected = selectedTab == tab
+                                Tab(
+                                    selected = selected,
+                                    onClick = { selectedTab = tab },
+                                    text = {
+                                        Text(
+                                            text = tab.label,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (selectedTab == PartnerRoutesTab.SESSOES) {
+                    // 2. MÉTRICAS DO PERÍODO (Cards simétricos - com BigDecimal.formatCurrency())
+                    item {
+                        Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(IntrinsicSize.Min),
@@ -667,6 +708,199 @@ fun PartnerRoutesScreen(
                             routeMap = routeMap,
                             timeFormatter = timeFormatter
                         )
+                    }
+                }
+                } else {
+                    // ABA "DESEMPENHO" (deste parceiro específico)
+                    if (uiState.sessions.isEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.BarChart,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                    Text(
+                                        text = "Nenhum dado de desempenho",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Este parceiro ainda não concluiu sessões de entrega para gerar relatórios analíticos.",
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        val metrics = uiState.performanceMetrics
+
+                        // 1. Card: Total Ganho Acumulado
+                        item {
+                            PainelStatCard(
+                                label = "Total Ganho pelo Parceiro",
+                                value = metrics.totalEarnings.formatCurrency(),
+                                highlight = true,
+                                hint = "Mês atual: ${metrics.currentMonthEarnings.formatCurrency()} repassados",
+                                rightContent = {
+                                    Icon(
+                                        imageVector = Icons.Default.AttachMoney,
+                                        contentDescription = null,
+                                        tint = GreenNeon,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            )
+                        }
+
+                        // 2. Cards Simétricos: Volumetria e Taxa de Devolução
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Entregues vs Devolvidos
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(16.dp),
+                                        verticalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "PACOTES TOTAIS",
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.8.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.Bottom,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "${metrics.totalDelivered}",
+                                                fontSize = 22.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = GreenNeon
+                                            )
+                                            Text(
+                                                text = "entregues",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(bottom = 3.dp)
+                                            )
+                                        }
+                                        Text(
+                                            text = "${metrics.totalReturned} devoluções registradas",
+                                            fontSize = 11.5.sp,
+                                            color = if (metrics.totalReturned > 0) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                // Taxa de Devolução
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(16.dp),
+                                        verticalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "TAXA DE DEVOLUÇÃO",
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.8.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "${metrics.returnRate.toPlainString()}%",
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (metrics.returnRate.compareTo(BigDecimal("5.00")) >= 0) RedAlert else GreenNeon
+                                        )
+                                        Text(
+                                            text = if (metrics.returnRate.compareTo(BigDecimal("5.00")) >= 0) "Atenção: índice elevado" else "Excelente aproveitamento",
+                                            fontSize = 11.5.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Card: Dia de Maior Desempenho (Critério financeiro R$)
+                        item {
+                            val best = metrics.bestDay
+                            if (best != null) {
+                                PainelStatCard(
+                                    label = "Dia de Maior Desempenho",
+                                    value = best.totalEarnings.formatCurrency(),
+                                    highlight = false,
+                                    hint = "${best.date.format(PerformanceDateFormatter)} • ${best.deliveredCount} pacotes entregues • ${best.returnedCount} devolvidos (${best.sessionCount} rota(s))",
+                                    rightContent = {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFFB300),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                )
+                            }
+                        }
+
+                        // 4. Card: Resumo Operacional
+                        item {
+                            PainelStatCard(
+                                label = "Média por Sessão",
+                                value = metrics.averageEarningsPerSession.formatCurrency(),
+                                highlight = false,
+                                hint = "${metrics.totalSessions} sessões executadas até o momento",
+                                rightContent = {
+                                    Icon(
+                                        imageVector = Icons.Default.AltRoute,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             }
