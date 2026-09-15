@@ -31,23 +31,62 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+/**
+ * Utilitário para cálculo automático e bilateral das sessões de entrega.
+ */
+object SessionCalculationHelper {
+    fun parseAmount(text: String): BigDecimal {
+        val clean = text.filter { it.isDigit() || it == ',' || it == '.' }.trim()
+        if (clean.isBlank()) return BigDecimal.ZERO
+        val normalized = if (clean.contains(',')) {
+            clean.replace(".", "").replace(',', '.')
+        } else {
+            clean
+        }
+        return normalized.toBigDecimalOrNull() ?: BigDecimal.ZERO
+    }
+
+    fun calculateAmount(deliveredCount: Int, packageRate: BigDecimal, defaultBonus: BigDecimal): BigDecimal {
+        if (deliveredCount <= 0 && defaultBonus <= BigDecimal.ZERO) return BigDecimal.ZERO
+        val base = BigDecimal(deliveredCount.coerceAtLeast(0)).multiply(packageRate.coerceAtLeast(BigDecimal.ZERO))
+        return base.add(defaultBonus.coerceAtLeast(BigDecimal.ZERO)).setScale(2, RoundingMode.HALF_UP)
+    }
+
+    fun calculateDeliveredFromAmount(amount: BigDecimal, packageRate: BigDecimal, defaultBonus: BigDecimal): Int {
+        if (packageRate <= BigDecimal.ZERO) return 0
+        val net = amount.subtract(defaultBonus.coerceAtLeast(BigDecimal.ZERO)).coerceAtLeast(BigDecimal.ZERO)
+        return net.divide(packageRate, 0, RoundingMode.HALF_UP).toInt()
+    }
+
+    fun calculateReturned(expected: Int, delivered: Int): Int {
+        return (expected - delivered).coerceAtLeast(0)
+    }
+
+    fun calculateDelivered(expected: Int, returned: Int): Int {
+        return (expected - returned).coerceAtLeast(0)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionEditScreen(
     session: DeliveryPartnerSession,
     routes: List<DeliveryRoute>,
+    partner: DeliveryPartner? = null,
     onDismiss: () -> Unit,
     onSave: (DeliveryPartnerSession) -> Unit
 ) {
@@ -77,6 +116,18 @@ fun SessionEditScreen(
         mutableStateOf(session.endTime ?: OffsetDateTime.now())
     }
 
+    // Taxa e Bônus com fallback para os padrões do parceiro se zerados na sessão
+    val initialPackageRate = if (session.packageRate > BigDecimal.ZERO) {
+        session.packageRate
+    } else {
+        partner?.packageRate ?: BigDecimal.ZERO
+    }
+    val initialDefaultBonus = if (session.defaultBonus > BigDecimal.ZERO) {
+        session.defaultBonus
+    } else {
+        partner?.defaultBonus ?: BigDecimal.ZERO
+    }
+
     // Quantidade de pacotes
     var expectedText by remember { mutableStateOf(session.expectedPackageCount.toString()) }
     var deliveredText by remember { mutableStateOf(session.deliveredCount.toString()) }
@@ -84,13 +135,18 @@ fun SessionEditScreen(
 
     // Valores Financeiros
     var packageRateText by remember {
-        mutableStateOf(if (session.packageRate > BigDecimal.ZERO) session.packageRate.toPlainString() else "")
+        mutableStateOf(if (initialPackageRate > BigDecimal.ZERO) initialPackageRate.toPlainString() else "")
     }
     var defaultBonusText by remember {
-        mutableStateOf(if (session.defaultBonus > BigDecimal.ZERO) session.defaultBonus.toPlainString() else "")
+        mutableStateOf(if (initialDefaultBonus > BigDecimal.ZERO) initialDefaultBonus.toPlainString() else "")
     }
     var amountPaidText by remember {
-        mutableStateOf(session.amountPaid.toPlainString())
+        val initialAmount = if (session.amountPaid > BigDecimal.ZERO) {
+            session.amountPaid
+        } else {
+            SessionCalculationHelper.calculateAmount(session.deliveredCount, initialPackageRate, initialDefaultBonus)
+        }
+        mutableStateOf(initialAmount.toPlainString())
     }
 
     // Bipagens (Códigos Bipados)
@@ -598,7 +654,20 @@ fun SessionEditScreen(
                         ) {
                             OutlinedTextField(
                                 value = expectedText,
-                                onValueChange = { expectedText = it.filter { c -> c.isDigit() } },
+                                onValueChange = { input ->
+                                    val clean = input.filter { c -> c.isDigit() }
+                                    expectedText = clean
+                                    val exp = clean.toIntOrNull() ?: 0
+                                    val currentRet = returnedText.toIntOrNull() ?: 0
+                                    val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                                    val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+
+                                    val newDel = SessionCalculationHelper.calculateDelivered(exp, currentRet)
+                                    deliveredText = newDel.toString()
+
+                                    val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
+                                    amountPaidText = total.toPlainString()
+                                },
                                 label = { Text("Expedidos", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 singleLine = true,
                                 maxLines = 1,
@@ -610,7 +679,22 @@ fun SessionEditScreen(
 
                             OutlinedTextField(
                                 value = deliveredText,
-                                onValueChange = { deliveredText = it.filter { c -> c.isDigit() } },
+                                onValueChange = { input ->
+                                    val clean = input.filter { c -> c.isDigit() }
+                                    deliveredText = clean
+                                    val del = clean.toIntOrNull() ?: 0
+                                    val exp = expectedText.toIntOrNull() ?: 0
+                                    val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                                    val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+
+                                    if (exp > 0) {
+                                        val ret = SessionCalculationHelper.calculateReturned(exp, del)
+                                        returnedText = ret.toString()
+                                    }
+
+                                    val total = SessionCalculationHelper.calculateAmount(del, rate, bonus)
+                                    amountPaidText = total.toPlainString()
+                                },
                                 label = { Text("Entregues", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 singleLine = true,
                                 maxLines = 1,
@@ -622,7 +706,20 @@ fun SessionEditScreen(
 
                             OutlinedTextField(
                                 value = returnedText,
-                                onValueChange = { returnedText = it.filter { c -> c.isDigit() } },
+                                onValueChange = { input ->
+                                    val clean = input.filter { c -> c.isDigit() }
+                                    returnedText = clean
+                                    val ret = clean.toIntOrNull() ?: 0
+                                    val exp = expectedText.toIntOrNull() ?: 0
+                                    val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                                    val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+
+                                    val newDel = SessionCalculationHelper.calculateDelivered(exp, ret)
+                                    deliveredText = newDel.toString()
+
+                                    val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
+                                    amountPaidText = total.toPlainString()
+                                },
                                 label = { Text("Devolvidos", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 singleLine = true,
                                 maxLines = 1,
@@ -682,21 +779,23 @@ fun SessionEditScreen(
                                 color = OrangeNeon
                             )
 
-                            // Sugestão de cálculo automático (entregues * taxa + bônus)
+                            // Sugestão de sincronização rápida (entregues * taxa + bônus)
                             val delCount = deliveredText.toIntOrNull() ?: 0
-                            val rate = parseAmount(packageRateText)
-                            val bonus = parseAmount(defaultBonusText)
+                            val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                            val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
                             if (delCount > 0 && rate > BigDecimal.ZERO) {
-                                val suggested = (rate.multiply(delCount.toBigDecimal())).add(bonus)
+                                val suggested = SessionCalculationHelper.calculateAmount(delCount, rate, bonus)
                                 TextButton(
                                     onClick = { amountPaidText = suggested.toPlainString() },
                                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
+                                    Icon(Icons.Default.Sync, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(13.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "Sugerir R$ ${suggested.toPlainString()}",
+                                        text = "Sinc R$ ${suggested.toPlainString()}",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = OrangeNeon
+                                        color = GreenNeon
                                     )
                                 }
                             }
@@ -710,7 +809,15 @@ fun SessionEditScreen(
                         ) {
                             OutlinedTextField(
                                 value = packageRateText,
-                                onValueChange = { packageRateText = it },
+                                onValueChange = { input ->
+                                    packageRateText = input
+                                    val rate = SessionCalculationHelper.parseAmount(input)
+                                    val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                                    val del = deliveredText.toIntOrNull() ?: 0
+
+                                    val total = SessionCalculationHelper.calculateAmount(del, rate, bonus)
+                                    amountPaidText = total.toPlainString()
+                                },
                                 label = { Text("Taxa / Pacote", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 prefix = { Text("R$ ", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.Bold) },
                                 singleLine = true,
@@ -722,7 +829,15 @@ fun SessionEditScreen(
 
                             OutlinedTextField(
                                 value = defaultBonusText,
-                                onValueChange = { defaultBonusText = it },
+                                onValueChange = { input ->
+                                    defaultBonusText = input
+                                    val bonus = SessionCalculationHelper.parseAmount(input)
+                                    val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                                    val del = deliveredText.toIntOrNull() ?: 0
+
+                                    val total = SessionCalculationHelper.calculateAmount(del, rate, bonus)
+                                    amountPaidText = total.toPlainString()
+                                },
                                 label = { Text("Bônus Fixo", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 prefix = { Text("R$ ", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.Bold) },
                                 singleLine = true,
@@ -735,7 +850,23 @@ fun SessionEditScreen(
 
                         OutlinedTextField(
                             value = amountPaidText,
-                            onValueChange = { amountPaidText = it },
+                            onValueChange = { input ->
+                                amountPaidText = input
+                                val amt = SessionCalculationHelper.parseAmount(input)
+                                val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                                val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                                val exp = expectedText.toIntOrNull() ?: 0
+
+                                // Cálculo bilateral reverso: ao alterar o valor total pago, atualiza a quantidade entregue calculada
+                                if (rate > BigDecimal.ZERO) {
+                                    val derivedDel = SessionCalculationHelper.calculateDeliveredFromAmount(amt, rate, bonus)
+                                    deliveredText = derivedDel.toString()
+                                    if (exp > 0) {
+                                        val derivedRet = SessionCalculationHelper.calculateReturned(exp, derivedDel)
+                                        returnedText = derivedRet.toString()
+                                    }
+                                }
+                            },
                             label = { Text("Valor Total Pago ao Parceiro", maxLines = 1) },
                             leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = GreenNeon) },
                             singleLine = true,
@@ -744,6 +875,37 @@ fun SessionEditScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        // Detalhamento visual da fórmula bilateral ativa
+                        val curDel = deliveredText.toIntOrNull() ?: 0
+                        val curRate = SessionCalculationHelper.parseAmount(packageRateText)
+                        val curBonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                        if (curRate > BigDecimal.ZERO) {
+                            val formulaText = if (curBonus > BigDecimal.ZERO) {
+                                "$curDel pct × R$ ${curRate.toPlainString()} + R$ ${curBonus.toPlainString()} = R$ ${SessionCalculationHelper.calculateAmount(curDel, curRate, curBonus).toPlainString()}"
+                            } else {
+                                "$curDel pct × R$ ${curRate.toPlainString()} = R$ ${SessionCalculationHelper.calculateAmount(curDel, curRate, curBonus).toPlainString()}"
+                            }
+                            Surface(
+                                color = GreenNeon.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Default.Sync, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(15.dp))
+                                    Text(
+                                        text = "Cálculo bilateral ativo: $formulaText",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GreenNeon
+                                    )
+                                }
+                            }
+                        }
 
                         if (!session.expenseId.isNullOrBlank()) {
                             Text(

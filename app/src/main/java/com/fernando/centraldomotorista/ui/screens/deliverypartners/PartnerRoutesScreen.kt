@@ -189,6 +189,7 @@ fun PartnerRoutesScreen(
         SessionEditScreen(
             session = editingSession,
             routes = uiState.routes,
+            partner = partner,
             onDismiss = { viewModel.closeEditSession() },
             onSave = { updated -> viewModel.saveEditedSession(updated) }
         )
