@@ -433,7 +433,19 @@ fun PartnerRoutesScreen(
                     }
                 }
 
-                // SELETOR DE ABAS LOCAL (Sessões vs Desempenho)
+                // 2. SELETOR DE PERÍODO (PRESETS + INTERVALO PERSONALIZADO)
+                // Posicionado acima das abas para refletir na aba que estiver ativa
+                item {
+                    PeriodSelector(
+                        periodFilter = uiState.periodFilter,
+                        isDropdownExpanded = uiState.isPeriodDropdownExpanded,
+                        onToggleDropdown = { viewModel.togglePeriodDropdown() },
+                        onSelectPreset = { preset -> viewModel.applyPeriodPreset(preset) },
+                        onApplyCustomRange = { start, end -> viewModel.applyCustomPeriod(start, end) }
+                    )
+                }
+
+                // 3. SELETOR DE ABAS LOCAL (Sessões vs Desempenho vs Painel)
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
@@ -444,18 +456,24 @@ fun PartnerRoutesScreen(
                         TabRow(
                             selectedTabIndex = selectedTab.ordinal,
                             containerColor = Color.Transparent,
-                            contentColor = OrangeNeon
+                            contentColor = OrangeNeon,
+                            divider = {},
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             PartnerRoutesTab.entries.forEach { tab ->
                                 val selected = selectedTab == tab
                                 Tab(
                                     selected = selected,
                                     onClick = { selectedTab = tab },
+                                    modifier = Modifier.height(44.dp),
                                     text = {
                                         Text(
                                             text = tab.label,
-                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                            fontSize = 14.sp
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 12.5.sp,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 )
@@ -615,16 +633,6 @@ fun PartnerRoutesScreen(
                     }
                 }
 
-                // 4. SELETOR DE PERÍODO (PRESETS + INTERVALO PERSONALIZADO)
-                item {
-                    PeriodSelector(
-                        periodFilter = uiState.periodFilter,
-                        isDropdownExpanded = uiState.isPeriodDropdownExpanded,
-                        onToggleDropdown = { viewModel.togglePeriodDropdown() },
-                        onSelectPreset = { preset -> viewModel.applyPeriodPreset(preset) },
-                        onApplyCustomRange = { start, end -> viewModel.applyCustomPeriod(start, end) }
-                    )
-                }
 
                 // 5. CABEÇALHO DA LISTA
                 item {
@@ -751,6 +759,48 @@ fun PartnerRoutesScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
+                                }
+                            }
+                        }
+                    } else if (uiState.performanceMetrics.totalSessions == 0) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FilterAlt,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                    Text(
+                                        text = "Nenhum dado no período selecionado",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Não há sessões de entrega concluídas no período (${uiState.periodFilter.preset.label}). Altere o filtro acima para visualizar o desempenho de outros períodos.",
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    OutlinedButton(
+                                        onClick = { viewModel.resetPeriodFilter() },
+                                        border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f))
+                                    ) {
+                                        Text("Redefinir para Esta Semana", color = OrangeNeon, fontWeight = FontWeight.SemiBold)
+                                    }
                                 }
                             }
                         }
@@ -906,6 +956,16 @@ fun PartnerRoutesScreen(
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
+                            )
+                        }
+
+                        // 5. Card: Tempo de Duração de Cada Rota
+                        item {
+                            RouteDurationCard(
+                                durationMetrics = metrics.durationMetrics,
+                                routeMap = routeMap,
+                                timeFormatter = timeFormatter,
+                                dateFormatter = PerformanceDateFormatter
                             )
                         }
                     }
@@ -1874,5 +1934,275 @@ internal fun formatDuration(startTime: OffsetDateTime?, endTime: OffsetDateTime?
     val minutes = totalMinutes % 60
     return String.format(Locale.getDefault(), "%02d:%02d", hours, minutes)
 }
+
+@Composable
+private fun RouteDurationCard(
+    durationMetrics: PartnerDurationMetrics,
+    routeMap: Map<String, DeliveryRoute>,
+    timeFormatter: DateTimeFormatter,
+    dateFormatter: DateTimeFormatter,
+    modifier: Modifier = Modifier
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header do Card
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(OrangeNeon.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "TEMPO DE DURAÇÃO DAS ROTAS",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = if (durationMetrics.totalTimedRoutes > 0)
+                                "${durationMetrics.totalTimedRoutes} rota(s) com cronometragem"
+                            else "Sem horários registrados",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (durationMetrics.totalTimedRoutes == 0) {
+                Text(
+                    text = "As sessões deste período não possuem registro completo de início e término para calcular as durações.",
+                    fontSize = 12.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                // Linha de Destaque: Média e Total
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Column {
+                        Text(
+                            text = "Duração Média por Rota",
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = durationMetrics.formattedAverage,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                            color = OrangeNeon
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "Tempo Total em Rota",
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = durationMetrics.formattedTotal,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                // Trio de Métricas: Mais rápida, Mais longa, Ritmo por pct
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "⚡ Mais rápida",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = durationMetrics.formattedShortest,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GreenNeon
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "⏳ Mais longa",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = durationMetrics.formattedLongest,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1.1f), horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "📦 Ritmo por pct",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = durationMetrics.averageMinutesPerPackage?.let { "$it min/pct" } ?: "--",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OrangeNeon
+                        )
+                    }
+                }
+
+                // Detalhamento de cada rota
+                if (durationMetrics.timedRoutes.isNotEmpty()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "DETALHAMENTO POR ROTA",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (durationMetrics.timedRoutes.size > 3) {
+                            Text(
+                                text = if (isExpanded) "Recolher" else "Ver todas (${durationMetrics.timedRoutes.size})",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeNeon,
+                                modifier = Modifier.clickable { isExpanded = !isExpanded }
+                            )
+                        }
+                    }
+
+                    val routesToShow = if (isExpanded || durationMetrics.timedRoutes.size <= 3) {
+                        durationMetrics.timedRoutes
+                    } else {
+                        durationMetrics.timedRoutes.take(3)
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        routesToShow.forEach { item ->
+                            val rName = item.routeId?.let { routeMap[it]?.name } ?: "Sem rota definida"
+                            val dateStr = item.date.format(dateFormatter)
+                            val startStr = item.startTime.format(timeFormatter)
+                            val endStr = item.endTime.format(timeFormatter)
+
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = dateStr,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "•",
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = rName,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "$startStr às $endStr • ${item.deliveredCount} entregues",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Surface(
+                                        color = OrangeNeon.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = item.formattedDuration,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = OrangeNeon,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 

@@ -127,8 +127,11 @@ class PartnerRoutesViewModel(
                 val (monthGroups, deliveredTotal, amountPaidTotal) = withContext(Dispatchers.Default) {
                     buildHierarchy(allSessions, filter, today)
                 }
+                val filteredSessions = withContext(Dispatchers.Default) {
+                    filterSessionsByPeriod(allSessions, filter, today)
+                }
                 val performanceMetrics = withContext(Dispatchers.Default) {
-                    calculatePartnerPerformance(allSessions, today)
+                    calculatePartnerPerformance(filteredSessions, today)
                 }
                 val (trendBuckets, maxTrend) = withContext(Dispatchers.Default) {
                     buildPartnerTrendBuckets(allSessions, _uiState.value.trendRange, today)
@@ -381,6 +384,12 @@ class PartnerRoutesViewModel(
             val (monthGroups, deliveredTotal, amountPaidTotal) = withContext(Dispatchers.Default) {
                 buildHierarchy(state.sessions, state.periodFilter, today)
             }
+            val filteredSessions = withContext(Dispatchers.Default) {
+                filterSessionsByPeriod(state.sessions, state.periodFilter, today)
+            }
+            val performanceMetrics = withContext(Dispatchers.Default) {
+                calculatePartnerPerformance(filteredSessions, today)
+            }
 
             val nextExpandedMonths = resolveInitialExpandedMonths(monthGroups, state.expandedMonths)
             val nextExpandedWeeks = resolveInitialExpandedWeeks(monthGroups, state.expandedWeeks)
@@ -391,7 +400,8 @@ class PartnerRoutesViewModel(
                     expandedMonths = nextExpandedMonths,
                     expandedWeeks = nextExpandedWeeks,
                     monthDeliveredCount = deliveredTotal,
-                    monthTotalAmountPaid = amountPaidTotal
+                    monthTotalAmountPaid = amountPaidTotal,
+                    performanceMetrics = performanceMetrics
                 )
             }
         }
@@ -431,18 +441,26 @@ class PartnerRoutesViewModel(
         private val ddMMFormatter = DateTimeFormatter.ofPattern("dd/MM", ptLocale)
         private val monthNameFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", ptLocale)
 
+        fun filterSessionsByPeriod(
+            sessions: List<DeliveryPartnerSession>,
+            filter: PartnerPeriodFilter,
+            today: LocalDate = LocalDate.now(),
+            zone: ZoneId = ZoneId.systemDefault()
+        ): List<DeliveryPartnerSession> {
+            val (rangeStart, rangeEnd) = filter.resolveRange(today)
+            return sessions.filter { s ->
+                val d = (s.startTime ?: s.createdAt)?.atZoneSameInstant(zone)?.toLocalDate() ?: today
+                !d.isBefore(rangeStart) && !d.isAfter(rangeEnd)
+            }
+        }
+
         fun buildHierarchy(
             sessions: List<DeliveryPartnerSession>,
             filter: PartnerPeriodFilter,
             today: LocalDate,
             zone: ZoneId = ZoneId.systemDefault()
         ): Triple<List<PartnerSessionMonthGroup>, Int, BigDecimal> {
-            val (rangeStart, rangeEnd) = filter.resolveRange(today)
-
-            val filteredSessions = sessions.filter { s ->
-                val d = (s.startTime ?: s.createdAt)?.atZoneSameInstant(zone)?.toLocalDate() ?: today
-                !d.isBefore(rangeStart) && !d.isAfter(rangeEnd)
-            }.sortedWith(
+            val filteredSessions = filterSessionsByPeriod(sessions, filter, today, zone).sortedWith(
                 compareByDescending<DeliveryPartnerSession> { (it.startTime ?: it.createdAt) }
                     .thenByDescending { it.id }
             )

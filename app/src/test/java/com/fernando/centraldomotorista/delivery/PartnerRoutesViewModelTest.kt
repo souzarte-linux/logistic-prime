@@ -752,6 +752,106 @@ class PartnerRoutesViewModelTest {
         assertNull(testVm.uiState.value.costEfficiency)
         assertNull(testVm.uiState.value.regularity)
     }
+
+    @Test
+    fun testCalculatePartnerDurationMetricsWithCompletedSessions() {
+        val s1 = DeliveryPartnerSession(
+            id = "s-1",
+            partnerId = "p-1",
+            routeId = "r-1",
+            startTime = OffsetDateTime.of(2026, 9, 10, 8, 0, 0, 0, ZoneOffset.UTC),
+            endTime = OffsetDateTime.of(2026, 9, 10, 10, 30, 0, 0, ZoneOffset.UTC), // 150 min (2h 30min)
+            deliveredCount = 30
+        )
+        val s2 = DeliveryPartnerSession(
+            id = "s-2",
+            partnerId = "p-1",
+            routeId = "r-2",
+            startTime = OffsetDateTime.of(2026, 9, 11, 9, 0, 0, 0, ZoneOffset.UTC),
+            endTime = OffsetDateTime.of(2026, 9, 11, 10, 30, 0, 0, ZoneOffset.UTC), // 90 min (1h 30min)
+            deliveredCount = 20
+        )
+        val sIncomplete = DeliveryPartnerSession(
+            id = "s-inc",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 9, 12, 8, 0, 0, 0, ZoneOffset.UTC),
+            endTime = null,
+            deliveredCount = 10
+        )
+
+        val durationMetrics = calculatePartnerDurationMetrics(listOf(s1, s2, sIncomplete), ZoneOffset.UTC)
+
+        assertEquals(2, durationMetrics.totalTimedRoutes)
+        assertEquals(240L, durationMetrics.totalDurationMinutes) // 150 + 90
+        assertEquals(120L, durationMetrics.averageDurationMinutes) // 240 / 2
+        assertEquals(90L, durationMetrics.shortestDurationMinutes)
+        assertEquals(150L, durationMetrics.longestDurationMinutes)
+        assertEquals(BigDecimal("4.8"), durationMetrics.averageMinutesPerPackage) // 240 / (30 + 20) = 4.8 min/pct
+        assertEquals("2h", durationMetrics.formattedAverage)
+        assertEquals("4h", durationMetrics.formattedTotal)
+        assertEquals("1h 30min", durationMetrics.formattedShortest)
+        assertEquals("2h 30min", durationMetrics.formattedLongest)
+        assertEquals(2, durationMetrics.timedRoutes.size)
+        assertEquals("s-2", durationMetrics.timedRoutes[0].sessionId) // ordenada decrescente por data/hora
+    }
+
+    @Test
+    fun testCalculatePartnerDurationMetricsEmptyOrInvalidTimes() {
+        val emptyMetrics = calculatePartnerDurationMetrics(emptyList())
+        assertEquals(0, emptyMetrics.totalTimedRoutes)
+        assertEquals(0L, emptyMetrics.totalDurationMinutes)
+        assertEquals(0L, emptyMetrics.averageDurationMinutes)
+        assertNull(emptyMetrics.shortestDurationMinutes)
+        assertNull(emptyMetrics.longestDurationMinutes)
+        assertNull(emptyMetrics.averageMinutesPerPackage)
+        assertEquals("0 min", emptyMetrics.formattedAverage)
+        assertEquals("0 min", emptyMetrics.formattedTotal)
+        assertEquals("--", emptyMetrics.formattedShortest)
+        assertEquals("--", emptyMetrics.formattedLongest)
+
+        val sInvalid = DeliveryPartnerSession(
+            id = "s-inv",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 9, 10, 10, 0, 0, 0, ZoneOffset.UTC),
+            endTime = OffsetDateTime.of(2026, 9, 10, 8, 0, 0, 0, ZoneOffset.UTC) // fim antes do início
+        )
+        val invalidMetrics = calculatePartnerDurationMetrics(listOf(sInvalid))
+        assertEquals(0, invalidMetrics.totalTimedRoutes)
+    }
+
+    @Test
+    fun testFilterSessionsByPeriod() {
+        val today = LocalDate.of(2026, 9, 10) // Quinta-feira da semana de 07/09 a 13/09
+        val sThisWeek = DeliveryPartnerSession(
+            id = "s-week",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 9, 9, 8, 0, 0, 0, ZoneOffset.UTC)
+        )
+        val sLastMonth = DeliveryPartnerSession(
+            id = "s-aug",
+            partnerId = "p-1",
+            startTime = OffsetDateTime.of(2026, 8, 20, 8, 0, 0, 0, ZoneOffset.UTC)
+        )
+
+        val list = listOf(sThisWeek, sLastMonth)
+
+        val weekFiltered = PartnerRoutesViewModel.filterSessionsByPeriod(
+            list,
+            PartnerPeriodFilter(PartnerPeriodPreset.SEMANA),
+            today,
+            ZoneOffset.UTC
+        )
+        assertEquals(1, weekFiltered.size)
+        assertEquals("s-week", weekFiltered[0].id)
+
+        val allFiltered = PartnerRoutesViewModel.filterSessionsByPeriod(
+            list,
+            PartnerPeriodFilter(PartnerPeriodPreset.ANO),
+            today,
+            ZoneOffset.UTC
+        )
+        assertEquals(2, allFiltered.size)
+    }
 }
 
 private class FakePartnerRepository : DeliveryPartnerRepository() {
