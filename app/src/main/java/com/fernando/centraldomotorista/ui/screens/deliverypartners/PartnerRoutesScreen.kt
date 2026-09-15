@@ -196,7 +196,7 @@ fun PartnerRoutesScreen(
         return
     }
 
-    // Diálogo de Detalhes da Sessão Concluída (Modo Visualização)
+    // Diálogo de Detalhes da Sessão Concluída (Modo Visualização e Edição)
     val viewDetailSession = uiState.viewDetailSession
     if (viewDetailSession != null) {
         SessionDetailDialog(
@@ -207,6 +207,10 @@ fun PartnerRoutesScreen(
             onDismiss = { viewModel.closeViewDetailSession() },
             onEdit = {
                 viewModel.openEditSession(viewDetailSession)
+            },
+            onDelete = {
+                viewModel.closeViewDetailSession()
+                viewModel.promptDeleteSession(viewDetailSession)
             }
         )
     }
@@ -805,8 +809,19 @@ fun PartnerRoutesScreen(
                                     viewModel.openViewDetailSession(session)
                                 }
                             },
-                            onEditSession = { session -> viewModel.openEditSession(session) },
+                            onEditSession = { session -> viewModel.openViewDetailSession(session) },
                             onDeleteSession = { session -> viewModel.promptDeleteSession(session) },
+                            onShareSession = { session, rName, startStr, endStr, durStr ->
+                                SessionShareHelper.shareSessionImage(
+                                    context = context,
+                                    session = session,
+                                    partnerName = partner?.fullName ?: "",
+                                    routeName = rName,
+                                    startTimeStr = startStr,
+                                    endTimeStr = endStr,
+                                    durationStr = durStr
+                                )
+                            },
                             routeMap = routeMap,
                             timeFormatter = timeFormatter
                         )
@@ -1317,6 +1332,7 @@ private fun PartnerMonthAccordionItem(
     onSessionClick: (DeliveryPartnerSession) -> Unit,
     onEditSession: (DeliveryPartnerSession) -> Unit,
     onDeleteSession: (DeliveryPartnerSession) -> Unit,
+    onShareSession: (session: DeliveryPartnerSession, routeName: String, startTimeStr: String, endTimeStr: String, durationStr: String) -> Unit,
     routeMap: Map<String, DeliveryRoute>,
     timeFormatter: DateTimeFormatter
 ) {
@@ -1408,6 +1424,7 @@ private fun PartnerMonthAccordionItem(
                         onSessionClick = onSessionClick,
                         onEditSession = onEditSession,
                         onDeleteSession = onDeleteSession,
+                        onShareSession = onShareSession,
                         routeMap = routeMap,
                         timeFormatter = timeFormatter
                     )
@@ -1452,6 +1469,7 @@ private fun PartnerWeekAccordionItem(
     onSessionClick: (DeliveryPartnerSession) -> Unit,
     onEditSession: (DeliveryPartnerSession) -> Unit,
     onDeleteSession: (DeliveryPartnerSession) -> Unit,
+    onShareSession: (session: DeliveryPartnerSession, routeName: String, startTimeStr: String, endTimeStr: String, durationStr: String) -> Unit,
     routeMap: Map<String, DeliveryRoute>,
     timeFormatter: DateTimeFormatter
 ) {
@@ -1555,6 +1573,7 @@ private fun PartnerWeekAccordionItem(
                             onSessionClick = onSessionClick,
                             onEditSession = onEditSession,
                             onDeleteSession = onDeleteSession,
+                            onShareSession = onShareSession,
                             routeMap = routeMap,
                             timeFormatter = timeFormatter
                         )
@@ -1607,6 +1626,7 @@ private fun PartnerDaySection(
     onSessionClick: (DeliveryPartnerSession) -> Unit,
     onEditSession: (DeliveryPartnerSession) -> Unit,
     onDeleteSession: (DeliveryPartnerSession) -> Unit,
+    onShareSession: (session: DeliveryPartnerSession, routeName: String, startTimeStr: String, endTimeStr: String, durationStr: String) -> Unit,
     routeMap: Map<String, DeliveryRoute>,
     timeFormatter: DateTimeFormatter
 ) {
@@ -1641,13 +1661,18 @@ private fun PartnerDaySection(
         // Cards de sessão do dia
         day.sessions.forEach { session ->
             val routeName = session.routeId?.let { routeMap[it]?.name } ?: "Sem Rota"
+            val startStr = session.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(timeFormatter) ?: "--:--"
+            val endStr = session.endTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(timeFormatter) ?: "--:--"
+            val durStr = formatDuration(session.startTime, session.endTime)
+
             PartnerSessionCard(
                 session = session,
                 routeName = routeName,
                 timeFormatter = timeFormatter,
                 onClick = { onSessionClick(session) },
                 onEdit = { onEditSession(session) },
-                onDelete = { onDeleteSession(session) }
+                onDelete = { onDeleteSession(session) },
+                onShare = { onShareSession(session, routeName, startStr, endStr, durStr) }
             )
         }
 
@@ -1696,7 +1721,8 @@ private fun PartnerSessionCard(
     timeFormatter: DateTimeFormatter,
     onClick: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onShare: (() -> Unit)? = null
 ) {
     val isInProgress = session.endTime == null
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("pt", "BR")) }
@@ -1730,7 +1756,7 @@ private fun PartnerSessionCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Linha Superior: Data + Horas embaixo + Badge Status + Ações (Editar, Excluir)
+            // Linha Superior: Data + Horas embaixo + Badge Status + Ações (Compartilhar, Editar, Excluir)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1764,7 +1790,7 @@ private fun PartnerSessionCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     // Badge Status
                     Surface(
@@ -1780,14 +1806,29 @@ private fun PartnerSessionCard(
                         )
                     }
 
-                    // Botão Editar
+                    // Botão Compartilhar (mesmo layout e funcionalidade da aba Desempenho)
+                    if (!isInProgress && onShare != null) {
+                        IconButton(
+                            onClick = onShare,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Compartilhar Rota",
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    // Botão Editar / Ver Detalhes (mesmo fluxo de edição do Desempenho)
                     IconButton(
                         onClick = onEdit,
                         modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
-                            contentDescription = "Editar Sessão",
+                            contentDescription = "Ver Detalhes e Editar",
                             tint = OrangeNeon,
                             modifier = Modifier.size(16.dp)
                         )
@@ -1810,18 +1851,43 @@ private fun PartnerSessionCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
 
-            // Linha do Meio: Rota
+            // Linha do Meio: Rota + Duração destacada (igual à aba Desempenho)
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(15.dp))
-                Text(
-                    text = routeName,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(15.dp))
+                    Text(
+                        text = routeName,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (!isInProgress) {
+                    val durationStr = formatDuration(session.startTime, session.endTime)
+                    Surface(
+                        color = OrangeNeon.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = durationStr,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OrangeNeon,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
             }
 
             // Linha Inferior: Contagem de Pacotes e Valor
@@ -1856,12 +1922,6 @@ private fun PartnerSessionCard(
                                 color = RedAlert
                             )
                         }
-                        val durationStr = formatDuration(session.startTime, session.endTime)
-                        Text(
-                            text = "Duração Rota: $durationStr",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
 
@@ -1898,7 +1958,8 @@ private fun SessionDetailDialog(
     partnerName: String,
     timeFormatter: DateTimeFormatter,
     onDismiss: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val startTimeStr = session.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(timeFormatter) ?: "--"
@@ -1998,8 +2059,26 @@ private fun SessionDetailDialog(
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Fechar")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (onDelete != null) {
+                    OutlinedButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RedAlert),
+                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = RedAlert
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Excluir", color = RedAlert)
+                    }
+                }
+                OutlinedButton(onClick = onDismiss) {
+                    Text("Fechar")
+                }
             }
         }
     )
