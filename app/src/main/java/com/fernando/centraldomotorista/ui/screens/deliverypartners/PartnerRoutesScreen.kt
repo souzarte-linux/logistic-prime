@@ -164,15 +164,16 @@ fun PartnerRoutesScreen(
         )
     }
 
-    // Diálogo de Edição de Dados da Sessão
+    // Tela Cheia de Edição de Dados da Sessão
     val editingSession = uiState.editingSession
     if (editingSession != null) {
-        EditSessionDialog(
+        SessionEditScreen(
             session = editingSession,
             routes = uiState.routes,
             onDismiss = { viewModel.closeEditSession() },
             onSave = { updated -> viewModel.saveEditedSession(updated) }
         )
+        return
     }
 
     // Diálogo de Detalhes da Sessão Concluída (Modo Visualização)
@@ -185,7 +186,6 @@ fun PartnerRoutesScreen(
             timeFormatter = timeFormatter,
             onDismiss = { viewModel.closeViewDetailSession() },
             onEdit = {
-                viewModel.closeViewDetailSession()
                 viewModel.openEditSession(viewDetailSession)
             }
         )
@@ -1257,152 +1257,7 @@ private fun PartnerSessionCard(
     }
 }
 
-/**
- * Diálogo para edição de campos de uma sessão existente.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EditSessionDialog(
-    session: DeliveryPartnerSession,
-    routes: List<DeliveryRoute>,
-    onDismiss: () -> Unit,
-    onSave: (DeliveryPartnerSession) -> Unit
-) {
-    var expectedText by remember { mutableStateOf(session.expectedPackageCount.toString()) }
-    var deliveredText by remember { mutableStateOf(session.deliveredCount.toString()) }
-    var returnedText by remember { mutableStateOf(session.returnedCount.toString()) }
-    var amountPaidText by remember { mutableStateOf(session.amountPaid.toPlainString()) }
-    var selectedRouteId by remember { mutableStateOf(session.routeId) }
-    var routeDropdownOpen by remember { mutableStateOf(false) }
 
-    val selectedRouteName = remember(selectedRouteId, routes) {
-        routes.firstOrNull { it.id == selectedRouteId }?.name ?: "Sem Rota"
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Editar Dados da Sessão", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Rota
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { routeDropdownOpen = true },
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(selectedRouteName, fontWeight = FontWeight.SemiBold)
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = OrangeNeon)
-                        }
-                    }
-                    DropdownMenu(
-                        expanded = routeDropdownOpen,
-                        onDismissRequest = { routeDropdownOpen = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Sem Rota") },
-                            onClick = {
-                                selectedRouteId = null
-                                routeDropdownOpen = false
-                            }
-                        )
-                        routes.forEach { r ->
-                            DropdownMenuItem(
-                                text = { Text(r.name) },
-                                onClick = {
-                                    selectedRouteId = r.id
-                                    routeDropdownOpen = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Pacotes Expedidos
-                OutlinedTextField(
-                    value = expectedText,
-                    onValueChange = { expectedText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Pacotes Expedidos") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Pacotes Entregues e Devolvidos
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = deliveredText,
-                        onValueChange = { deliveredText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Entregues") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = returnedText,
-                        onValueChange = { returnedText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Devolvidos") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // Valor Pago (R$)
-                OutlinedTextField(
-                    value = amountPaidText,
-                    onValueChange = { amountPaidText = it },
-                    label = { Text("Valor Pago (R$)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val exp = expectedText.toIntOrNull() ?: session.expectedPackageCount
-                    val del = deliveredText.toIntOrNull() ?: session.deliveredCount
-                    val ret = returnedText.toIntOrNull() ?: session.returnedCount
-                    val amt = parseAmount(amountPaidText)
-                    val updated = session.copy(
-                        routeId = selectedRouteId,
-                        expectedPackageCount = exp,
-                        deliveredCount = del,
-                        returnedCount = ret,
-                        amountPaid = amt
-                    )
-                    onSave(updated)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
-            ) {
-                Text("Salvar Alterações", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancelar")
-            }
-        }
-    )
-}
 
 /**
  * Diálogo de exibição de detalhes completos da sessão finalizada.
@@ -1549,7 +1404,7 @@ private fun parseAmount(text: String): BigDecimal {
     return normalized.toBigDecimalOrNull() ?: BigDecimal.ZERO
 }
 
-private fun formatDuration(startTime: OffsetDateTime?, endTime: OffsetDateTime?): String {
+internal fun formatDuration(startTime: OffsetDateTime?, endTime: OffsetDateTime?): String {
     if (startTime == null || endTime == null) return "--:--"
     val totalMinutes = Duration.between(startTime, endTime).toMinutes().coerceAtLeast(0)
     val hours = totalMinutes / 60

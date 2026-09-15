@@ -9,10 +9,10 @@ import com.fernando.centraldomotorista.data.remote.dto.toDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class ExpenseRepository(
+open class ExpenseRepository(
     private val expenseApi: ExpenseApi = RetrofitClient.expenseApi
 ) {
-    suspend fun createExpense(expense: Expense): Expense = withContext(Dispatchers.IO) {
+    open suspend fun createExpense(expense: Expense): Expense = withContext(Dispatchers.IO) {
         val dto = expense.toDto()
         val createdList = expenseApi.createExpense(dto)
         val result = createdList.firstOrNull()?.toDomain() ?: expense
@@ -20,7 +20,7 @@ class ExpenseRepository(
         result
     }
 
-    suspend fun updateExpense(expense: Expense): Expense = withContext(Dispatchers.IO) {
+    open suspend fun updateExpense(expense: Expense): Expense = withContext(Dispatchers.IO) {
         val dto = expense.toDto()
         val updatedList = expenseApi.updateExpense("eq.${expense.id}", dto)
         val result = updatedList.firstOrNull()?.toDomain() ?: expense
@@ -28,7 +28,7 @@ class ExpenseRepository(
         result
     }
 
-    suspend fun deleteExpense(expenseId: String): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun deleteExpense(expenseId: String): Boolean = withContext(Dispatchers.IO) {
         try {
             expenseApi.deleteExpense("eq.$expenseId")
             com.fernando.centraldomotorista.util.AppDataSync.notifyDataChanged()
@@ -39,7 +39,7 @@ class ExpenseRepository(
         }
     }
 
-    suspend fun getExpenseById(expenseId: String): Expense? = withContext(Dispatchers.IO) {
+    open suspend fun getExpenseById(expenseId: String): Expense? = withContext(Dispatchers.IO) {
         try {
             val list = expenseApi.getExpenseById("eq.$expenseId")
             list.firstOrNull()?.toDomain()
@@ -49,7 +49,7 @@ class ExpenseRepository(
         }
     }
 
-    suspend fun getExpenses(userId: String): List<Expense> = withContext(Dispatchers.IO) {
+    open suspend fun getExpenses(userId: String): List<Expense> = withContext(Dispatchers.IO) {
         try {
             val userFilter = "eq.$userId"
             expenseApi.getExpenses(userFilter, "occurred_at.desc").map { it.toDomain() }

@@ -1,11 +1,16 @@
 package com.fernando.centraldomotorista.delivery
 
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
+import com.fernando.centraldomotorista.data.model.Expense
+import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
+import com.fernando.centraldomotorista.data.repository.ExpenseRepository
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPeriodFilter
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPeriodPreset
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerRoutesViewModel
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.formatDuration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import java.math.BigDecimal
@@ -221,5 +226,216 @@ class PartnerRoutesViewModelTest {
         assertTrue(vm.uiState.value.expandedWeeks.contains("2026-09-2026-09-07"))
         vm.toggleWeek("2026-09-2026-09-07")
         assertFalse(vm.uiState.value.expandedWeeks.contains("2026-09-2026-09-07"))
+    }
+
+    @Test
+    fun testOpenEditSessionClosesViewDetailSession() {
+        val session = DeliveryPartnerSession(id = "s-detail", partnerId = "p-1")
+        vm.openViewDetailSession(session)
+        assertEquals(session, vm.uiState.value.viewDetailSession)
+        assertNull(vm.uiState.value.editingSession)
+
+        // Ao abrir a edição, editingSession é preenchido e viewDetailSession deve ser fechado
+        vm.openEditSession(session)
+        assertEquals(session, vm.uiState.value.editingSession)
+        assertNull(vm.uiState.value.viewDetailSession)
+    }
+
+    @Test
+    fun testSaveEditedSessionUpdatesLinkedExpenseWhenAmountChanges() {
+        val fakeSessionRepo = FakeSessionRepository()
+        val initialExpense = Expense(
+            id = "exp-100",
+            userId = "user-1",
+            title = "Diária Equipe",
+            description = "Diária Equipe",
+            category = "equipe",
+            amount = BigDecimal("150.00"),
+            occurredAt = OffsetDateTime.of(2026, 9, 10, 8, 0, 0, 0, testZone)
+        )
+        val fakeExpenseRepo = FakeExpenseRepository(initialExpense)
+
+        val testVm = PartnerRoutesViewModel(
+            sessionRepository = fakeSessionRepo,
+            expenseRepository = fakeExpenseRepo,
+            externalScope = CoroutineScope(Dispatchers.Unconfined),
+            observeDataSync = false
+        )
+
+        val original = DeliveryPartnerSession(
+            id = "s-1",
+            partnerId = "p-1",
+            expectedPackageCount = 50,
+            deliveredCount = 48,
+            amountPaid = BigDecimal("150.00"),
+            expenseId = "exp-100"
+        )
+
+        testVm.openEditSession(original)
+
+        val updated = original.copy(
+            amountPaid = BigDecimal("220.00"),
+            deliveredCount = 50
+        )
+
+        testVm.saveEditedSession(updated)
+
+        assertEquals(updated, fakeSessionRepo.lastSavedSession)
+        assertEquals(1, fakeExpenseRepo.getExpenseByIdCalls)
+        assertEquals(1, fakeExpenseRepo.updateExpenseCalls)
+        assertEquals(BigDecimal("220.00"), fakeExpenseRepo.currentExpense?.amount)
+        assertNull(testVm.uiState.value.editingSession)
+        assertEquals("Sessão atualizada com sucesso!", testVm.uiState.value.message)
+    }
+
+    @Test
+    fun testSaveEditedSessionDoesNotCallExpenseUpdateWhenAmountUnchanged() {
+        val fakeSessionRepo = FakeSessionRepository()
+        val initialExpense = Expense(
+            id = "exp-100",
+            userId = "user-1",
+            title = "Diária Equipe",
+            description = "Diária Equipe",
+            category = "equipe",
+            amount = BigDecimal("150.00"),
+            occurredAt = OffsetDateTime.of(2026, 9, 10, 8, 0, 0, 0, testZone)
+        )
+        val fakeExpenseRepo = FakeExpenseRepository(initialExpense)
+
+        val testVm = PartnerRoutesViewModel(
+            sessionRepository = fakeSessionRepo,
+            expenseRepository = fakeExpenseRepo,
+            externalScope = CoroutineScope(Dispatchers.Unconfined),
+            observeDataSync = false
+        )
+
+        val original = DeliveryPartnerSession(
+            id = "s-1",
+            partnerId = "p-1",
+            expectedPackageCount = 50,
+            deliveredCount = 48,
+            amountPaid = BigDecimal("150.00"),
+            expenseId = "exp-100"
+        )
+
+        testVm.openEditSession(original)
+
+        // Alterou apenas entregues e rota, mantendo amountPaid idêntico
+        val updated = original.copy(
+            routeId = "route-abc",
+            deliveredCount = 50,
+            returnedCount = 0
+        )
+
+        testVm.saveEditedSession(updated)
+
+        assertEquals(updated, fakeSessionRepo.lastSavedSession)
+        assertEquals(0, fakeExpenseRepo.getExpenseByIdCalls)
+        assertEquals(0, fakeExpenseRepo.updateExpenseCalls)
+        assertEquals(BigDecimal("150.00"), fakeExpenseRepo.currentExpense?.amount)
+        assertNull(testVm.uiState.value.editingSession)
+    }
+
+    @Test
+    fun testSaveEditedSessionWithoutExpenseIdDoesNotCrashOrQueryExpense() {
+        val fakeSessionRepo = FakeSessionRepository()
+        val fakeExpenseRepo = FakeExpenseRepository(null)
+
+        val testVm = PartnerRoutesViewModel(
+            sessionRepository = fakeSessionRepo,
+            expenseRepository = fakeExpenseRepo,
+            externalScope = CoroutineScope(Dispatchers.Unconfined),
+            observeDataSync = false
+        )
+
+        val original = DeliveryPartnerSession(
+            id = "s-open",
+            partnerId = "p-1",
+            amountPaid = BigDecimal.ZERO,
+            expenseId = null
+        )
+
+        testVm.openEditSession(original)
+
+        val updated = original.copy(
+            amountPaid = BigDecimal("100.00")
+        )
+
+        testVm.saveEditedSession(updated)
+
+        assertEquals(updated, fakeSessionRepo.lastSavedSession)
+        assertEquals(0, fakeExpenseRepo.getExpenseByIdCalls)
+        assertEquals(0, fakeExpenseRepo.updateExpenseCalls)
+        assertNull(testVm.uiState.value.editingSession)
+    }
+
+    @Test
+    fun testSessionScannedCountMatchesScannedBarcodesListSize() {
+        val barcodesList = mutableListOf("BR123456", "BR123457")
+        val session = DeliveryPartnerSession(
+            id = "s-barcode",
+            partnerId = "p-1",
+            scannedBarcodes = barcodesList,
+            scannedCount = barcodesList.size
+        )
+        assertEquals(2, session.scannedCount)
+
+        // Adicionando um código manualmente
+        barcodesList.add("BR123458")
+        val updatedWithAdd = session.copy(
+            scannedBarcodes = barcodesList.toList(),
+            scannedCount = barcodesList.size
+        )
+        assertEquals(3, updatedWithAdd.scannedCount)
+        assertEquals(3, updatedWithAdd.scannedBarcodes.size)
+
+        // Removendo um código
+        barcodesList.removeAt(0)
+        val updatedWithRemove = updatedWithAdd.copy(
+            scannedBarcodes = barcodesList.toList(),
+            scannedCount = barcodesList.size
+        )
+        assertEquals(2, updatedWithRemove.scannedCount)
+        assertEquals(listOf("BR123457", "BR123458"), updatedWithRemove.scannedBarcodes)
+    }
+
+    @Test
+    fun testFormatDurationRecalculatesDurationCorrectly() {
+        val start = OffsetDateTime.of(2026, 9, 10, 8, 0, 0, 0, testZone)
+        val end8h30 = OffsetDateTime.of(2026, 9, 10, 16, 30, 0, 0, testZone)
+        val end1h15 = OffsetDateTime.of(2026, 9, 10, 9, 15, 0, 0, testZone)
+        val endSame = OffsetDateTime.of(2026, 9, 10, 8, 0, 0, 0, testZone)
+
+        assertEquals("08:30", formatDuration(start, end8h30))
+        assertEquals("01:15", formatDuration(start, end1h15))
+        assertEquals("00:00", formatDuration(start, endSame))
+        assertEquals("--:--", formatDuration(start, null))
+        assertEquals("--:--", formatDuration(null, end8h30))
+        assertEquals("--:--", formatDuration(null, null))
+    }
+}
+
+private class FakeSessionRepository : DeliveryPartnerSessionRepository() {
+    var lastSavedSession: DeliveryPartnerSession? = null
+    override suspend fun saveSession(session: DeliveryPartnerSession): DeliveryPartnerSession {
+        lastSavedSession = session
+        return session
+    }
+}
+
+private class FakeExpenseRepository(initialExpense: Expense? = null) : ExpenseRepository() {
+    var currentExpense: Expense? = initialExpense
+    var getExpenseByIdCalls = 0
+    var updateExpenseCalls = 0
+
+    override suspend fun getExpenseById(expenseId: String): Expense? {
+        getExpenseByIdCalls++
+        return if (currentExpense?.id == expenseId) currentExpense else null
+    }
+
+    override suspend fun updateExpense(expense: Expense): Expense {
+        updateExpenseCalls++
+        currentExpense = expense
+        return expense
     }
 }

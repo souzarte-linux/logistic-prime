@@ -197,7 +197,7 @@ class PartnerRoutesViewModel(
     }
 
     fun openEditSession(session: DeliveryPartnerSession) {
-        _uiState.update { it.copy(editingSession = session) }
+        _uiState.update { it.copy(editingSession = session, viewDetailSession = null) }
     }
 
     fun closeEditSession() {
@@ -221,16 +221,26 @@ class PartnerRoutesViewModel(
     }
 
     fun saveEditedSession(updatedSession: DeliveryPartnerSession) {
+        val original = _uiState.value.editingSession ?: updatedSession
         scope.launch {
             try {
                 sessionRepository.saveSession(updatedSession)
+                val expenseId = updatedSession.expenseId
+                if (!expenseId.isNullOrBlank() && updatedSession.amountPaid.compareTo(original.amountPaid) != 0) {
+                    val linkedExpense = expenseRepository.getExpenseById(expenseId)
+                    if (linkedExpense != null) {
+                        expenseRepository.updateExpense(linkedExpense.copy(amount = updatedSession.amountPaid))
+                    }
+                }
                 _uiState.update {
                     it.copy(
                         editingSession = null,
                         message = "Sessão atualizada com sucesso!"
                     )
                 }
-                loadData(currentPartnerId)
+                if (currentPartnerId.isNotBlank()) {
+                    loadData(currentPartnerId)
+                }
             } catch (e: Exception) {
                 Log.e("PartnerRoutesVM", "Erro ao atualizar sessão: ${e.message}", e)
                 _uiState.update { it.copy(error = "Erro ao atualizar sessão.") }

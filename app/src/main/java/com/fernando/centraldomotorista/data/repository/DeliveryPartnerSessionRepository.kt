@@ -11,11 +11,11 @@ import com.fernando.centraldomotorista.util.AppDataSync
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class DeliveryPartnerSessionRepository(
+open class DeliveryPartnerSessionRepository(
     private val sessionApi: DeliveryPartnerSessionApi = RetrofitClient.deliveryPartnerSessionApi,
     private val expenseRepository: ExpenseRepository = ExpenseRepository()
 ) {
-    suspend fun getSessions(userId: String): List<DeliveryPartnerSession> = withContext(Dispatchers.IO) {
+    open suspend fun getSessions(userId: String): List<DeliveryPartnerSession> = withContext(Dispatchers.IO) {
         try {
             val userFilter = "eq.$userId"
             sessionApi.getSessions(userFilter).map { it.toDomain() }
@@ -25,7 +25,7 @@ class DeliveryPartnerSessionRepository(
         }
     }
 
-    suspend fun getSessionsForPartner(userId: String, partnerId: String): List<DeliveryPartnerSession> = withContext(Dispatchers.IO) {
+    open suspend fun getSessionsForPartner(userId: String, partnerId: String): List<DeliveryPartnerSession> = withContext(Dispatchers.IO) {
         try {
             val userFilter = "eq.$userId"
             val partnerFilter = "eq.$partnerId"
@@ -36,7 +36,7 @@ class DeliveryPartnerSessionRepository(
         }
     }
 
-    suspend fun getSessionById(sessionId: String): DeliveryPartnerSession? = withContext(Dispatchers.IO) {
+    open suspend fun getSessionById(sessionId: String): DeliveryPartnerSession? = withContext(Dispatchers.IO) {
         try {
             val list = sessionApi.getSessionById("eq.$sessionId")
             list.firstOrNull()?.toDomain()
@@ -46,7 +46,7 @@ class DeliveryPartnerSessionRepository(
         }
     }
 
-    suspend fun saveSession(session: DeliveryPartnerSession): DeliveryPartnerSession = withContext(Dispatchers.IO) {
+    open suspend fun saveSession(session: DeliveryPartnerSession): DeliveryPartnerSession = withContext(Dispatchers.IO) {
         val dto = session.toDto()
         val result = if (session.id.isNotBlank()) {
             val updated = sessionApi.updateSession("eq.${session.id}", dto)
@@ -59,7 +59,7 @@ class DeliveryPartnerSessionRepository(
         result
     }
 
-    suspend fun finalizeSession(session: DeliveryPartnerSession, expense: Expense): DeliveryPartnerSession = withContext(Dispatchers.IO) {
+    open suspend fun finalizeSession(session: DeliveryPartnerSession, expense: Expense): DeliveryPartnerSession = withContext(Dispatchers.IO) {
         // 1. Criar a despesa na tabela expenses
         val createdExpense = expenseRepository.createExpense(expense)
         Log.d("PartnerSessionRepo", "Despesa de equipe criada com id: ${createdExpense.id}, valor: ${createdExpense.amount}")
@@ -75,7 +75,7 @@ class DeliveryPartnerSessionRepository(
         result
     }
 
-    suspend fun deleteSession(sessionId: String): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun deleteSession(sessionId: String): Boolean = withContext(Dispatchers.IO) {
         try {
             sessionApi.deleteSession("eq.$sessionId")
             AppDataSync.notifyDataChanged()
