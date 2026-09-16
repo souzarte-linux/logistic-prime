@@ -609,7 +609,16 @@ fun CentralDoMotoristaApp(
             }
 
             composable(Screen.Relatorios.route) {
-                GenericScreenPlaceholder(title = "Relatórios e Faturamento")
+                val relatoriosViewModel: com.fernando.centraldomotorista.ui.screens.relatorios.RelatoriosViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.relatorios.RelatoriosScreen(
+                    viewModel = relatoriosViewModel,
+                    onNavigateToHistoricoCategory = { _ ->
+                        navController.navigate(Screen.Historico.route)
+                    },
+                    onNavigateToEditMaintenance = { expenseId ->
+                        navController.navigate("${Screen.LancarManutencao.route}?itemId=$expenseId")
+                    }
+                )
             }
 
             composable(Screen.Historico.route) {
