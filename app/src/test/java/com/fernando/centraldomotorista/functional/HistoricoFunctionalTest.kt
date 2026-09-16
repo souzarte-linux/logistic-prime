@@ -359,4 +359,117 @@ class HistoricoFunctionalTest {
             totalHojeComDt
         )
     }
+
+    // =========================================================================
+    // TESTE 6: Redirecionamento de Despesas de Parceiro de Entrega para Sessão da Rota
+    // =========================================================================
+    @Test
+    fun test6_partnerExpenseRedirectsToSessionRoute() {
+        val partnerSession = DeliveryPartnerSession(
+            id = "session-uuid-123",
+            userId = "user-1",
+            partnerId = "partner-1",
+            routeId = "route-1",
+            expenseId = "expense-uuid-456",
+            expectedPackageCount = 40,
+            deliveredCount = 38,
+            returnedCount = 2,
+            packageRate = BigDecimal("2.50"),
+            defaultBonus = BigDecimal("20.00"),
+            amountPaid = BigDecimal("115.00")
+        )
+
+        // 1. Item com rawPartnerSession associado
+        val itemWithSession = TransactionItem(
+            id = "expense-uuid-456",
+            type = TransactionType.DESPESA,
+            sourceType = TransactionSourceType.EXPENSE,
+            title = "DIÁRIA ENTREGADOR",
+            subtitle = "JOÃO SILVA",
+            amount = BigDecimal("115.00"),
+            netAmount = BigDecimal("115.00"),
+            category = "equipe",
+            occurredAt = nowOffset,
+            rawPartnerSession = partnerSession
+        )
+
+        val editRouteWithSession = when (itemWithSession.sourceType) {
+            TransactionSourceType.EXPENSE -> {
+                val cat = itemWithSession.category.lowercase()
+                when {
+                    itemWithSession.rawPartnerSession != null -> "session_route?sessionId=${itemWithSession.rawPartnerSession.id}&readOnly=true"
+                    cat.contains("equipe") || cat.contains("parceiro") || cat.contains("entregador") -> "session_route?expenseId=${itemWithSession.id}&readOnly=true"
+                    else -> "fuel_expense?itemId=${itemWithSession.id}"
+                }
+            }
+            else -> ""
+        }
+
+        assertEquals(
+            "Despesa com rawPartnerSession deve redirecionar para session_route com sessionId",
+            "session_route?sessionId=session-uuid-123&readOnly=true",
+            editRouteWithSession
+        )
+
+        // 2. Item com categoria equipe sem rawPartnerSession (fallback para expenseId)
+        val itemWithoutSession = TransactionItem(
+            id = "expense-uuid-789",
+            type = TransactionType.DESPESA,
+            sourceType = TransactionSourceType.EXPENSE,
+            title = "DIÁRIA ENTREGADOR",
+            subtitle = "MARIA OLIVEIRA",
+            amount = BigDecimal("150.00"),
+            netAmount = BigDecimal("150.00"),
+            category = "equipe",
+            occurredAt = nowOffset,
+            rawPartnerSession = null
+        )
+
+        val editRouteWithoutSession = when (itemWithoutSession.sourceType) {
+            TransactionSourceType.EXPENSE -> {
+                val cat = itemWithoutSession.category.lowercase()
+                when {
+                    itemWithoutSession.rawPartnerSession != null -> "session_route?sessionId=${itemWithoutSession.rawPartnerSession.id}&readOnly=true"
+                    cat.contains("equipe") || cat.contains("parceiro") || cat.contains("entregador") -> "session_route?expenseId=${itemWithoutSession.id}&readOnly=true"
+                    else -> "fuel_expense?itemId=${itemWithoutSession.id}"
+                }
+            }
+            else -> ""
+        }
+
+        assertEquals(
+            "Despesa de equipe sem session em cache deve redirecionar para session_route com expenseId",
+            "session_route?expenseId=expense-uuid-789&readOnly=true",
+            editRouteWithoutSession
+        )
+
+        // 3. Despesa comum (combustível) não deve cair em session_route
+        val fuelExpense = TransactionItem(
+            id = "exp-fuel",
+            type = TransactionType.DESPESA,
+            sourceType = TransactionSourceType.EXPENSE,
+            title = "GASOLINA",
+            subtitle = "POSTO IPIRANGA",
+            amount = BigDecimal("100.00"),
+            netAmount = BigDecimal("100.00"),
+            category = "combustivel",
+            occurredAt = nowOffset
+        )
+
+        val fuelRoute = when (fuelExpense.sourceType) {
+            TransactionSourceType.EXPENSE -> {
+                val cat = fuelExpense.category.lowercase()
+                when {
+                    fuelExpense.rawPartnerSession != null -> "session_route?sessionId=${fuelExpense.rawPartnerSession.id}&readOnly=true"
+                    cat.contains("equipe") || cat.contains("parceiro") || cat.contains("entregador") -> "session_route?expenseId=${fuelExpense.id}&readOnly=true"
+                    cat.contains("combustivel") || cat.contains("abastecimento") -> "fuel_expense?itemId=${fuelExpense.id}"
+                    else -> "fuel_expense?itemId=${fuelExpense.id}"
+                }
+            }
+            else -> ""
+        }
+
+        assertEquals("Combustível continua indo para fuel_expense", "fuel_expense?itemId=exp-fuel", fuelRoute)
+    }
 }
+

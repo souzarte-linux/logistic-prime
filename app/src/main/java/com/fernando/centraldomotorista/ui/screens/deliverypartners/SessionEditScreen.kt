@@ -87,12 +87,16 @@ fun SessionEditScreen(
     session: DeliveryPartnerSession,
     routes: List<DeliveryRoute>,
     partner: DeliveryPartner? = null,
+    isReadOnly: Boolean = false,
+    onToggleEditMode: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onSave: (DeliveryPartnerSession) -> Unit
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val zone = remember { ZoneId.systemDefault() }
+
+    var readOnlyMode by remember(isReadOnly) { mutableStateOf(isReadOnly) }
 
     BackHandler(onBack = onDismiss)
 
@@ -169,7 +173,7 @@ fun SessionEditScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "EDITAR SESSÃO",
+                        text = if (readOnlyMode) "SESSÃO DA ROTA" else "EDITAR SESSÃO",
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
@@ -186,36 +190,50 @@ fun SessionEditScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            val exp = expectedText.toIntOrNull() ?: session.expectedPackageCount
-                            val del = deliveredText.toIntOrNull() ?: session.deliveredCount
-                            val ret = returnedText.toIntOrNull() ?: session.returnedCount
-                            val pkgRate = parseAmount(packageRateText)
-                            val defBonus = parseAmount(defaultBonusText)
-                            val amtPaid = parseAmount(amountPaidText)
-
-                            val updated = session.copy(
-                                routeId = selectedRouteId,
-                                startTime = startDateTime,
-                                endTime = if (hasEndTime) endDateTime else null,
-                                expectedPackageCount = exp,
-                                deliveredCount = del,
-                                returnedCount = ret,
-                                packageRate = pkgRate,
-                                defaultBonus = defBonus,
-                                amountPaid = amtPaid,
-                                scannedBarcodes = barcodes,
-                                scannedCount = barcodes.size
+                    if (readOnlyMode) {
+                        IconButton(
+                            onClick = {
+                                if (onToggleEditMode != null) onToggleEditMode() else readOnlyMode = false
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Editar Sessão",
+                                tint = OrangeNeon
                             )
-                            onSave(updated)
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Salvar",
-                            tint = OrangeNeon
-                        )
+                    } else {
+                        IconButton(
+                            onClick = {
+                                val exp = expectedText.toIntOrNull() ?: session.expectedPackageCount
+                                val del = deliveredText.toIntOrNull() ?: session.deliveredCount
+                                val ret = returnedText.toIntOrNull() ?: session.returnedCount
+                                val pkgRate = parseAmount(packageRateText)
+                                val defBonus = parseAmount(defaultBonusText)
+                                val amtPaid = parseAmount(amountPaidText)
+
+                                val updated = session.copy(
+                                    routeId = selectedRouteId,
+                                    startTime = startDateTime,
+                                    endTime = if (hasEndTime) endDateTime else null,
+                                    expectedPackageCount = exp,
+                                    deliveredCount = del,
+                                    returnedCount = ret,
+                                    packageRate = pkgRate,
+                                    defaultBonus = defBonus,
+                                    amountPaid = amtPaid,
+                                    scannedBarcodes = barcodes,
+                                    scannedCount = barcodes.size
+                                )
+                                onSave(updated)
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Salvar",
+                                tint = OrangeNeon
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -236,46 +254,70 @@ fun SessionEditScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        onClick = {
-                            val exp = expectedText.toIntOrNull() ?: session.expectedPackageCount
-                            val del = deliveredText.toIntOrNull() ?: session.deliveredCount
-                            val ret = returnedText.toIntOrNull() ?: session.returnedCount
-                            val pkgRate = parseAmount(packageRateText)
-                            val defBonus = parseAmount(defaultBonusText)
-                            val amtPaid = parseAmount(amountPaidText)
-
-                            val updated = session.copy(
-                                routeId = selectedRouteId,
-                                startTime = startDateTime,
-                                endTime = if (hasEndTime) endDateTime else null,
-                                expectedPackageCount = exp,
-                                deliveredCount = del,
-                                returnedCount = ret,
-                                packageRate = pkgRate,
-                                defaultBonus = defBonus,
-                                amountPaid = amtPaid,
-                                scannedBarcodes = barcodes,
-                                scannedCount = barcodes.size
+                    if (readOnlyMode) {
+                        Button(
+                            onClick = {
+                                if (onToggleEditMode != null) onToggleEditMode() else readOnlyMode = false
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = OrangeNeon,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Editar Sessão",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
                             )
-                            onSave(updated)
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = OrangeNeon,
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Salvar Alterações",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                val exp = expectedText.toIntOrNull() ?: session.expectedPackageCount
+                                val del = deliveredText.toIntOrNull() ?: session.deliveredCount
+                                val ret = returnedText.toIntOrNull() ?: session.returnedCount
+                                val pkgRate = parseAmount(packageRateText)
+                                val defBonus = parseAmount(defaultBonusText)
+                                val amtPaid = parseAmount(amountPaidText)
+
+                                val updated = session.copy(
+                                    routeId = selectedRouteId,
+                                    startTime = startDateTime,
+                                    endTime = if (hasEndTime) endDateTime else null,
+                                    expectedPackageCount = exp,
+                                    deliveredCount = del,
+                                    returnedCount = ret,
+                                    packageRate = pkgRate,
+                                    defaultBonus = defBonus,
+                                    amountPaid = amtPaid,
+                                    scannedBarcodes = barcodes,
+                                    scannedCount = barcodes.size
+                                )
+                                onSave(updated)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = OrangeNeon,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Salvar Alterações",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 }
             }
@@ -290,6 +332,82 @@ fun SessionEditScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
         ) {
+            // 0. SEÇÃO: DADOS DO ENTREGADOR PARCEIRO (SE DISPONÍVEL)
+            if (partner != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = OrangeNeon.copy(alpha = 0.15f),
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = null,
+                                            tint = OrangeNeon,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                                Column {
+                                    Text(
+                                        text = partner.fullName,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (!partner.phone.isNullOrBlank()) {
+                                        Text(
+                                            text = partner.phone,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (!partner.pixKey.isNullOrBlank()) {
+                                        Text(
+                                            text = "PIX: ${partner.pixKey}",
+                                            fontSize = 11.sp,
+                                            color = GreenNeon,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                            if (readOnlyMode) {
+                                Surface(
+                                    color = OrangeNeon.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "VISUALIZAÇÃO",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = OrangeNeon,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // 1. SEÇÃO: SELEÇÃO DE ROTA
             item {
                 Card(
@@ -315,7 +433,7 @@ fun SessionEditScreen(
                             OutlinedCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { routeDropdownOpen = true },
+                                    .clickable(enabled = !readOnlyMode) { routeDropdownOpen = true },
                                 shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                             ) {
@@ -437,15 +555,18 @@ fun SessionEditScreen(
                                     maxLines = 1,
                                     label = { Text("Data Início", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     trailingIcon = {
-                                        IconButton(onClick = {
-                                            val currentLocal = startDateTime.atZoneSameInstant(zone).toLocalDate()
-                                            showDatePicker(context, currentLocal) { newDate ->
-                                                val localTime = startDateTime.atZoneSameInstant(zone).toLocalTime()
-                                                val newZoned = newDate.atTime(localTime).atZone(zone)
-                                                startDateTime = newZoned.toOffsetDateTime()
+                                        IconButton(
+                                            enabled = !readOnlyMode,
+                                            onClick = {
+                                                val currentLocal = startDateTime.atZoneSameInstant(zone).toLocalDate()
+                                                showDatePicker(context, currentLocal) { newDate ->
+                                                    val localTime = startDateTime.atZoneSameInstant(zone).toLocalTime()
+                                                    val newZoned = newDate.atTime(localTime).atZone(zone)
+                                                    startDateTime = newZoned.toOffsetDateTime()
+                                                }
                                             }
-                                        }) {
-                                            Icon(Icons.Default.CalendarToday, contentDescription = "Data Início", tint = OrangeNeon)
+                                        ) {
+                                            Icon(Icons.Default.CalendarToday, contentDescription = "Data Início", tint = if (readOnlyMode) MaterialTheme.colorScheme.onSurfaceVariant else OrangeNeon)
                                         }
                                     },
                                     shape = RoundedCornerShape(12.dp),
@@ -455,7 +576,7 @@ fun SessionEditScreen(
                                     modifier = Modifier
                                         .matchParentSize()
                                         .clip(RoundedCornerShape(12.dp))
-                                        .clickable {
+                                        .clickable(enabled = !readOnlyMode) {
                                             val currentLocal = startDateTime.atZoneSameInstant(zone).toLocalDate()
                                             showDatePicker(context, currentLocal) { newDate ->
                                                 val localTime = startDateTime.atZoneSameInstant(zone).toLocalTime()
@@ -476,15 +597,18 @@ fun SessionEditScreen(
                                     maxLines = 1,
                                     label = { Text("Hora Início", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     trailingIcon = {
-                                        IconButton(onClick = {
-                                            val currentLocalTime = startDateTime.atZoneSameInstant(zone).toLocalTime()
-                                            showTimePicker(context, currentLocalTime) { newTime ->
-                                                val localDate = startDateTime.atZoneSameInstant(zone).toLocalDate()
-                                                val newZoned = localDate.atTime(newTime).atZone(zone)
-                                                startDateTime = newZoned.toOffsetDateTime()
+                                        IconButton(
+                                            enabled = !readOnlyMode,
+                                            onClick = {
+                                                val currentLocalTime = startDateTime.atZoneSameInstant(zone).toLocalTime()
+                                                showTimePicker(context, currentLocalTime) { newTime ->
+                                                    val localDate = startDateTime.atZoneSameInstant(zone).toLocalDate()
+                                                    val newZoned = localDate.atTime(newTime).atZone(zone)
+                                                    startDateTime = newZoned.toOffsetDateTime()
+                                                }
                                             }
-                                        }) {
-                                            Icon(Icons.Default.AccessTime, contentDescription = "Hora Início", tint = OrangeNeon)
+                                        ) {
+                                            Icon(Icons.Default.AccessTime, contentDescription = "Hora Início", tint = if (readOnlyMode) MaterialTheme.colorScheme.onSurfaceVariant else OrangeNeon)
                                         }
                                     },
                                     shape = RoundedCornerShape(12.dp),
@@ -494,7 +618,7 @@ fun SessionEditScreen(
                                     modifier = Modifier
                                         .matchParentSize()
                                         .clip(RoundedCornerShape(12.dp))
-                                        .clickable {
+                                        .clickable(enabled = !readOnlyMode) {
                                             val currentLocalTime = startDateTime.atZoneSameInstant(zone).toLocalTime()
                                             showTimePicker(context, currentLocalTime) { newTime ->
                                                 val localDate = startDateTime.atZoneSameInstant(zone).toLocalDate()
@@ -517,10 +641,11 @@ fun SessionEditScreen(
                             Text("Término:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable { hasEndTime = !hasEndTime }
+                                modifier = Modifier.clickable(enabled = !readOnlyMode) { hasEndTime = !hasEndTime }
                             ) {
                                 Checkbox(
                                     checked = hasEndTime,
+                                    enabled = !readOnlyMode,
                                     onCheckedChange = { hasEndTime = it },
                                     colors = CheckboxDefaults.colors(checkedColor = OrangeNeon)
                                 )
@@ -545,15 +670,18 @@ fun SessionEditScreen(
                                         maxLines = 1,
                                         label = { Text("Data Término", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         trailingIcon = {
-                                            IconButton(onClick = {
-                                                val currentLocal = endDateTime.atZoneSameInstant(zone).toLocalDate()
-                                                showDatePicker(context, currentLocal) { newDate ->
-                                                    val localTime = endDateTime.atZoneSameInstant(zone).toLocalTime()
-                                                    val newZoned = newDate.atTime(localTime).atZone(zone)
-                                                    endDateTime = newZoned.toOffsetDateTime()
+                                            IconButton(
+                                                enabled = !readOnlyMode,
+                                                onClick = {
+                                                    val currentLocal = endDateTime.atZoneSameInstant(zone).toLocalDate()
+                                                    showDatePicker(context, currentLocal) { newDate ->
+                                                        val localTime = endDateTime.atZoneSameInstant(zone).toLocalTime()
+                                                        val newZoned = newDate.atTime(localTime).atZone(zone)
+                                                        endDateTime = newZoned.toOffsetDateTime()
+                                                    }
                                                 }
-                                            }) {
-                                                Icon(Icons.Default.CalendarToday, contentDescription = "Data Término", tint = OrangeNeon)
+                                            ) {
+                                                Icon(Icons.Default.CalendarToday, contentDescription = "Data Término", tint = if (readOnlyMode) MaterialTheme.colorScheme.onSurfaceVariant else OrangeNeon)
                                             }
                                         },
                                         shape = RoundedCornerShape(12.dp),
@@ -563,7 +691,7 @@ fun SessionEditScreen(
                                         modifier = Modifier
                                             .matchParentSize()
                                             .clip(RoundedCornerShape(12.dp))
-                                            .clickable {
+                                            .clickable(enabled = !readOnlyMode) {
                                                 val currentLocal = endDateTime.atZoneSameInstant(zone).toLocalDate()
                                                 showDatePicker(context, currentLocal) { newDate ->
                                                     val localTime = endDateTime.atZoneSameInstant(zone).toLocalTime()
@@ -584,15 +712,18 @@ fun SessionEditScreen(
                                         maxLines = 1,
                                         label = { Text("Hora Término", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         trailingIcon = {
-                                            IconButton(onClick = {
-                                                val currentLocalTime = endDateTime.atZoneSameInstant(zone).toLocalTime()
-                                                showTimePicker(context, currentLocalTime) { newTime ->
-                                                    val localDate = endDateTime.atZoneSameInstant(zone).toLocalDate()
-                                                    val newZoned = localDate.atTime(newTime).atZone(zone)
-                                                    endDateTime = newZoned.toOffsetDateTime()
+                                            IconButton(
+                                                enabled = !readOnlyMode,
+                                                onClick = {
+                                                    val currentLocalTime = endDateTime.atZoneSameInstant(zone).toLocalTime()
+                                                    showTimePicker(context, currentLocalTime) { newTime ->
+                                                        val localDate = endDateTime.atZoneSameInstant(zone).toLocalDate()
+                                                        val newZoned = localDate.atTime(newTime).atZone(zone)
+                                                        endDateTime = newZoned.toOffsetDateTime()
+                                                    }
                                                 }
-                                            }) {
-                                                Icon(Icons.Default.AccessTime, contentDescription = "Hora Término", tint = OrangeNeon)
+                                            ) {
+                                                Icon(Icons.Default.AccessTime, contentDescription = "Hora Término", tint = if (readOnlyMode) MaterialTheme.colorScheme.onSurfaceVariant else OrangeNeon)
                                             }
                                         },
                                         shape = RoundedCornerShape(12.dp),
@@ -602,7 +733,7 @@ fun SessionEditScreen(
                                         modifier = Modifier
                                             .matchParentSize()
                                             .clip(RoundedCornerShape(12.dp))
-                                            .clickable {
+                                            .clickable(enabled = !readOnlyMode) {
                                                 val currentLocalTime = endDateTime.atZoneSameInstant(zone).toLocalTime()
                                                 showTimePicker(context, currentLocalTime) { newTime ->
                                                     val localDate = endDateTime.atZoneSameInstant(zone).toLocalDate()
@@ -655,6 +786,7 @@ fun SessionEditScreen(
                             OutlinedTextField(
                                 value = expectedText,
                                 onValueChange = { input ->
+                                    if (readOnlyMode) return@OutlinedTextField
                                     val clean = input.filter { c -> c.isDigit() }
                                     expectedText = clean
                                     val exp = clean.toIntOrNull() ?: 0
@@ -668,6 +800,7 @@ fun SessionEditScreen(
                                     val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
                                     amountPaidText = total.toPlainString()
                                 },
+                                readOnly = readOnlyMode,
                                 label = { Text("Expedidos", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 singleLine = true,
                                 maxLines = 1,
@@ -680,6 +813,7 @@ fun SessionEditScreen(
                             OutlinedTextField(
                                 value = deliveredText,
                                 onValueChange = { input ->
+                                    if (readOnlyMode) return@OutlinedTextField
                                     val clean = input.filter { c -> c.isDigit() }
                                     deliveredText = clean
                                     val del = clean.toIntOrNull() ?: 0
@@ -695,6 +829,7 @@ fun SessionEditScreen(
                                     val total = SessionCalculationHelper.calculateAmount(del, rate, bonus)
                                     amountPaidText = total.toPlainString()
                                 },
+                                readOnly = readOnlyMode,
                                 label = { Text("Entregues", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 singleLine = true,
                                 maxLines = 1,
@@ -707,6 +842,7 @@ fun SessionEditScreen(
                             OutlinedTextField(
                                 value = returnedText,
                                 onValueChange = { input ->
+                                    if (readOnlyMode) return@OutlinedTextField
                                     val clean = input.filter { c -> c.isDigit() }
                                     returnedText = clean
                                     val ret = clean.toIntOrNull() ?: 0
@@ -720,6 +856,7 @@ fun SessionEditScreen(
                                     val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
                                     amountPaidText = total.toPlainString()
                                 },
+                                readOnly = readOnlyMode,
                                 label = { Text("Devolvidos", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 singleLine = true,
                                 maxLines = 1,
@@ -783,7 +920,7 @@ fun SessionEditScreen(
                             val delCount = deliveredText.toIntOrNull() ?: 0
                             val rate = SessionCalculationHelper.parseAmount(packageRateText)
                             val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
-                            if (delCount > 0 && rate > BigDecimal.ZERO) {
+                            if (!readOnlyMode && delCount > 0 && rate > BigDecimal.ZERO) {
                                 val suggested = SessionCalculationHelper.calculateAmount(delCount, rate, bonus)
                                 TextButton(
                                     onClick = { amountPaidText = suggested.toPlainString() },
@@ -810,6 +947,7 @@ fun SessionEditScreen(
                             OutlinedTextField(
                                 value = packageRateText,
                                 onValueChange = { input ->
+                                    if (readOnlyMode) return@OutlinedTextField
                                     packageRateText = input
                                     val rate = SessionCalculationHelper.parseAmount(input)
                                     val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
@@ -818,6 +956,7 @@ fun SessionEditScreen(
                                     val total = SessionCalculationHelper.calculateAmount(del, rate, bonus)
                                     amountPaidText = total.toPlainString()
                                 },
+                                readOnly = readOnlyMode,
                                 label = { Text("Taxa / Pacote", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 prefix = { Text("R$ ", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.Bold) },
                                 singleLine = true,
@@ -830,6 +969,7 @@ fun SessionEditScreen(
                             OutlinedTextField(
                                 value = defaultBonusText,
                                 onValueChange = { input ->
+                                    if (readOnlyMode) return@OutlinedTextField
                                     defaultBonusText = input
                                     val bonus = SessionCalculationHelper.parseAmount(input)
                                     val rate = SessionCalculationHelper.parseAmount(packageRateText)
@@ -838,6 +978,7 @@ fun SessionEditScreen(
                                     val total = SessionCalculationHelper.calculateAmount(del, rate, bonus)
                                     amountPaidText = total.toPlainString()
                                 },
+                                readOnly = readOnlyMode,
                                 label = { Text("Bônus Fixo", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 prefix = { Text("R$ ", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.Bold) },
                                 singleLine = true,
@@ -851,6 +992,7 @@ fun SessionEditScreen(
                         OutlinedTextField(
                             value = amountPaidText,
                             onValueChange = { input ->
+                                if (readOnlyMode) return@OutlinedTextField
                                 amountPaidText = input
                                 val amt = SessionCalculationHelper.parseAmount(input)
                                 val rate = SessionCalculationHelper.parseAmount(packageRateText)
@@ -867,6 +1009,7 @@ fun SessionEditScreen(
                                     }
                                 }
                             },
+                            readOnly = readOnlyMode,
                             label = { Text("Valor Total Pago ao Parceiro", maxLines = 1) },
                             leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = GreenNeon) },
                             singleLine = true,
@@ -971,58 +1114,62 @@ fun SessionEditScreen(
                                         Text("Copiar Todos", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
 
-                                    OutlinedButton(
-                                        onClick = { showClearAllConfirmation = true },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.height(28.dp),
-                                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f))
-                                    ) {
-                                        Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = RedAlert, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Limpar", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = RedAlert)
+                                    if (!readOnlyMode) {
+                                        OutlinedButton(
+                                            onClick = { showClearAllConfirmation = true },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.height(28.dp),
+                                            border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f))
+                                        ) {
+                                            Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = RedAlert, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Limpar", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = RedAlert)
+                                        }
                                     }
                                 }
                             }
                         }
 
                         // Campo para adicionar novo código de barra manualmente
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(IntrinsicSize.Min),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedTextField(
-                                value = newBarcodeInput,
-                                onValueChange = { newBarcodeInput = it.trim() },
-                                label = { Text("Adicionar código manual", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                placeholder = { Text("Ex: 100827392817") },
-                                singleLine = true,
-                                maxLines = 1,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f).fillMaxHeight()
-                            )
-
-                            Button(
-                                onClick = {
-                                    val code = newBarcodeInput.trim()
-                                    if (code.isBlank()) {
-                                        Toast.makeText(context, "Digite um código válido", Toast.LENGTH_SHORT).show()
-                                    } else if (barcodes.contains(code)) {
-                                        Toast.makeText(context, "Código já consta na lista!", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        barcodes = barcodes + code
-                                        newBarcodeInput = ""
-                                        Toast.makeText(context, "Código adicionado!", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxHeight().defaultMinSize(minWidth = 52.dp)
+                        if (!readOnlyMode) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Add, contentDescription = "Adicionar")
+                                OutlinedTextField(
+                                    value = newBarcodeInput,
+                                    onValueChange = { newBarcodeInput = it.trim() },
+                                    label = { Text("Adicionar código manual", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    placeholder = { Text("Ex: 100827392817") },
+                                    singleLine = true,
+                                    maxLines = 1,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1f).fillMaxHeight()
+                                )
+
+                                Button(
+                                    onClick = {
+                                        val code = newBarcodeInput.trim()
+                                        if (code.isBlank()) {
+                                            Toast.makeText(context, "Digite um código válido", Toast.LENGTH_SHORT).show()
+                                        } else if (barcodes.contains(code)) {
+                                            Toast.makeText(context, "Código já consta na lista!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            barcodes = barcodes + code
+                                            newBarcodeInput = ""
+                                            Toast.makeText(context, "Código adicionado!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxHeight().defaultMinSize(minWidth = 52.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Adicionar")
+                                }
                             }
                         }
 
@@ -1100,18 +1247,20 @@ fun SessionEditScreen(
                                 )
                             }
 
-                            IconButton(
-                                onClick = {
-                                    barcodeToDelete = code
-                                },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Remover Código",
-                                    tint = RedAlert,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                            if (!readOnlyMode) {
+                                IconButton(
+                                    onClick = {
+                                        barcodeToDelete = code
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remover Código",
+                                        tint = RedAlert,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     }

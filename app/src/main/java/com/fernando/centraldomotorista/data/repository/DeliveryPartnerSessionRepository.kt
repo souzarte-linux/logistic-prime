@@ -46,6 +46,16 @@ open class DeliveryPartnerSessionRepository(
         }
     }
 
+    open suspend fun getSessionByExpenseId(expenseId: String): DeliveryPartnerSession? = withContext(Dispatchers.IO) {
+        try {
+            val list = sessionApi.getSessionByExpenseId("eq.$expenseId")
+            list.firstOrNull()?.toDomain()
+        } catch (e: Exception) {
+            Log.e("PartnerSessionRepo", "Erro ao buscar sessão pelo expenseId $expenseId: ${e.message}", e)
+            null
+        }
+    }
+
     open suspend fun saveSession(session: DeliveryPartnerSession): DeliveryPartnerSession = withContext(Dispatchers.IO) {
         val dto = session.toDto()
         val result = if (session.id.isNotBlank()) {

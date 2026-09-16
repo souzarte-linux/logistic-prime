@@ -474,6 +474,39 @@ fun CentralDoMotoristaApp(
                 )
             }
 
+            // Sessão da Rota - Visualização e Edição
+            composable(
+                route = "session_route?sessionId={sessionId}&expenseId={expenseId}&readOnly={readOnly}",
+                arguments = listOf(
+                    navArgument("sessionId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("expenseId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("readOnly") {
+                        type = NavType.BoolType
+                        defaultValue = true
+                    }
+                )
+            ) { backStackEntry ->
+                val sessionId = backStackEntry.arguments?.getString("sessionId")
+                val expenseId = backStackEntry.arguments?.getString("expenseId")
+                val readOnly = backStackEntry.arguments?.getBoolean("readOnly") ?: true
+                val sessionRouteViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.SessionRouteViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.SessionRouteScreen(
+                    sessionId = sessionId,
+                    expenseId = expenseId,
+                    initialReadOnly = readOnly,
+                    viewModel = sessionRouteViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
             // Cadastro - Monitoramento Peças
             composable(Screen.MonitoramentoPecas.route) {
                 com.fernando.centraldomotorista.ui.screens.pecas.PartMaintenanceScreen(

@@ -342,6 +342,8 @@ class HistoricoViewModel(
             TransactionSourceType.EXPENSE -> {
                 val cat = item.rawExpense?.category?.lowercase() ?: item.category.lowercase()
                 when {
+                    item.rawPartnerSession != null -> "session_route?sessionId=${item.rawPartnerSession.id}&readOnly=true"
+                    cat.contains("equipe") || cat.contains("parceiro") || cat.contains("entregador") -> "session_route?expenseId=${item.id}&readOnly=true"
                     cat.contains("combustivel") || cat.contains("abastecimento") -> "fuel_expense?itemId=${item.id}"
                     cat.contains("alimentacao") -> "meal_expense?itemId=${item.id}"
                     cat.contains("manutencao") || cat.contains("peca") -> "lancar-manutencao?itemId=${item.id}"

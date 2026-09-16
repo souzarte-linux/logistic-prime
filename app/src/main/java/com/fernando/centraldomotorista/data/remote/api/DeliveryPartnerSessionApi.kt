@@ -22,6 +22,11 @@ interface DeliveryPartnerSessionApi {
         @Query("id") idFilter: String
     ): List<DeliveryPartnerSessionDto>
 
+    @GET("delivery_partner_sessions")
+    suspend fun getSessionByExpenseId(
+        @Query("expense_id") expenseIdFilter: String
+    ): List<DeliveryPartnerSessionDto>
+
     @Headers("Prefer: return=representation")
     @POST("delivery_partner_sessions")
     suspend fun createSession(

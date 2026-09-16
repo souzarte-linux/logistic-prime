@@ -191,6 +191,11 @@ fun HistoricoScreen(
                                     if (tx.sourceType == TransactionSourceType.ROUTE && tx.rawRoute != null) {
                                         selectedRouteForDetails = tx.rawRoute
                                         selectedRoutePlatformName = tx.establishment
+                                    } else if (tx.rawPartnerSession != null) {
+                                        onNavigateToEdit("session_route?sessionId=${tx.rawPartnerSession.id}&readOnly=true")
+                                    } else if (tx.sourceType == TransactionSourceType.EXPENSE &&
+                                        (tx.rawExpense?.category?.lowercase()?.contains("equipe") == true || tx.category.contains("EQUIPE", ignoreCase = true))) {
+                                        onNavigateToEdit("session_route?expenseId=${tx.id}&readOnly=true")
                                     }
                                 }
                             )

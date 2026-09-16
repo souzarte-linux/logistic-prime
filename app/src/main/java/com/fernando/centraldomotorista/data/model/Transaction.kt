@@ -31,5 +31,7 @@ data class TransactionItem(
     val subtractRoutes: Boolean = false,
     val rawExpense: Expense? = null,
     val rawRoute: Route? = null,
-    val rawDailyTotal: DailyTotal? = null
+    val rawDailyTotal: DailyTotal? = null,
+    val rawPartnerSession: DeliveryPartnerSession? = null,
+    val rawPartner: DeliveryPartner? = null
 )

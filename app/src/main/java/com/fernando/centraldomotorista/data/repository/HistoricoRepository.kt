@@ -22,7 +22,9 @@ class HistoricoRepository(
     private val dailyTotalRepository: DailyTotalRepository = DailyTotalRepository(),
     private val platformRepository: PlatformRepository = PlatformRepository(),
     private val profileRepository: ProfileRepository = ProfileRepository(),
-    private val billingCycleApi: BillingCycleApi = RetrofitClient.billingCycleApi
+    private val billingCycleApi: BillingCycleApi = RetrofitClient.billingCycleApi,
+    private val partnerSessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
+    private val partnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository()
 ) {
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR"))
 
@@ -53,6 +55,22 @@ class HistoricoRepository(
                     emptyList()
                 }
             }
+            val partnerSessionsDeferred = async {
+                try {
+                    partnerSessionRepository.getSessions(userId)
+                } catch (e: Exception) {
+                    Log.e("HistoricoRepo", "Erro ao buscar partner_sessions: ${e.message}", e)
+                    emptyList()
+                }
+            }
+            val partnersDeferred = async {
+                try {
+                    partnerRepository.getDeliveryPartners(userId)
+                } catch (e: Exception) {
+                    Log.e("HistoricoRepo", "Erro ao buscar delivery_partners: ${e.message}", e)
+                    emptyList()
+                }
+            }
 
             val profile = profileDeferred.await()
             val allRoutes = routesDeferred.await()
@@ -60,9 +78,13 @@ class HistoricoRepository(
             val allDailyTotals = dailyTotalsDeferred.await()
             val platforms = platformsDeferred.await()
             val billingCycles = billingCyclesDeferred.await()
+            val partnerSessions = partnerSessionsDeferred.await()
+            val partners = partnersDeferred.await()
 
             val platformsMap = platforms.associate { it.id to it.name }
             val cycleMap = billingCycles.associate { it.id to it.status }
+            val sessionByExpenseId = partnerSessions.filter { !it.expenseId.isNullOrBlank() }.associateBy { it.expenseId!! }
+            val partnersMap = partners.associateBy { it.id }
 
             val transactions = mutableListOf<TransactionItem>()
 
@@ -146,16 +168,20 @@ class HistoricoRepository(
 
             // 3. Mapear Expenses (Despesas)
             allExpenses.forEach { e ->
+                val linkedSession = sessionByExpenseId[e.id]
+                val linkedPartner = linkedSession?.let { partnersMap[it.partnerId] }
+
                 val catFormatted = when (e.category.lowercase()) {
                     "combustivel", "combustível" -> "COMBUSTÍVEL"
                     "manutencao", "manutenção" -> "MANUTENÇÃO"
                     "alimentacao", "alimentação" -> "ALIMENTAÇÃO"
+                    "equipe" -> "EQUIPE"
                     else -> e.category.uppercase()
                 }
 
                 val title = e.title.trim().ifBlank { catFormatted }
                 val timeStr = e.occurredAt.atZoneSameInstant(ZoneId.systemDefault()).format(timeFormatter)
-                val subtitle = "${e.vendor ?: "—"} • $timeStr"
+                val subtitle = "${linkedPartner?.fullName ?: e.vendor ?: "—"} • $timeStr"
 
                 var meta1: String? = null
                 if (e.category.lowercase().contains("manuten")) {
@@ -173,6 +199,9 @@ class HistoricoRepository(
                     if (e.liters != null && e.liters > BigDecimal.ZERO) parts.add("${e.liters} L")
                     if (e.odometerKm != null && e.odometerKm > BigDecimal.ZERO) parts.add("${e.odometerKm} KM")
                     if (parts.isNotEmpty()) meta1 = parts.joinToString(" • ")
+                } else if (linkedSession != null) {
+                    val pCount = linkedSession.deliveredCount
+                    meta1 = "$pCount Entregue${if (pCount == 1) "" else "s"}"
                 }
 
                 transactions.add(
@@ -186,12 +215,14 @@ class HistoricoRepository(
                         netAmount = e.amount,
                         category = catFormatted,
                         occurredAt = e.occurredAt,
-                        establishment = e.vendor,
+                        establishment = linkedPartner?.fullName ?: e.vendor,
                         meta1 = meta1,
                         meta2 = null,
                         tag = catFormatted,
                         subtractRoutes = false,
-                        rawExpense = e
+                        rawExpense = e,
+                        rawPartnerSession = linkedSession,
+                        rawPartner = linkedPartner
                     )
                 )
             }
