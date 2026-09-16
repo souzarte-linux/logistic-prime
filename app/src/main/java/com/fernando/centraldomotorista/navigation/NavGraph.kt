@@ -65,6 +65,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     // Suporte a telas auxiliares existentes
     object CreditCards : Screen("credit_cards", "Gerenciamento de Cartões", Icons.Default.CreditCard)
     object PartProducts : Screen("part_products", "Produtos & Marcas", Icons.Default.Category)
+    object Faturas : Screen("faturas", "Contas a Receber", Icons.Default.ReceiptLong)
 }
 
 val bottomNavItems = listOf(
@@ -223,6 +224,9 @@ fun CentralDoMotoristaApp(
                     onNavigateToDeliveryPartners = {
                         navController.navigate(Screen.DeliveryPartners.route)
                     },
+                    onNavigateToFaturas = {
+                        navController.navigate(Screen.Faturas.route)
+                    },
                     onNavigateToRoute = { route ->
                         navController.navigate(route)
                     },
@@ -327,6 +331,28 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
                     viewModel = platformsViewModel,
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Financeiro - Contas a Receber / Faturas
+            composable(Screen.Faturas.route) {
+                val faturasViewModel: com.fernando.centraldomotorista.ui.screens.faturas.FaturasViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.faturas.FaturasScreen(
+                    viewModel = faturasViewModel,
+                    onNavigateBack = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
+                )
+            }
+            composable("faturas") {
+                val faturasViewModel: com.fernando.centraldomotorista.ui.screens.faturas.FaturasViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.faturas.FaturasScreen(
+                    viewModel = faturasViewModel,
+                    onNavigateBack = {
+                        homeViewModel.refresh()
+                        navController.popBackStack()
+                    }
                 )
             }
 

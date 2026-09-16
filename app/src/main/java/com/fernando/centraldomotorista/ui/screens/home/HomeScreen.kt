@@ -92,6 +92,7 @@ fun HomeScreen(
     onNavigateToEditMaintenance: (PartMaintenance) -> Unit = {},
     onNavigateToRoute: (String) -> Unit,
     onNavigateToDeliveryPartners: () -> Unit = { onNavigateToRoute(Screen.DeliveryPartners.route) },
+    onNavigateToFaturas: () -> Unit = { onNavigateToRoute("faturas") },
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -445,6 +446,19 @@ fun HomeScreen(
                                     coroutineScope.launch {
                                         drawerState.close()
                                         onNavigateToRoute("credit_cards")
+                                    }
+                                }
+                            )
+
+                            // 💰 Contas a Receber / Faturas
+                            DrawerCadastroItem(
+                                icon = Icons.Default.ReceiptLong,
+                                title = "Contas a Receber",
+                                subtitle = "Faturas e ciclos de pagamento",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                        onNavigateToFaturas()
                                     }
                                 }
                             )
@@ -1130,7 +1144,7 @@ fun HomeScreen(
                                             .height(IntrinsicSize.Min),
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        // 3. Contas a Receber (Abre Modal Informativo)
+                                        // 3. Contas a Receber (Faturas)
                                         HomeActionCard(
                                             title = "A RECEBER",
                                             subtitle = uiState.contasAReceber.formatCurrency(),
@@ -1141,7 +1155,7 @@ fun HomeScreen(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .fillMaxHeight(),
-                                            onClick = { showReceivablesModal = true }
+                                            onClick = { onNavigateToFaturas() }
                                         )
 
                                         // 4. Entregadores Parceiros

@@ -6,7 +6,7 @@ import java.time.LocalDate
 
 data class BillingCycleDto(
     @SerializedName("id")
-    val id: String,
+    val id: String? = null,
     @SerializedName("user_id")
     val userId: String,
     @SerializedName("platform_id")
@@ -25,7 +25,7 @@ data class BillingCycleDto(
 
 fun BillingCycleDto.toDomain(): BillingCycle {
     return BillingCycle(
-        id = id,
+        id = id ?: "",
         userId = userId,
         platformId = platformId,
         periodStart = try { LocalDate.parse(periodStart) } catch (e: Exception) { LocalDate.now() },
@@ -34,3 +34,16 @@ fun BillingCycleDto.toDomain(): BillingCycle {
         status = status
     )
 }
+
+fun BillingCycle.toDto(): BillingCycleDto {
+    return BillingCycleDto(
+        id = id.ifBlank { null },
+        userId = userId,
+        platformId = platformId,
+        periodStart = periodStart.toString(),
+        periodEnd = periodEnd.toString(),
+        expectedPaymentDate = expectedPaymentDate.toString(),
+        status = status
+    )
+}
+
