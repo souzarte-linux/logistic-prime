@@ -31,16 +31,32 @@ data class Profile(
     val lastOilChangeAt: OffsetDateTime?,
 )
 
+data class CycleEntry(
+    val cut: Int,       // Dia do corte no mês (1 a 28)
+    val payDelay: Int   // Dias após o corte até o recebimento
+)
+
+data class PlatformRules(
+    val fixedPayDelay: Int = 7,
+    val cycleEntries: List<CycleEntry> = emptyList()
+)
+
 data class Platform(
     val id: String,
     val userId: String,
     val name: String,
-    val cycle: String,           // "semanal" | "quinzenal" | "misto"
+    val cycle: String,           // "semanal" | "quinzenal" | "mensal" | "misto"
     val paymentDay: String?,
     val active: Boolean = true,
     val segment: String = "logistica",   // "logistica" | "delivery"
-    val paymentModel: String = "producao",
-    val rules: Map<String, Any> = emptyMap(),
+    val paymentModel: String = "producao", // "producao" | "diaria"
+    val rules: PlatformRules = PlatformRules(),
+    val bankName: String? = null,
+    val bankAgency: String? = null,
+    val bankAccount: String? = null,
+    val pixKeyType: String? = null,
+    val pixKey: String? = null,
+    val pixBank: String? = null,
 )
 
 data class Route(

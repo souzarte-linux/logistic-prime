@@ -8,8 +8,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -19,17 +22,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.fernando.centraldomotorista.data.billing.BillingCycleCalculator
+import com.fernando.centraldomotorista.data.model.CycleEntry
 import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.ui.theme.*
+import java.math.BigDecimal
+import java.text.NumberFormat
+import java.util.Locale
+
+private fun BigDecimal.formatCurrency(): String {
+    val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
+    return formatter.format(this)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +72,7 @@ fun PlatformsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "APPS & PLATAFORMAS",
+                        text = "GESTOR DE PLATAFORMAS",
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
@@ -76,6 +89,30 @@ fun PlatformsScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.openFilterModal() }) {
+                        BadgedBox(
+                            badge = {
+                                if (uiState.activeFilterCount > 0) {
+                                    Badge(
+                                        containerColor = OrangeNeon,
+                                        contentColor = Color.Black
+                                    ) {
+                                        Text(
+                                            text = uiState.activeFilterCount.toString(),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "Filtros & Ordenação",
+                                tint = if (uiState.activeFilterCount > 0) OrangeNeon else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                     IconButton(onClick = { viewModel.loadPlatforms() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -101,19 +138,7 @@ fun PlatformsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        val filteredPlatforms = remember(uiState.platforms, uiState.searchQuery, uiState.selectedSegmentFilter) {
-            uiState.platforms.filter { platform ->
-                val matchesSearch = uiState.searchQuery.isBlank() ||
-                        platform.name.contains(uiState.searchQuery, ignoreCase = true) ||
-                        platform.cycle.contains(uiState.searchQuery, ignoreCase = true) ||
-                        (platform.paymentDay?.contains(uiState.searchQuery, ignoreCase = true) == true)
-
-                val matchesSegment = uiState.selectedSegmentFilter == null ||
-                        platform.segment.equals(uiState.selectedSegmentFilter, ignoreCase = true)
-
-                matchesSearch && matchesSegment
-            }
-        }
+        val filteredPlatforms = uiState.filteredAndSortedPlatforms
 
         LazyColumn(
             modifier = Modifier
@@ -123,19 +148,53 @@ fun PlatformsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp)
         ) {
-            // 1. Barra de Busca
+            // 1. Banner Principal de Identidade
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "GESTOR DE\nPLATAFORMAS",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 28.sp,
+                        lineHeight = 32.sp,
+                        color = OrangeNeon
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Plataformas com as quais você trabalha. Acompanhe seus ganhos e calendário de pagamentos.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+
+            // 2. Barra de Busca
             item {
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    placeholder = { Text("Buscar plataforma, ciclo ou dia...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
+                    placeholder = {
+                        Text(
+                            "Buscar por nome, segmento ou ciclo...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp
+                        )
+                    },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
                     },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotBlank()) {
                             IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Limpar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Limpar",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     },
@@ -152,49 +211,55 @@ fun PlatformsScreen(
                 )
             }
 
-            // 2. Filtros de Segmento
+            // 3. Barra de Contagem & Botão de Filtros
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    FilterChip(
-                        selected = uiState.selectedSegmentFilter == null,
-                        onClick = { viewModel.onSegmentFilterChanged(null) },
-                        label = { Text("Todas (${uiState.platforms.size})") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = OrangeNeon,
-                            selectedLabelColor = Color.Black,
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            labelColor = MaterialTheme.colorScheme.onSurface
-                        )
+                    Text(
+                        text = "${filteredPlatforms.size} ${if (filteredPlatforms.size == 1) "PLATAFORMA" else "PLATAFORMAS"}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
                     )
-                    FilterChip(
-                        selected = uiState.selectedSegmentFilter == "logistica",
-                        onClick = { viewModel.onSegmentFilterChanged("logistica") },
-                        label = { Text("Logística (${uiState.platforms.count { it.segment == "logistica" }})") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = BlueInfo,
-                            selectedLabelColor = Color.White,
+
+                    AssistChip(
+                        onClick = { viewModel.openFilterModal() },
+                        label = {
+                            Text(
+                                text = if (uiState.activeFilterCount > 0)
+                                    "Filtros & Ordenação (${uiState.activeFilterCount})"
+                                else
+                                    "Filtros & Ordenação",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Tune,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = OrangeNeon
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
                             containerColor = MaterialTheme.colorScheme.surface,
-                            labelColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                    FilterChip(
-                        selected = uiState.selectedSegmentFilter == "delivery",
-                        onClick = { viewModel.onSegmentFilterChanged("delivery") },
-                        label = { Text("Delivery (${uiState.platforms.count { it.segment == "delivery" }})") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = GreenNeon,
-                            selectedLabelColor = Color.White,
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            labelColor = MaterialTheme.colorScheme.onSurface
-                        )
+                            labelColor = OrangeNeon
+                        ),
+                        border = AssistChipDefaults.assistChipBorder(
+                            enabled = true,
+                            borderColor = if (uiState.activeFilterCount > 0) OrangeNeon else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp)
                     )
                 }
             }
 
-            // 3. Loading state
+            // 4. Loading state
             if (uiState.isLoading) {
                 item {
                     Box(
@@ -208,7 +273,7 @@ fun PlatformsScreen(
                 }
             }
 
-            // 4. Empty State
+            // 5. Empty State
             if (!uiState.isLoading && filteredPlatforms.isEmpty()) {
                 item {
                     Card(
@@ -237,21 +302,27 @@ fun PlatformsScreen(
                                 )
                             }
                             Text(
-                                text = if (uiState.platforms.isEmpty()) "Nenhuma plataforma cadastrada" else "Nenhum resultado para a busca",
+                                text = if (uiState.platforms.isEmpty()) "Nenhuma plataforma cadastrada" else "Nenhum resultado com os filtros selecionados",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
                             )
                             Text(
                                 text = if (uiState.platforms.isEmpty())
-                                    "Adicione os apps onde você trabalha para organizar repasses e faturamento."
-                                else "Tente buscar por outro termo ou limpe os filtros.",
+                                    "Adicione os apps onde você trabalha para organizar repasses, faturamento e ciclos."
+                                else
+                                    "Tente alterar a busca ou redefina os filtros.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
 
-                            if (uiState.platforms.isEmpty()) {
+                            if (uiState.platforms.isNotEmpty()) {
+                                TextButton(onClick = { viewModel.clearFilters() }) {
+                                    Text("Limpar filtros", color = OrangeNeon, fontWeight = FontWeight.Bold)
+                                }
+                            } else {
                                 Text(
                                     text = "SUGESTÕES RÁPIDAS:",
                                     fontSize = 11.sp,
@@ -284,15 +355,65 @@ fun PlatformsScreen(
                 }
             }
 
-            // 5. Lista de Plataformas
+            // 6. Lista de Plataformas
             items(filteredPlatforms, key = { it.id }) { platform ->
+                val monthEarnings = uiState.earningsMap[platform.id] ?: BigDecimal.ZERO
                 PlatformCardItem(
                     platform = platform,
+                    monthEarnings = monthEarnings,
                     onEditClick = { viewModel.startEditing(platform) },
                     onToggleActive = { viewModel.togglePlatformActive(platform) }
                 )
             }
+
+            // 7. Botão inferior tracejado "+ ADICIONAR NOVA PLATAFORMA"
+            item {
+                Surface(
+                    onClick = { viewModel.openAddDialog() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Transparent,
+                    border = androidx.compose.foundation.BorderStroke(2.dp, OrangeNeon.copy(alpha = 0.6f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "ADICIONAR NOVA PLATAFORMA",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            letterSpacing = 1.sp,
+                            color = OrangeNeon
+                        )
+                    }
+                }
+            }
         }
+    }
+
+    // Modal de Filtros & Ordenação
+    if (uiState.isFilterModalOpen) {
+        FilterSortModal(
+            uiState = uiState,
+            onDismiss = { viewModel.closeFilterModal() },
+            onStatusChange = { viewModel.onStatusFilterChanged(it) },
+            onSegmentChange = { viewModel.onSegmentFilterChanged(it) },
+            onSortChange = { viewModel.onSortByChanged(it) },
+            onClear = { viewModel.clearFilters() }
+        )
     }
 
     // Modal de Adicionar / Editar Plataforma
@@ -302,10 +423,19 @@ fun PlatformsScreen(
             onDismiss = { viewModel.closeForm() },
             onNameChange = { viewModel.onNameChanged(it) },
             onSegmentChange = { viewModel.onSegmentChanged(it) },
+            onPaymentModelChange = { viewModel.onPaymentModelChanged(it) },
             onCycleChange = { viewModel.onCycleChanged(it) },
             onPaymentDayChange = { viewModel.onPaymentDayChanged(it) },
-            onPaymentModelChange = { viewModel.onPaymentModelChanged(it) },
+            onFixedPayDelayChange = { viewModel.onFixedPayDelayChanged(it) },
             onActiveChange = { viewModel.onActiveChanged(it) },
+            onBankNameChange = { viewModel.onBankNameChanged(it) },
+            onBankAgencyChange = { viewModel.onBankAgencyChanged(it) },
+            onBankAccountChange = { viewModel.onBankAccountChanged(it) },
+            onPixKeyTypeChange = { viewModel.onPixKeyTypeChanged(it) },
+            onPixKeyChange = { viewModel.onPixKeyChanged(it) },
+            onAddCycleEntry = { viewModel.addCycleEntry() },
+            onRemoveCycleEntry = { viewModel.removeCycleEntry(it) },
+            onUpdateCycleEntry = { idx, cut, delay -> viewModel.updateCycleEntry(idx, cut, delay) },
             onSave = { viewModel.savePlatform() },
             onDelete = { platformId -> viewModel.deletePlatform(platformId) }
         )
@@ -315,20 +445,14 @@ fun PlatformsScreen(
 @Composable
 fun PlatformCardItem(
     platform: Platform,
+    monthEarnings: BigDecimal,
     onEditClick: () -> Unit,
     onToggleActive: () -> Unit
 ) {
     val isLogistica = platform.segment.equals("logistica", ignoreCase = true)
     val segmentBadgeColor = if (isLogistica) BlueInfo else GreenNeon
     val segmentLabel = if (isLogistica) "Logística" else "Delivery"
-    val cycleLabel = when (platform.cycle.lowercase()) {
-        "semanal" -> "Semanal"
-        "quinzenal" -> "Quinzenal"
-        "misto" -> "Misto"
-        "mensal" -> "Mensal"
-        "diario" -> "Diário"
-        else -> platform.cycle
-    }
+    val cycleLabel = BillingCycleCalculator.getCycleDisplayLabel(platform.cycle, platform.paymentDay)
 
     Card(
         modifier = Modifier
@@ -340,7 +464,7 @@ fun PlatformCardItem(
         border = if (platform.active)
             androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         else
-            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
     ) {
         Row(
             modifier = Modifier
@@ -352,7 +476,7 @@ fun PlatformCardItem(
             // Ícone da plataforma
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(46.dp)
                     .background(
                         color = if (platform.active) OrangeNeon.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(12.dp)
@@ -368,7 +492,7 @@ fun PlatformCardItem(
                     imageVector = if (isLogistica) Icons.Default.LocalShipping else Icons.Default.TwoWheeler,
                     contentDescription = null,
                     tint = if (platform.active) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
 
@@ -378,17 +502,43 @@ fun PlatformCardItem(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = platform.name,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         color = if (platform.active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
+
+                    // Switch Ativa / Inativa
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Switch(
+                            checked = platform.active,
+                            onCheckedChange = { onToggleActive() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.Black,
+                                checkedTrackColor = GreenNeon,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                uncheckedTrackColor = RedAlert.copy(alpha = 0.6f)
+                            ),
+                            modifier = Modifier.height(28.dp)
+                        )
+                        Text(
+                            text = if (platform.active) "ATIVA" else "INATIVA",
+                            fontSize = 10.sp,
+                            color = if (platform.active) GreenNeon else RedAlert,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
 
                 // Tags de Categoria e Ciclo
@@ -405,67 +555,262 @@ fun PlatformCardItem(
                             text = segmentLabel,
                             color = segmentBadgeColor,
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
 
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(6.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(11.dp)
+                        )
                         Text(
-                            text = "Ciclo: $cycleLabel",
+                            text = cycleLabel,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
 
-                // Dia de pagamento
-                if (!platform.paymentDay.isNullOrBlank()) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Event,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = "Repasse: ${platform.paymentDay}",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                // Estimativa de Pagamento do Mês
+                Column(modifier = Modifier.padding(top = 4.dp)) {
+                    Text(
+                        text = "Est. de pagamento",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 0.5.sp
+                    )
+                    Text(
+                        text = monthEarnings.formatCurrency(),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        color = OrangeNeon
+                    )
+                }
+            }
+
+            // Botão Configurações / Edição
+            IconButton(
+                onClick = onEditClick,
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Editar ${platform.name}",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FilterSortModal(
+    uiState: PlatformsUiState,
+    onDismiss: () -> Unit,
+    onStatusChange: (PlatformStatusFilter) -> Unit,
+    onSegmentChange: (PlatformSegmentFilter) -> Unit,
+    onSortChange: (PlatformSortBy) -> Unit,
+    onClear: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // Cabeçalho do modal
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "FILTRAR & ORDENAR",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 18.sp,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Personalize a exibição das suas plataformas",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Fechar")
+                }
+            }
+
+            // 1. Status da Plataforma
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "STATUS DA PLATAFORMA",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PlatformStatusFilter.entries.forEach { status ->
+                        val isSelected = uiState.statusFilter == status
+                        OutlinedButton(
+                            onClick = { onStatusChange(status) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isSelected) OrangeNeon.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurface
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) OrangeNeon else Color.Transparent
+                            )
+                        ) {
+                            Text(status.label, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
 
-            // Switch Ativa/Inativa
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Switch(
-                    checked = platform.active,
-                    onCheckedChange = { onToggleActive() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.Black,
-                        checkedTrackColor = OrangeNeon,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
+            // 2. Categoria (Segmento)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = if (platform.active) "Ativa" else "Inativa",
-                    fontSize = 10.sp,
-                    color = if (platform.active) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold
+                    text = "TIPO DE CATEGORIA",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PlatformSegmentFilter.entries.forEach { segment ->
+                        val isSelected = uiState.segmentFilter == segment
+                        OutlinedButton(
+                            onClick = { onSegmentChange(segment) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isSelected) OrangeNeon.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurface
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) OrangeNeon else Color.Transparent
+                            )
+                        ) {
+                            Text(segment.label, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // 3. Ordenação
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "ORDENAÇÃO",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                PlatformSortBy.entries.forEach { sort ->
+                    val isSelected = uiState.sortBy == sort
+                    Surface(
+                        onClick = { onSortChange(sort) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) OrangeNeon.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isSelected) OrangeNeon else Color.Transparent
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = sort.label,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurface
+                            )
+                            if (isSelected) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Ações
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        onClear()
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
+                    Text("Limpar Filtros", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeNeon,
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text("Aplicar", fontWeight = FontWeight.Black, fontSize = 13.sp)
+                }
             }
         }
     }
@@ -478,20 +823,24 @@ fun PlatformFormModal(
     onDismiss: () -> Unit,
     onNameChange: (String) -> Unit,
     onSegmentChange: (String) -> Unit,
+    onPaymentModelChange: (String) -> Unit,
     onCycleChange: (String) -> Unit,
     onPaymentDayChange: (String) -> Unit,
-    onPaymentModelChange: (String) -> Unit,
+    onFixedPayDelayChange: (Int) -> Unit,
     onActiveChange: (Boolean) -> Unit,
+    onBankNameChange: (String) -> Unit,
+    onBankAgencyChange: (String) -> Unit,
+    onBankAccountChange: (String) -> Unit,
+    onPixKeyTypeChange: (String) -> Unit,
+    onPixKeyChange: (String) -> Unit,
+    onAddCycleEntry: () -> Unit,
+    onRemoveCycleEntry: (Int) -> Unit,
+    onUpdateCycleEntry: (Int, Int?, Int?) -> Unit,
     onSave: () -> Unit,
     onDelete: (String) -> Unit
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-
-    var segmentExpanded by remember { mutableStateOf(false) }
-    var cycleExpanded by remember { mutableStateOf(false) }
-    var paymentDayExpanded by remember { mutableStateOf(false) }
-    var paymentModelExpanded by remember { mutableStateOf(false) }
-
+    var pixTypeExpanded by remember { mutableStateOf(false) }
     val isEditing = uiState.editingPlatformId != null
 
     ModalBottomSheet(
@@ -502,19 +851,20 @@ fun PlatformFormModal(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Cabeçalho do Modal
+            // Cabeçalho
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isEditing) "Editar Plataforma" else "Nova Plataforma",
+                    text = if (isEditing) "EDITAR PLATAFORMA" else "NOVA PLATAFORMA",
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Black,
                     color = OrangeNeon
                 )
                 if (isEditing) {
@@ -528,7 +878,8 @@ fun PlatformFormModal(
             OutlinedTextField(
                 value = uiState.name,
                 onValueChange = onNameChange,
-                label = { Text("Nome da Plataforma (ex: iFood, Loggi)") },
+                label = { Text("Nome da Plataforma") },
+                placeholder = { Text("Ex: iFood, Loggi, Mercado Envios") },
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = OrangeNeon,
@@ -538,129 +889,559 @@ fun PlatformFormModal(
                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             )
 
-            // 2. Dropdown Categoria (Segmento)
-            ExposedDropdownMenuBox(
-                expanded = segmentExpanded,
-                onExpandedChange = { segmentExpanded = !segmentExpanded }
-            ) {
-                OutlinedTextField(
-                    value = PLATFORM_SEGMENTS.find { it.first == uiState.segment }?.second ?: uiState.segment,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Categoria (Segmento)") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = segmentExpanded) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+            // 2. Segmento de Operação
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "SEGMENTO DE OPERAÇÃO",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                ExposedDropdownMenu(
-                    expanded = segmentExpanded,
-                    onDismissRequest = { segmentExpanded = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    PLATFORM_SEGMENTS.forEach { (key, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
-                            onClick = {
-                                onSegmentChange(key)
-                                segmentExpanded = false
-                            }
+                    val isLogistica = uiState.segment == "logistica"
+                    OutlinedButton(
+                        onClick = { onSegmentChange("logistica") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isLogistica) BlueInfo.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isLogistica) BlueInfo else MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isLogistica) BlueInfo else Color.Transparent
                         )
+                    ) {
+                        Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Logística", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    val isDelivery = uiState.segment == "delivery"
+                    OutlinedButton(
+                        onClick = { onSegmentChange("delivery") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isDelivery) GreenNeon.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isDelivery) GreenNeon else MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isDelivery) GreenNeon else Color.Transparent
+                        )
+                    ) {
+                        Icon(Icons.Default.TwoWheeler, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Delivery", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
             }
 
-            // 3. Dropdown Ciclo de Pagamento
-            ExposedDropdownMenuBox(
-                expanded = cycleExpanded,
-                onExpandedChange = { cycleExpanded = !cycleExpanded }
-            ) {
-                OutlinedTextField(
-                    value = PAYMENT_CYCLES.find { it.first == uiState.cycle }?.second ?: uiState.cycle,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Ciclo de Pagamento") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cycleExpanded) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+            // 3. Modelo de Pagamento
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "MODELO DE PAGAMENTO",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                ExposedDropdownMenu(
-                    expanded = cycleExpanded,
-                    onDismissRequest = { cycleExpanded = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    PAYMENT_CYCLES.forEach { (key, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
-                            onClick = {
-                                onCycleChange(key)
-                                cycleExpanded = false
-                            }
+                    val isProducao = uiState.paymentModel == "producao"
+                    OutlinedButton(
+                        onClick = { onPaymentModelChange("producao") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isProducao) OrangeNeon.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isProducao) OrangeNeon else MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isProducao) OrangeNeon else Color.Transparent
                         )
+                    ) {
+                        Text("Produção (Pacote)", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+
+                    val isDiaria = uiState.paymentModel == "diaria"
+                    OutlinedButton(
+                        onClick = { onPaymentModelChange("diaria") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isDiaria) OrangeNeon.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isDiaria) OrangeNeon else MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isDiaria) OrangeNeon else Color.Transparent
+                        )
+                    ) {
+                        Text("Diária (Fixo)", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
                 }
             }
 
-            // 4. Campo Dia de Pagamento
-            ExposedDropdownMenuBox(
-                expanded = paymentDayExpanded,
-                onExpandedChange = { paymentDayExpanded = !paymentDayExpanded }
-            ) {
-                OutlinedTextField(
-                    value = uiState.paymentDay,
-                    onValueChange = onPaymentDayChange,
-                    label = { Text("Dia do Pagamento / Repasse") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = paymentDayExpanded) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        focusedLabelColor = OrangeNeon,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryEditable, true)
+            // 4. Ciclo de Pagamento (Grid 2x2: SEMANAL, QUINZENAL, MENSAL, VARIÁVEL)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "CICLO DE PAGAMENTO",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                ExposedDropdownMenu(
-                    expanded = paymentDayExpanded,
-                    onDismissRequest = { paymentDayExpanded = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                ) {
-                    COMMON_PAYMENT_DAYS.forEach { dayOption ->
-                        DropdownMenuItem(
-                            text = { Text(dayOption, color = MaterialTheme.colorScheme.onSurface) },
-                            onClick = {
-                                onPaymentDayChange(dayOption)
-                                paymentDayExpanded = false
+                val cycles = listOf(
+                    "semanal" to "SEMANAL",
+                    "quinzenal" to "QUINZENAL",
+                    "mensal" to "MENSAL",
+                    "misto" to "VARIÁVEL"
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        for (i in 0..1) {
+                            val (key, label) = cycles[i]
+                            val isSelected = uiState.cycle == key
+                            OutlinedButton(
+                                onClick = { onCycleChange(key) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isSelected) OrangeNeon.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurface
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSelected) OrangeNeon else Color.Transparent
+                                )
+                            ) {
+                                Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
-                        )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        for (i in 2..3) {
+                            val (key, label) = cycles[i]
+                            val isSelected = uiState.cycle == key
+                            OutlinedButton(
+                                onClick = { onCycleChange(key) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isSelected) OrangeNeon.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurface
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSelected) OrangeNeon else Color.Transparent
+                                )
+                            ) {
+                                Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }
 
-            // 5. Switch Ativa / Inativa
+            // 5. Configuração Específica do Ciclo Selecionado
+            when (uiState.cycle) {
+                "semanal" -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Dia de fechamento semanal",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            WEEK_DAYS.forEach { day ->
+                                val isSelected = uiState.paymentDay.equals(day, ignoreCase = true)
+                                Surface(
+                                    onClick = { onPaymentDayChange(day) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.surface,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (isSelected) OrangeNeon else MaterialTheme.colorScheme.outlineVariant
+                                    )
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = day,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 11.sp,
+                                            color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        OutlinedTextField(
+                            value = uiState.fixedPayDelay.toString(),
+                            onValueChange = { str ->
+                                val num = str.filter { it.isDigit() }.toIntOrNull() ?: 1
+                                onFixedPayDelayChange(num)
+                            },
+                            label = { Text("Prazo de pagamento (dias após fechamento)") },
+                            suffix = { Text("dias", fontWeight = FontWeight.Bold, color = OrangeNeon) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Text(
+                            text = "Ex: se fechar toda ${uiState.paymentDay} e o prazo for ${uiState.fixedPayDelay} dias, o repasse cai na ${uiState.paymentDay} seguinte da semana.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                "quinzenal", "mensal" -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = uiState.fixedPayDelay.toString(),
+                            onValueChange = { str ->
+                                val num = str.filter { it.isDigit() }.toIntOrNull() ?: 1
+                                onFixedPayDelayChange(num)
+                            },
+                            label = { Text("Prazo de pagamento (dias após fechamento)") },
+                            suffix = { Text("dias", fontWeight = FontWeight.Bold, color = OrangeNeon) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                focusedLabelColor = OrangeNeon,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Text(
+                            text = if (uiState.cycle == "quinzenal")
+                                "Fechamento automático no dia 15 e no último dia do mês. O pagamento é realizado ${uiState.fixedPayDelay} dias após cada fechamento."
+                            else
+                                "Fechamento automático no último dia do mês. O pagamento é realizado ${uiState.fixedPayDelay} dias após o fechamento.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                "misto", "variavel" -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Ciclos de pagamento",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Configure cada corte e os dias até o repasse:",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            TextButton(onClick = onAddCycleEntry) {
+                                Text("+ Adicionar ciclo", color = OrangeNeon, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+
+                        uiState.cycleEntries.forEachIndexed { index, entry ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "CICLO ${index + 1}",
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 11.sp,
+                                            color = OrangeNeon,
+                                            letterSpacing = 1.sp
+                                        )
+                                        if (uiState.cycleEntries.size > 1) {
+                                            IconButton(
+                                                onClick = { onRemoveCycleEntry(index) },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Close,
+                                                    contentDescription = "Remover ciclo",
+                                                    tint = RedAlert,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = entry.cut.toString(),
+                                            onValueChange = { str ->
+                                                val v = str.filter { it.isDigit() }.toIntOrNull()
+                                                onUpdateCycleEntry(index, v, null)
+                                            },
+                                            label = { Text("Fechamento (dia)") },
+                                            placeholder = { Text("1-28") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = OrangeNeon,
+                                                focusedLabelColor = OrangeNeon
+                                            ),
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+
+                                        OutlinedTextField(
+                                            value = entry.payDelay.toString(),
+                                            onValueChange = { str ->
+                                                val v = str.filter { it.isDigit() }.toIntOrNull()
+                                                onUpdateCycleEntry(index, null, v)
+                                            },
+                                            label = { Text("Pagamento (dias)") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = OrangeNeon,
+                                                focusedLabelColor = OrangeNeon
+                                            ),
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                    }
+
+                                    val payDayEst = entry.cut + entry.payDelay
+                                    val feedback = if (payDayEst > 28)
+                                        "Fecha dia ${entry.cut} → paga dia ${payDayEst - 28} do mês seguinte"
+                                    else
+                                        "Fecha dia ${entry.cut} → paga dia $payDayEst"
+
+                                    Surface(
+                                        color = OrangeNeon.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = feedback,
+                                            fontSize = 11.sp,
+                                            color = OrangeNeon,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 6. Dados de Recebimento Bancário
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "DADOS DE RECEBIMENTO (OPCIONAL)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = uiState.bankName,
+                    onValueChange = onBankNameChange,
+                    label = { Text("Instituição financeira") },
+                    placeholder = { Text("Ex: Nubank, Itaú, Bradesco...") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = uiState.bankAgency,
+                        onValueChange = onBankAgencyChange,
+                        label = { Text("Agência") },
+                        placeholder = { Text("0001") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedLabelColor = OrangeNeon
+                        ),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = uiState.bankAccount,
+                        onValueChange = onBankAccountChange,
+                        label = { Text("Conta") },
+                        placeholder = { Text("123456-7") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedLabelColor = OrangeNeon
+                        ),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+            }
+
+            // 7. Chave PIX
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "CHAVE PIX (OPCIONAL)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ExposedDropdownMenuBox(
+                        expanded = pixTypeExpanded,
+                        onExpandedChange = { pixTypeExpanded = !pixTypeExpanded },
+                        modifier = Modifier.width(120.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = uiState.pixKeyType,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Tipo") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = pixTypeExpanded) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                focusedLabelColor = OrangeNeon
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = pixTypeExpanded,
+                            onDismissRequest = { pixTypeExpanded = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            PIX_KEY_TYPES.forEach { type ->
+                                DropdownMenuItem(
+                                    text = { Text(type, color = MaterialTheme.colorScheme.onSurface) },
+                                    onClick = {
+                                        onPixKeyTypeChange(type)
+                                        pixTypeExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = uiState.pixKey,
+                        onValueChange = onPixKeyChange,
+                        label = { Text("Chave PIX") },
+                        placeholder = { Text("Digite a chave") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            focusedLabelColor = OrangeNeon
+                        ),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+            }
+
+            // 8. Status da Plataforma (Ativa / Inativa)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -669,22 +1450,31 @@ fun PlatformFormModal(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Status da Plataforma", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Habilitar para novos lançamentos de rota", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Status da Plataforma",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Habilitar para novos lançamentos de rota",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Switch(
                     checked = uiState.active,
                     onCheckedChange = onActiveChange,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.Black,
-                        checkedTrackColor = OrangeNeon,
+                        checkedTrackColor = GreenNeon,
                         uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        uncheckedTrackColor = RedAlert.copy(alpha = 0.6f)
                     )
                 )
             }
 
-            // Botão Salvar
+            // 9. Botão Salvar
             Button(
                 onClick = onSave,
                 enabled = !uiState.isSaving && uiState.name.isNotBlank(),
@@ -695,7 +1485,7 @@ fun PlatformFormModal(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(52.dp)
             ) {
                 if (uiState.isSaving) {
                     CircularProgressIndicator(
@@ -705,9 +1495,10 @@ fun PlatformFormModal(
                     )
                 } else {
                     Text(
-                        text = if (isEditing) "Salvar Alterações" else "Cadastrar Plataforma",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        text = if (isEditing) "SALVAR ALTERAÇÕES" else "VINCULAR PLATAFORMA",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 15.sp,
+                        letterSpacing = 1.sp
                     )
                 }
             }
@@ -720,8 +1511,19 @@ fun PlatformFormModal(
     if (showDeleteConfirmDialog && uiState.editingPlatformId != null) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Excluir Plataforma?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
-            text = { Text("Tem certeza que deseja excluir '${uiState.name}'? Rotas já registradas não serão afetadas.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = {
+                Text(
+                    "Excluir Plataforma?",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    "Tem certeza que deseja excluir '${uiState.name}'? Corridas e lançamentos já registrados não serão excluídos.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {

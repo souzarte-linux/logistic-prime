@@ -9,8 +9,14 @@ import com.fernando.centraldomotorista.data.remote.dto.toDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.ZoneId
+
 class PlatformRepository(
-    private val platformApi: PlatformApi = RetrofitClient.platformApi
+    private val platformApi: PlatformApi = RetrofitClient.platformApi,
+    private val routeRepository: RouteRepository = RouteRepository(),
+    private val dailyTotalRepository: DailyTotalRepository = DailyTotalRepository()
 ) {
     suspend fun getPlatforms(userId: String): List<Platform> = withContext(Dispatchers.IO) {
         try {
@@ -29,6 +35,36 @@ class PlatformRepository(
         } catch (e: Exception) {
             Log.e("PlatformRepository", "Erro ao buscar plataformas ativas: ${e.message}", e)
             emptyList()
+        }
+    }
+
+    suspend fun getMonthEarningsByPlatform(userId: String): Map<String, BigDecimal> = withContext(Dispatchers.IO) {
+        try {
+            val now = LocalDate.now()
+            val startOfMonth = now.withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
+
+            val routes = routeRepository.getRoutes(userId).filter {
+                it.platformId != null && !it.occurredAt.isBefore(startOfMonth)
+            }
+            val dailyTotals = dailyTotalRepository.getDailyTotals(userId).filter {
+                it.platformId != null && !it.occurredAt.isBefore(startOfMonth)
+            }
+
+            val map = mutableMapOf<String, BigDecimal>()
+            routes.forEach { r ->
+                val platId = r.platformId ?: return@forEach
+                val current = map.getOrDefault(platId, BigDecimal.ZERO)
+                map[platId] = current.add(r.amount).add(r.tip)
+            }
+            dailyTotals.forEach { dt ->
+                val platId = dt.platformId ?: return@forEach
+                val current = map.getOrDefault(platId, BigDecimal.ZERO)
+                map[platId] = current.add(dt.amount)
+            }
+            map
+        } catch (e: Exception) {
+            Log.e("PlatformRepository", "Erro ao calcular ganhos do mês por plataforma: ${e.message}", e)
+            emptyMap()
         }
     }
 

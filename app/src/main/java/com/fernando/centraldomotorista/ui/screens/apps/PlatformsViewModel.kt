@@ -2,7 +2,9 @@ package com.fernando.centraldomotorista.ui.screens.apps
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fernando.centraldomotorista.data.model.CycleEntry
 import com.fernando.centraldomotorista.data.model.Platform
+import com.fernando.centraldomotorista.data.model.PlatformRules
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import io.github.jan.supabase.auth.auth
@@ -11,40 +13,28 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 
-val PLATFORM_SEGMENTS = listOf(
-    "logistica" to "Logística",
-    "delivery" to "Delivery"
-)
+enum class PlatformStatusFilter(val label: String) {
+    ALL("Todas"),
+    ACTIVE("Ativas"),
+    INACTIVE("Inativas")
+}
 
-val PAYMENT_CYCLES = listOf(
-    "semanal" to "Semanal",
-    "quinzenal" to "Quinzenal",
-    "misto" to "Misto",
-    "mensal" to "Mensal",
-    "diario" to "Diário"
-)
+enum class PlatformSegmentFilter(val label: String, val rawValue: String?) {
+    ALL("Todas", null),
+    DELIVERY("Delivery", "delivery"),
+    LOGISTICA("Logística", "logistica")
+}
 
-val COMMON_PAYMENT_DAYS = listOf(
-    "Segunda-feira",
-    "Terça-feira",
-    "Quarta-feira",
-    "Quinta-feira",
-    "Sexta-feira",
-    "Sábado",
-    "Domingo",
-    "Dia 5 e 20",
-    "Dia 15 e 30",
-    "Último dia do mês",
-    "D+1 (Diário)"
-)
+enum class PlatformSortBy(val label: String) {
+    ALPHABETICAL("Ordem Alfabética (A-Z)"),
+    HIGHEST_EARNING("Maior Ganho"),
+    LOWEST_EARNING("Menor Ganho")
+}
 
-val PAYMENT_MODELS = listOf(
-    "producao" to "Produção / Por Entrega",
-    "taxa_fixa" to "Taxa Fixa",
-    "diaria" to "Diária Fixa",
-    "km" to "Por KM Rodado"
-)
+val WEEK_DAYS = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SAB", "DOM")
+val PIX_KEY_TYPES = listOf("CPF", "CNPJ", "E-mail", "Celular", "Aleatória")
 
 val POPULAR_PLATFORMS = listOf(
     Triple("Mercado Envios", "logistica", "semanal"),
@@ -59,23 +49,74 @@ val POPULAR_PLATFORMS = listOf(
 
 data class PlatformsUiState(
     val platforms: List<Platform> = emptyList(),
+    val earningsMap: Map<String, BigDecimal> = emptyMap(),
     val searchQuery: String = "",
-    val selectedSegmentFilter: String? = null, // null = all, "logistica", "delivery"
+    val statusFilter: PlatformStatusFilter = PlatformStatusFilter.ALL,
+    val segmentFilter: PlatformSegmentFilter = PlatformSegmentFilter.ALL,
+    val sortBy: PlatformSortBy = PlatformSortBy.ALPHABETICAL,
+    val isFilterModalOpen: Boolean = false,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isFormOpen: Boolean = false,
     val message: String? = null,
     val error: String? = null,
-    
+
     // Form fields
     val editingPlatformId: String? = null,
     val name: String = "",
     val segment: String = "logistica",
-    val cycle: String = "semanal",
-    val paymentDay: String = "Quarta-feira",
     val paymentModel: String = "producao",
+    val cycle: String = "semanal",
+    val paymentDay: String = "QUA",
+    val fixedPayDelay: Int = 7,
+    val cycleEntries: List<CycleEntry> = listOf(CycleEntry(1, 7), CycleEntry(16, 7)),
+    val bankName: String = "",
+    val bankAgency: String = "",
+    val bankAccount: String = "",
+    val pixKeyType: String = "CPF",
+    val pixKey: String = "",
     val active: Boolean = true
-)
+) {
+    val activeFilterCount: Int
+        get() = (if (statusFilter != PlatformStatusFilter.ALL) 1 else 0) +
+                (if (segmentFilter != PlatformSegmentFilter.ALL) 1 else 0) +
+                (if (sortBy != PlatformSortBy.ALPHABETICAL) 1 else 0)
+
+    val filteredAndSortedPlatforms: List<Platform>
+        get() {
+            var list = platforms
+
+            // Filtro de status
+            list = when (statusFilter) {
+                PlatformStatusFilter.ALL -> list
+                PlatformStatusFilter.ACTIVE -> list.filter { it.active }
+                PlatformStatusFilter.INACTIVE -> list.filter { !it.active }
+            }
+
+            // Filtro de segmento
+            if (segmentFilter != PlatformSegmentFilter.ALL && segmentFilter.rawValue != null) {
+                list = list.filter { it.segment.equals(segmentFilter.rawValue, ignoreCase = true) }
+            }
+
+            // Busca textual
+            if (searchQuery.isNotBlank()) {
+                val q = searchQuery.trim().lowercase()
+                list = list.filter {
+                    it.name.lowercase().contains(q) ||
+                    it.segment.lowercase().contains(q) ||
+                    it.cycle.lowercase().contains(q) ||
+                    (it.paymentDay?.lowercase()?.contains(q) == true)
+                }
+            }
+
+            // Ordenação
+            return when (sortBy) {
+                PlatformSortBy.ALPHABETICAL -> list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+                PlatformSortBy.HIGHEST_EARNING -> list.sortedByDescending { earningsMap[it.id] ?: BigDecimal.ZERO }
+                PlatformSortBy.LOWEST_EARNING -> list.sortedBy { earningsMap[it.id] ?: BigDecimal.ZERO }
+            }
+        }
+}
 
 class PlatformsViewModel(
     private val repository: PlatformRepository = PlatformRepository()
@@ -94,24 +135,70 @@ class PlatformsViewModel(
     fun loadPlatforms() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            val list = repository.getPlatforms(currentUserId)
-            _uiState.update {
-                it.copy(
-                    platforms = list,
-                    isLoading = false
-                )
+            try {
+                val list = repository.getPlatforms(currentUserId)
+                val earnings = repository.getMonthEarningsByPlatform(currentUserId)
+                _uiState.update {
+                    it.copy(
+                        platforms = list,
+                        earningsMap = earnings,
+                        isLoading = false
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Erro ao carregar plataformas: ${e.message}"
+                    )
+                }
             }
         }
     }
 
-    fun onSearchQueryChanged(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+    // Filtros e ordenação
+    fun onSearchQueryChanged(query: String) = _uiState.update { it.copy(searchQuery = query) }
+    fun onStatusFilterChanged(status: PlatformStatusFilter) = _uiState.update { it.copy(statusFilter = status) }
+    fun onSegmentFilterChanged(segment: PlatformSegmentFilter) = _uiState.update { it.copy(segmentFilter = segment) }
+    fun onSortByChanged(sortBy: PlatformSortBy) = _uiState.update { it.copy(sortBy = sortBy) }
+    fun openFilterModal() = _uiState.update { it.copy(isFilterModalOpen = true) }
+    fun closeFilterModal() = _uiState.update { it.copy(isFilterModalOpen = false) }
+
+    fun clearFilters() {
+        _uiState.update {
+            it.copy(
+                statusFilter = PlatformStatusFilter.ALL,
+                segmentFilter = PlatformSegmentFilter.ALL,
+                sortBy = PlatformSortBy.ALPHABETICAL
+            )
+        }
     }
 
-    fun onSegmentFilterChanged(segment: String?) {
-        _uiState.update { it.copy(selectedSegmentFilter = segment) }
+    // Toggle rápido de ativação no card
+    fun togglePlatformActive(platform: Platform) {
+        viewModelScope.launch {
+            val nextActive = !platform.active
+            val updatedPlatform = platform.copy(active = nextActive)
+            try {
+                // Atualização otimista
+                _uiState.update { state ->
+                    val updatedList = state.platforms.map { if (it.id == platform.id) updatedPlatform else it }
+                    state.copy(platforms = updatedList)
+                }
+                repository.savePlatform(updatedPlatform)
+                val statusText = if (nextActive) "ativada" else "desativada"
+                _uiState.update { it.copy(message = "Plataforma '${platform.name}' $statusText!") }
+            } catch (e: Exception) {
+                // Rollback em caso de erro
+                _uiState.update { state ->
+                    val reverted = state.platforms.map { if (it.id == platform.id) platform else it }
+                    state.copy(platforms = reverted, error = "Erro ao alterar status da plataforma: ${e.message}")
+                }
+            }
+        }
     }
 
+    // Abertura e fechamento de formulário
     fun openAddDialog(prefillName: String? = null, prefillSegment: String? = null, prefillCycle: String? = null) {
         _uiState.update {
             it.copy(
@@ -119,9 +206,16 @@ class PlatformsViewModel(
                 editingPlatformId = null,
                 name = prefillName ?: "",
                 segment = prefillSegment ?: "logistica",
-                cycle = prefillCycle ?: "semanal",
-                paymentDay = "Quarta-feira",
                 paymentModel = "producao",
+                cycle = prefillCycle ?: "semanal",
+                paymentDay = "QUA",
+                fixedPayDelay = 7,
+                cycleEntries = listOf(CycleEntry(1, 7), CycleEntry(16, 7)),
+                bankName = "",
+                bankAgency = "",
+                bankAccount = "",
+                pixKeyType = "CPF",
+                pixKey = "",
                 active = true,
                 error = null
             )
@@ -129,15 +223,29 @@ class PlatformsViewModel(
     }
 
     fun startEditing(platform: Platform) {
+        val rules = platform.rules
+        val entries = if (rules.cycleEntries.isNotEmpty()) {
+            rules.cycleEntries
+        } else {
+            listOf(CycleEntry(1, rules.fixedPayDelay), CycleEntry(16, rules.fixedPayDelay))
+        }
+
         _uiState.update {
             it.copy(
                 isFormOpen = true,
                 editingPlatformId = platform.id,
                 name = platform.name,
                 segment = platform.segment,
-                cycle = platform.cycle,
-                paymentDay = platform.paymentDay ?: "Quarta-feira",
                 paymentModel = platform.paymentModel,
+                cycle = platform.cycle,
+                paymentDay = platform.paymentDay ?: "QUA",
+                fixedPayDelay = rules.fixedPayDelay,
+                cycleEntries = entries,
+                bankName = platform.bankName ?: "",
+                bankAgency = platform.bankAgency ?: "",
+                bankAccount = platform.bankAccount ?: "",
+                pixKeyType = platform.pixKeyType ?: "CPF",
+                pixKey = platform.pixKey ?: "",
                 active = platform.active,
                 error = null
             )
@@ -150,41 +258,52 @@ class PlatformsViewModel(
                 isFormOpen = false,
                 editingPlatformId = null,
                 name = "",
-                segment = "logistica",
-                cycle = "semanal",
-                paymentDay = "Quarta-feira",
-                paymentModel = "producao",
-                active = true,
                 error = null
             )
         }
     }
 
+    // Atualizadores dos campos de formulário
     fun onNameChanged(name: String) = _uiState.update { it.copy(name = name) }
     fun onSegmentChanged(segment: String) = _uiState.update { it.copy(segment = segment) }
-    fun onCycleChanged(cycle: String) = _uiState.update { it.copy(cycle = cycle) }
-    fun onPaymentDayChanged(paymentDay: String) = _uiState.update { it.copy(paymentDay = paymentDay) }
     fun onPaymentModelChanged(model: String) = _uiState.update { it.copy(paymentModel = model) }
+    fun onCycleChanged(cycle: String) = _uiState.update { it.copy(cycle = cycle) }
+    fun onPaymentDayChanged(day: String) = _uiState.update { it.copy(paymentDay = day) }
+    fun onFixedPayDelayChanged(delay: Int) = _uiState.update { it.copy(fixedPayDelay = delay.coerceAtLeast(1)) }
     fun onActiveChanged(active: Boolean) = _uiState.update { it.copy(active = active) }
+    fun onBankNameChanged(bank: String) = _uiState.update { it.copy(bankName = bank) }
+    fun onBankAgencyChanged(agency: String) = _uiState.update { it.copy(bankAgency = agency) }
+    fun onBankAccountChanged(account: String) = _uiState.update { it.copy(bankAccount = account) }
+    fun onPixKeyTypeChanged(type: String) = _uiState.update { it.copy(pixKeyType = type) }
+    fun onPixKeyChanged(key: String) = _uiState.update { it.copy(pixKey = key) }
 
-    fun togglePlatformActive(platform: Platform) {
-        viewModelScope.launch {
-            val updatedPlatform = platform.copy(active = !platform.active)
-            try {
-                repository.savePlatform(updatedPlatform)
-                _uiState.update { state ->
-                    val updatedList = state.platforms.map {
-                        if (it.id == platform.id) updatedPlatform else it
-                    }
-                    val statusText = if (updatedPlatform.active) "ativada" else "inativada"
-                    state.copy(
-                        platforms = updatedList,
-                        message = "Plataforma '${platform.name}' $statusText!"
+    // Manipulação dos ciclos dinâmicos (ciclo misto / variável)
+    fun addCycleEntry() {
+        _uiState.update { state ->
+            val updated = (state.cycleEntries + CycleEntry(cut = 1, payDelay = 7)).sortedBy { it.cut }
+            state.copy(cycleEntries = updated)
+        }
+    }
+
+    fun removeCycleEntry(index: Int) {
+        _uiState.update { state ->
+            if (state.cycleEntries.size <= 1) return@update state
+            val updated = state.cycleEntries.filterIndexed { i, _ -> i != index }
+            state.copy(cycleEntries = updated)
+        }
+    }
+
+    fun updateCycleEntry(index: Int, cut: Int? = null, payDelay: Int? = null) {
+        _uiState.update { state ->
+            val updated = state.cycleEntries.mapIndexed { i, entry ->
+                if (i == index) {
+                    CycleEntry(
+                        cut = cut?.coerceIn(1, 28) ?: entry.cut,
+                        payDelay = payDelay?.coerceAtLeast(1) ?: entry.payDelay
                     )
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = "Erro ao alterar status: ${e.message}") }
-            }
+                } else entry
+            }.sortedBy { it.cut }
+            state.copy(cycleEntries = updated)
         }
     }
 
@@ -197,15 +316,35 @@ class PlatformsViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
+
+            val rules = if (state.cycle == "misto" || state.cycle == "variavel") {
+                PlatformRules(
+                    fixedPayDelay = state.fixedPayDelay,
+                    cycleEntries = state.cycleEntries
+                )
+            } else {
+                PlatformRules(
+                    fixedPayDelay = state.fixedPayDelay,
+                    cycleEntries = emptyList()
+                )
+            }
+
             val platform = Platform(
                 id = state.editingPlatformId ?: "",
                 userId = currentUserId,
                 name = state.name.trim(),
-                segment = state.segment,
                 cycle = state.cycle,
-                paymentDay = state.paymentDay.trim().ifBlank { null },
+                paymentDay = if (state.cycle == "semanal") state.paymentDay else null,
+                active = state.active,
+                segment = state.segment,
                 paymentModel = state.paymentModel,
-                active = state.active
+                rules = rules,
+                bankName = state.bankName.trim().ifBlank { null },
+                bankAgency = state.bankAgency.trim().ifBlank { null },
+                bankAccount = state.bankAccount.trim().ifBlank { null },
+                pixKeyType = state.pixKeyType.ifBlank { null },
+                pixKey = state.pixKey.trim().ifBlank { null },
+                pixBank = null
             )
 
             try {
@@ -214,7 +353,7 @@ class PlatformsViewModel(
                     it.copy(
                         isSaving = false,
                         isFormOpen = false,
-                        message = if (state.editingPlatformId != null) "Plataforma atualizada com sucesso!" else "Plataforma adicionada com sucesso!"
+                        message = if (state.editingPlatformId != null) "Plataforma atualizada com sucesso!" else "Plataforma vinculada com sucesso!"
                     )
                 }
                 loadPlatforms()
