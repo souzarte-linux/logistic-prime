@@ -94,6 +94,11 @@ data class HistoricoUiState(
     val periodFilter: PeriodFilter = PeriodFilter(),
     val isPeriodDropdownExpanded: Boolean = false,
 
+    // Filtro por Categoria e Subcategoria
+    val availableCategoryFilters: List<CategoryFilterOption> = emptyList(),
+    val selectedCategoryFilters: Set<String> = emptySet(),
+    val isCategoryFilterSheetOpen: Boolean = false,
+
     // Card dinâmico de saldo
     val saldoCardTitle: String = "SALDO DA SEMANA",
     val saldoPeriodo: BigDecimal = BigDecimal.ZERO,
@@ -171,12 +176,15 @@ class HistoricoViewModel(
                     today = today
                 )
 
+                val availableFilters = deriveAvailableCategoryFilters(items)
+
                 val (monthGroups, filteredList) = withContext(Dispatchers.Default) {
                     buildGroups(
                         items = items,
                         tab = _uiState.value.selectedTab,
                         query = _uiState.value.searchQuery,
                         periodFilter = currentFilter,
+                        categoryFilters = _uiState.value.selectedCategoryFilters,
                         today = today
                     )
                 }
@@ -201,6 +209,7 @@ class HistoricoViewModel(
                         isLoading = false,
                         profile = profile,
                         allTransactions = items,
+                        availableCategoryFilters = availableFilters,
                         filteredTransactions = filteredList,
                         saldoCardTitle = periodMetrics.cardTitle,
                         saldoPeriodo = periodMetrics.saldoPeriodo,
@@ -251,6 +260,32 @@ class HistoricoViewModel(
 
     fun closePeriodDropdown() {
         _uiState.update { it.copy(isPeriodDropdownExpanded = false) }
+    }
+
+    fun openCategoryFilterSheet() {
+        _uiState.update { it.copy(isCategoryFilterSheetOpen = true) }
+    }
+
+    fun closeCategoryFilterSheet() {
+        _uiState.update { it.copy(isCategoryFilterSheetOpen = false) }
+    }
+
+    fun toggleCategoryFilter(key: String) {
+        _uiState.update { state ->
+            val updated = state.selectedCategoryFilters.toMutableSet()
+            if (updated.contains(key)) {
+                updated.remove(key)
+            } else {
+                updated.add(key)
+            }
+            state.copy(selectedCategoryFilters = updated)
+        }
+        rebuildGroupsAndMetrics(expandAllInPeriod = false)
+    }
+
+    fun clearCategoryFilters() {
+        _uiState.update { it.copy(selectedCategoryFilters = emptySet()) }
+        rebuildGroupsAndMetrics(expandAllInPeriod = false)
     }
 
     fun setTab(tab: HistoricoTab) {
@@ -372,6 +407,7 @@ class HistoricoViewModel(
                     tab = state.selectedTab,
                     query = state.searchQuery,
                     periodFilter = state.periodFilter,
+                    categoryFilters = state.selectedCategoryFilters,
                     today = today
                 )
             }
@@ -464,6 +500,24 @@ class HistoricoViewModel(
         periodFilter: PeriodFilter,
         today: LocalDate,
         zone: ZoneId = ZoneId.systemDefault()
+    ): Pair<List<MonthGroup>, List<TransactionItem>> = buildGroups(
+        items = items,
+        tab = tab,
+        query = query,
+        periodFilter = periodFilter,
+        categoryFilters = emptySet(),
+        today = today,
+        zone = zone
+    )
+
+    fun buildGroups(
+        items: List<TransactionItem>,
+        tab: HistoricoTab,
+        query: String,
+        periodFilter: PeriodFilter,
+        categoryFilters: Set<String> = emptySet(),
+        today: LocalDate,
+        zone: ZoneId = ZoneId.systemDefault()
     ): Pair<List<MonthGroup>, List<TransactionItem>> {
         val (rangeStart, rangeEnd) = periodFilter.resolveRange(today)
 
@@ -487,6 +541,11 @@ class HistoricoViewModel(
                         (item.meta1?.lowercase()?.contains(q) == true) ||
                         item.amount.toPlainString().contains(q)
                 if (!match) return@filter false
+            }
+
+            if (categoryFilters.isNotEmpty()) {
+                val opt = resolveTransactionCategoryFilter(item)
+                if (opt.key !in categoryFilters) return@filter false
             }
 
             true

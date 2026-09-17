@@ -11,13 +11,16 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -112,7 +115,9 @@ fun HistoricoScreen(
             // 1. Barra de Busca Arredondada
             SearchBar(
                 query = uiState.searchQuery,
-                onQueryChange = { viewModel.onSearchQueryChanged(it) }
+                onQueryChange = { viewModel.onSearchQueryChanged(it) },
+                onFilterClick = { viewModel.openCategoryFilterSheet() },
+                hasActiveFilters = uiState.selectedCategoryFilters.isNotEmpty()
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -122,6 +127,63 @@ fun HistoricoScreen(
                 selectedTab = uiState.selectedTab,
                 onTabSelected = { viewModel.setTab(it) }
             )
+
+            // Chips de Filtros de Categoria Ativos (se houver)
+            if (uiState.selectedCategoryFilters.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AssistChip(
+                        onClick = { viewModel.clearCategoryFilters() },
+                        label = {
+                            Text(
+                                text = "Limpar (${uiState.selectedCategoryFilters.size})",
+                                color = RedAlert,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Limpar filtros",
+                                tint = RedAlert,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        },
+                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    val activeOptions = uiState.availableCategoryFilters.filter { it.key in uiState.selectedCategoryFilters }
+                    activeOptions.forEach { opt ->
+                        FilterChip(
+                            selected = true,
+                            onClick = { viewModel.toggleCategoryFilter(opt.key) },
+                            label = { Text(opt.label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remover filtro",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = OrangeNeon.copy(alpha = 0.15f),
+                                selectedLabelColor = OrangeNeon,
+                                selectedTrailingIconColor = OrangeNeon
+                            ),
+                            border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.6f)),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -167,8 +229,11 @@ fun HistoricoScreen(
                     if (uiState.monthGroups.isEmpty()) {
                         item {
                             EmptyHistoryState(
-                                showResetFilter = uiState.allTransactions.isNotEmpty() && uiState.periodFilter.preset != PeriodPreset.SEMANA,
-                                onResetFilter = { viewModel.resetPeriodFilter() }
+                                showResetFilter = uiState.allTransactions.isNotEmpty() && (uiState.periodFilter.preset != PeriodPreset.SEMANA || uiState.selectedCategoryFilters.isNotEmpty()),
+                                onResetFilter = {
+                                    viewModel.resetPeriodFilter()
+                                    viewModel.clearCategoryFilters()
+                                }
                             )
                         }
                     } else {
@@ -310,6 +375,17 @@ fun HistoricoScreen(
             }
         )
     }
+
+    // ModalBottomSheet para Filtro Granular por Categoria e Subcategoria
+    if (uiState.isCategoryFilterSheetOpen) {
+        CategoryFilterBottomSheet(
+            availableFilters = uiState.availableCategoryFilters,
+            selectedFilters = uiState.selectedCategoryFilters,
+            onToggleFilter = { viewModel.toggleCategoryFilter(it) },
+            onClearFilters = { viewModel.clearCategoryFilters() },
+            onDismiss = { viewModel.closeCategoryFilterSheet() }
+        )
+    }
 }
 
 // -----------------------------------------------------------------------------------------
@@ -319,7 +395,9 @@ fun HistoricoScreen(
 @Composable
 fun SearchBar(
     query: String,
-    onQueryChange: (String) -> Unit
+    onQueryChange: (String) -> Unit,
+    onFilterClick: () -> Unit = {},
+    hasActiveFilters: Boolean = false
 ) {
     Surface(
         modifier = Modifier
@@ -385,12 +463,214 @@ fun SearchBar(
                 Spacer(modifier = Modifier.width(6.dp))
             }
 
-            Icon(
-                imageVector = Icons.Default.FilterAlt,
-                contentDescription = "Filtro",
-                tint = OrangeNeon,
-                modifier = Modifier.size(20.dp)
-            )
+            IconButton(
+                onClick = onFilterClick,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.FilterAlt,
+                        contentDescription = "Filtro de Categoria",
+                        tint = if (hasActiveFilters) GreenNeon else OrangeNeon,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    if (hasActiveFilters) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .background(GreenNeon, CircleShape)
+                                .align(Alignment.TopEnd)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoryFilterBottomSheet(
+    availableFilters: List<CategoryFilterOption>,
+    selectedFilters: Set<String>,
+    onToggleFilter: (String) -> Unit,
+    onClearFilters: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.outlineVariant) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            // Cabeçalho
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "FILTRAR POR CATEGORIA",
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                    if (selectedFilters.isNotEmpty()) {
+                        Text(
+                            text = "${selectedFilters.size} selecionado(s)",
+                            fontSize = 12.sp,
+                            color = OrangeNeon,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                if (selectedFilters.isNotEmpty()) {
+                    TextButton(onClick = onClearFilters) {
+                        Text(
+                            text = "LIMPAR",
+                            color = RedAlert,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (availableFilters.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Nenhuma categoria disponível no histórico.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                }
+            } else {
+                val groupedFilters = availableFilters.groupBy { it.group }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(weight = 1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    groupedFilters.forEach { (groupName, options) ->
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = groupName.uppercase(Locale.ROOT),
+                                color = OrangeNeon,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                letterSpacing = 0.8.sp,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+
+                            options.forEach { option ->
+                                val isChecked = option.key in selectedFilters
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable { onToggleFilter(option.key) },
+                                    color = if (isChecked) OrangeNeon.copy(alpha = 0.08f) else Color.Transparent,
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Checkbox(
+                                                checked = isChecked,
+                                                onCheckedChange = { onToggleFilter(option.key) },
+                                                colors = CheckboxDefaults.colors(
+                                                    checkedColor = OrangeNeon,
+                                                    checkmarkColor = Color.Black
+                                                )
+                                            )
+                                            Text(
+                                                text = option.label,
+                                                style = TextStyle(
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (isChecked) FontWeight.Bold else FontWeight.Normal,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            )
+                                        }
+
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                        ) {
+                                            Text(
+                                                text = "${option.count}",
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                style = TextStyle(
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon)
+            ) {
+                Text(
+                    text = "CONCLUIR",
+                    style = TextStyle(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        letterSpacing = 0.5.sp
+                    )
+                )
+            }
         }
     }
 }
