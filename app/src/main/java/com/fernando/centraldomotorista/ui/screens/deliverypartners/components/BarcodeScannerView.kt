@@ -16,16 +16,23 @@ import androidx.annotation.OptIn
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -53,6 +61,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
 
 @Composable
@@ -181,11 +190,27 @@ fun ContinuousBarcodeScanner(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val currentScannedBarcodes by rememberUpdatedState(scannedBarcodes)
+    val currentOnBarcodeScanned by rememberUpdatedState(onBarcodeScanned)
+
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var isTorchOn by remember { mutableStateOf(false) }
     var lastScannedCode by remember { mutableStateOf<String?>(null) }
+    var lastScannedTimestamp by remember { mutableStateOf(0L) }
     var barcodeToDelete by remember { mutableStateOf<String?>(null) }
     var showScannedListDialog by remember { mutableStateOf(false) }
+
+    // Alerta de código duplicado
+    var duplicateAlertBarcode by remember { mutableStateOf<String?>(null) }
+    var lastDuplicateAlertTimestamp by remember { mutableStateOf(0L) }
+
+    // Fechamento automático do modal de código duplicado após tempo suficiente para leitura (~2.2s)
+    LaunchedEffect(duplicateAlertBarcode) {
+        if (duplicateAlertBarcode != null) {
+            delay(2200L)
+            duplicateAlertBarcode = null
+        }
+    }
 
     // Feedback helpers: Vibration + Audio Beep
     val toneGenerator = remember {
@@ -227,11 +252,40 @@ fun ContinuousBarcodeScanner(
             Log.e("ScannerView", "Erro ao acionar vibração: ${e.message}")
         }
 
-        // 2. Audio Beep
+        // 2. Audio Beep (tom positivo de confirmação)
         try {
             toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
         } catch (e: Exception) {
             Log.e("ScannerView", "Erro ao emitir beep: ${e.message}")
+        }
+    }
+
+    fun triggerNegativeFeedback() {
+        // 1. Double buzz vibration para aviso de erro
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                val vibrator = vibratorManager?.defaultVibrator
+                vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 70, 150), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 70, 150), -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(longArrayOf(0, 100, 70, 150), -1)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ScannerView", "Erro ao acionar vibração de erro: ${e.message}")
+        }
+
+        // 2. Audio Beep: tom negativo (TONE_PROP_NACK)
+        try {
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_NACK, 280)
+        } catch (e: Exception) {
+            Log.e("ScannerView", "Erro ao emitir som de erro: ${e.message}")
         }
     }
 
@@ -281,14 +335,34 @@ fun ContinuousBarcodeScanner(
                             )
                             barcodeScanner.process(inputImage)
                                 .addOnSuccessListener { barcodes ->
-                                    for (barcode in barcodes) {
-                                        val rawValue = barcode.rawValue?.trim()
-                                        if (!rawValue.isNullOrBlank()) {
-                                            // Ignore if already scanned in this session
-                                            if (!scannedBarcodes.contains(rawValue)) {
-                                                lastScannedCode = rawValue
-                                                triggerFeedback()
-                                                onBarcodeScanned(rawValue)
+                                    if (showScannedListDialog || barcodeToDelete != null) return@addOnSuccessListener
+                                    val now = System.currentTimeMillis()
+
+                                    // 1. Se houver algum código ainda NÃO escaneado no frame, prioriza o novo pacote
+                                    val validNewBarcode = barcodes.mapNotNull { it.rawValue?.trim() }
+                                        .firstOrNull { it.isNotBlank() && !currentScannedBarcodes.contains(it) }
+
+                                    if (validNewBarcode != null) {
+                                        lastScannedCode = validNewBarcode
+                                        lastScannedTimestamp = now
+                                        duplicateAlertBarcode = null
+                                        triggerFeedback()
+                                        currentOnBarcodeScanned(validNewBarcode)
+                                    } else {
+                                        // 2. Se todos os códigos do frame já foram escaneados, verificar duplicata
+                                        val duplicateBarcode = barcodes.mapNotNull { it.rawValue?.trim() }
+                                            .firstOrNull { it.isNotBlank() && currentScannedBarcodes.contains(it) }
+
+                                        if (duplicateBarcode != null) {
+                                            // Ignora se for o mesmo código recém-bipado (< 1.5s) enquanto o usuário afasta a câmera
+                                            val isRecentScanMovingAway = (duplicateBarcode == lastScannedCode && (now - lastScannedTimestamp) < 1500L)
+                                            // Evita repetir alerta sonoro para o mesmo código durante a exibição (< 2.5s)
+                                            val isRecentDuplicateAlert = (duplicateBarcode == duplicateAlertBarcode && (now - lastDuplicateAlertTimestamp) < 2500L)
+
+                                            if (!isRecentScanMovingAway && !isRecentDuplicateAlert) {
+                                                lastDuplicateAlertTimestamp = now
+                                                duplicateAlertBarcode = duplicateBarcode
+                                                triggerNegativeFeedback()
                                             }
                                         }
                                     }
@@ -404,7 +478,7 @@ fun ContinuousBarcodeScanner(
                         if (scannedCount > 0) {
                             IconButton(onClick = { showScannedListDialog = true }) {
                                 Icon(
-                                    imageVector = Icons.Default.FormatListBulleted,
+                                    imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
                                     contentDescription = "Ver Códigos Bipados",
                                     tint = OrangeNeon
                                 )
@@ -590,6 +664,85 @@ fun ContinuousBarcodeScanner(
                     }
                 }
             )
+        }
+
+        // Pequeno Modal de Código Duplicado (Auto-dismiss sem interação necessária)
+        AnimatedVisibility(
+            visible = duplicateAlertBarcode != null,
+            enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.88f, animationSpec = tween(150)),
+            exit = fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.88f, animationSpec = tween(200)),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 28.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Color(0xFF1E1414).copy(alpha = 0.96f),
+                border = androidx.compose.foundation.BorderStroke(2.dp, RedAlert),
+                shadowElevation = 16.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { duplicateAlertBarcode = null }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(RedAlert.copy(alpha = 0.18f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Código Duplicado",
+                            tint = RedAlert,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+
+                    Text(
+                        text = "CÓDIGO JÁ ESCANEADO!",
+                        color = RedAlert,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.5.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Text(
+                        text = "Este pacote já foi bipado anteriormente nesta sessão e não pode ser adicionado novamente.",
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp
+                    )
+
+                    duplicateAlertBarcode?.let { code ->
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f))
+                        ) {
+                            Text(
+                                text = code,
+                                color = OrangeNeon,
+                                fontSize = 13.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Bottom Controls: Complete Scanning button
