@@ -252,6 +252,31 @@ class PlatformsViewModel(
         }
     }
 
+    fun loadPlatformForEditing(platformId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val existing = _uiState.value.platforms.firstOrNull { it.id == platformId }
+                if (existing != null) {
+                    startEditing(existing)
+                    _uiState.update { it.copy(isLoading = false) }
+                } else {
+                    val list = repository.getPlatforms(currentUserId)
+                    val platform = list.firstOrNull { it.id == platformId }
+                    if (platform != null) {
+                        _uiState.update { it.copy(platforms = list) }
+                        startEditing(platform)
+                    } else {
+                        _uiState.update { it.copy(error = "Plataforma não encontrada.") }
+                    }
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = "Erro ao carregar plataforma: ${e.message}") }
+            }
+        }
+    }
+
     fun closeForm() {
         _uiState.update {
             it.copy(
@@ -364,19 +389,21 @@ class PlatformsViewModel(
         }
     }
 
-    fun deletePlatform(platformId: String) {
+    fun deletePlatform(platformId: String, onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val success = repository.deletePlatform(platformId)
             if (success) {
                 _uiState.update {
                     it.copy(
+                        isLoading = false,
                         isFormOpen = false,
                         editingPlatformId = null,
                         message = "Plataforma excluída com sucesso!"
                     )
                 }
                 loadPlatforms()
+                onSuccess?.invoke()
             } else {
                 _uiState.update { it.copy(isLoading = false, error = "Erro ao excluir plataforma.") }
             }

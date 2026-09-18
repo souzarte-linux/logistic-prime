@@ -56,6 +56,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object GasStations : Screen("postos", "Postos de Gasolina", Icons.Default.LocalGasStation)
     object Emissores : Screen("emissores", "Emissores", Icons.Default.ReceiptLong)
     object Plataformas : Screen("plataformas", "App & Plataforma", Icons.Default.Smartphone)
+    object EditPlatform : Screen("edit_platform/{platformId}", "Editar Plataforma", Icons.Default.Edit)
+    object CreatePlatform : Screen("create_platform", "Nova Plataforma", Icons.Default.Add)
     object Bandeiras : Screen("bandeiras", "Bandeiras", Icons.Default.CreditCard)
     object MonitoramentoPecas : Screen("monitoramento-pecas", "Monitoramento Peças", Icons.Default.Build)
     object DeliveryRoutes : Screen("delivery_routes", "Rotas", Icons.Default.AltRoute)
@@ -323,13 +325,49 @@ fun CentralDoMotoristaApp(
                 val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
                     viewModel = platformsViewModel,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEditPlatform = { platformId ->
+                        navController.navigate("edit_platform/$platformId")
+                    },
+                    onNavigateToCreatePlatform = {
+                        navController.navigate("create_platform")
+                    }
                 )
             }
             composable("apps") {
                 val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
                     viewModel = platformsViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEditPlatform = { platformId ->
+                        navController.navigate("edit_platform/$platformId")
+                    },
+                    onNavigateToCreatePlatform = {
+                        navController.navigate("create_platform")
+                    }
+                )
+            }
+
+            // Tela Comum - Edição de Plataforma
+            composable(
+                route = "edit_platform/{platformId}",
+                arguments = listOf(navArgument("platformId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val platformId = backStackEntry.arguments?.getString("platformId") ?: ""
+                val editPlatformViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.apps.EditPlatformScreen(
+                    platformId = platformId,
+                    viewModel = editPlatformViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Tela Comum - Criação de Nova Plataforma
+            composable("create_platform") {
+                val editPlatformViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.apps.EditPlatformScreen(
+                    platformId = null,
+                    viewModel = editPlatformViewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

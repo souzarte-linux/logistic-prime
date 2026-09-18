@@ -114,4 +114,32 @@ class PlatformsUiStateTest {
         )
         assertEquals(3, stateAllFilters.activeFilterCount)
     }
+
+    @Test
+    fun testFormStateForEditingPlatform() {
+        val state = PlatformsUiState(
+            editingPlatformId = platform1.id,
+            name = platform1.name,
+            segment = platform1.segment,
+            cycle = platform1.cycle,
+            paymentDay = platform1.paymentDay ?: "QUA",
+            active = platform1.active
+        )
+
+        assertEquals("p-1", state.editingPlatformId)
+        assertEquals("Mercado Envios", state.name)
+        assertEquals("logistica", state.segment)
+        assertEquals("semanal", state.cycle)
+        assertEquals("QUA", state.paymentDay)
+        assertEquals(true, state.active)
+    }
+
+    @Test
+    fun testCycleEntriesDefaults() {
+        val state = PlatformsUiState()
+        assertEquals(2, state.cycleEntries.size)
+        assertEquals(1, state.cycleEntries[0].cut)
+        assertEquals(16, state.cycleEntries[1].cut)
+    }
 }
+
