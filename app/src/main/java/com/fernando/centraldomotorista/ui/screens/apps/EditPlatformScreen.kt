@@ -559,16 +559,44 @@ fun EditPlatformScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(
-                                                text = "Cortes & Prazos Personalizados",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            TextButton(onClick = { viewModel.addCycleEntry() }) {
-                                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = OrangeNeon)
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Adicionar ciclo", color = OrangeNeon, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Column(modifier = Modifier.weight(1f, fill = false)) {
+                                                Text(
+                                                    text = "Cortes & Prazos Personalizados",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "Configure os fechamentos e dias de repasse",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+
+                                            Surface(
+                                                onClick = { viewModel.addCycleEntry() },
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = OrangeNeon.copy(alpha = 0.15f),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.4f))
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Add,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(14.dp),
+                                                        tint = OrangeNeon
+                                                    )
+                                                    Text(
+                                                        text = "Adicionar",
+                                                        color = OrangeNeon,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 12.sp
+                                                    )
+                                                }
                                             }
                                         }
 
@@ -580,6 +608,22 @@ fun EditPlatformScreen(
                                                 onRemove = { viewModel.removeCycleEntry(index) },
                                                 onUpdate = { cut, payDelay -> viewModel.updateCycleEntry(index, cut, payDelay) }
                                             )
+                                        }
+
+                                        OutlinedButton(
+                                            onClick = { viewModel.addCycleEntry() },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(44.dp),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = OrangeNeon
+                                            ),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f))
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = OrangeNeon)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Adicionar Ciclo de Pagamento", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
                                     }
                                 }

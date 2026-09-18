@@ -1,6 +1,7 @@
 package com.fernando.centraldomotorista.ui.screens.apps
 
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,7 +45,7 @@ private fun BigDecimal.formatCurrency(): String {
     return formatter.format(this)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlatformsScreen(
     viewModel: PlatformsViewModel = viewModel(),
@@ -149,119 +150,129 @@ fun PlatformsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+                .padding(padding),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp)
+            contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // 1. Banner Principal de Identidade
+            // 1. Banner Principal de Identidade (rolável no topo)
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp)
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = "GESTOR DE\nPLATAFORMAS",
                         fontWeight = FontWeight.Black,
-                        fontSize = 28.sp,
-                        lineHeight = 32.sp,
+                        fontSize = 24.sp,
+                        lineHeight = 28.sp,
                         color = OrangeNeon
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Plataformas com as quais você trabalha. Acompanhe seus ganhos e calendário de pagamentos.",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp
+                        lineHeight = 16.sp
                     )
                 }
             }
 
-            // 2. Barra de Busca
-            item {
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = { viewModel.onSearchQueryChanged(it) },
-                    placeholder = {
-                        Text(
-                            "Buscar por nome, segmento ou ciclo...",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
-                    },
-                    trailingIcon = {
-                        if (uiState.searchQuery.isNotBlank()) {
-                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Limpar",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = OrangeNeon,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    shape = RoundedCornerShape(12.dp),
+            // 2. Barra de Busca e Filtros FIXOS (permanecem visíveis ao rolar a lista)
+            stickyHeader {
+                Surface(
+                    color = MaterialTheme.colorScheme.background,
                     modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            // 3. Barra de Contagem & Botão de Filtros
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${filteredPlatforms.size} ${if (filteredPlatforms.size == 1) "PLATAFORMA" else "PLATAFORMAS"}",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 1.sp
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Campo de Busca
+                        OutlinedTextField(
+                            value = uiState.searchQuery,
+                            onValueChange = { viewModel.onSearchQueryChanged(it) },
+                            placeholder = {
+                                Text(
+                                    "Buscar por nome, segmento ou ciclo...",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 13.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = "Buscar", tint = OrangeNeon)
+                            },
+                            trailingIcon = {
+                                if (uiState.searchQuery.isNotBlank()) {
+                                    IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Limpar",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = OrangeNeon,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                    AssistChip(
-                        onClick = { viewModel.openFilterModal() },
-                        label = {
+                        // Barra de Contagem & Botão de Filtros
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = if (uiState.activeFilterCount > 0)
-                                    "Filtros & Ordenação (${uiState.activeFilterCount})"
-                                else
-                                    "Filtros & Ordenação",
+                                text = "${filteredPlatforms.size} ${if (filteredPlatforms.size == 1) "PLATAFORMA" else "PLATAFORMAS"}",
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 1.sp
                             )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Tune,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = OrangeNeon
+
+                            AssistChip(
+                                onClick = { viewModel.openFilterModal() },
+                                label = {
+                                    Text(
+                                        text = if (uiState.activeFilterCount > 0)
+                                            "Filtros & Ordenação (${uiState.activeFilterCount})"
+                                        else
+                                            "Filtros & Ordenação",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Tune,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = OrangeNeon
+                                    )
+                                },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    labelColor = OrangeNeon
+                                ),
+                                border = AssistChipDefaults.assistChipBorder(
+                                    enabled = true,
+                                    borderColor = if (uiState.activeFilterCount > 0) OrangeNeon else MaterialTheme.colorScheme.outlineVariant
+                                ),
+                                shape = RoundedCornerShape(10.dp)
                             )
-                        },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            labelColor = OrangeNeon
-                        ),
-                        border = AssistChipDefaults.assistChipBorder(
-                            enabled = true,
-                            borderColor = if (uiState.activeFilterCount > 0) OrangeNeon else MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        shape = RoundedCornerShape(10.dp)
-                    )
+                        }
+                    }
                 }
             }
 
@@ -271,7 +282,7 @@ fun PlatformsScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 32.dp),
+                            .padding(horizontal = 16.dp, vertical = 32.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(color = OrangeNeon)
@@ -282,80 +293,82 @@ fun PlatformsScreen(
             // 5. Empty State
             if (!uiState.isLoading && filteredPlatforms.isEmpty()) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
-                            Box(
+                            Column(
                                 modifier = Modifier
-                                    .size(56.dp)
-                                    .background(OrangeNeon.copy(alpha = 0.15f), CircleShape),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Smartphone,
-                                    contentDescription = null,
-                                    tint = OrangeNeon,
-                                    modifier = Modifier.size(30.dp)
-                                )
-                            }
-                            Text(
-                                text = if (uiState.platforms.isEmpty()) "Nenhuma plataforma cadastrada" else "Nenhum resultado com os filtros selecionados",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = if (uiState.platforms.isEmpty())
-                                    "Adicione os apps onde você trabalha para organizar repasses, faturamento e ciclos."
-                                else
-                                    "Tente alterar a busca ou redefina os filtros.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-
-                            if (uiState.platforms.isNotEmpty()) {
-                                TextButton(onClick = { viewModel.clearFilters() }) {
-                                    Text("Limpar filtros", color = OrangeNeon, fontWeight = FontWeight.Bold)
-                                }
-                            } else {
-                                Text(
-                                    text = "SUGESTÕES RÁPIDAS:",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 8.dp)
-                                )
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .background(OrangeNeon.copy(alpha = 0.15f), CircleShape),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    items(POPULAR_PLATFORMS) { (name, segment, cycle) ->
-                                        SuggestionChip(
-                                            onClick = {
-                                                viewModel.openAddDialog(name, segment, cycle)
-                                                onNavigateToCreatePlatform()
-                                            },
-                                            label = { Text(name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) },
-                                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                            ),
-                                            border = SuggestionChipDefaults.suggestionChipBorder(
-                                                enabled = true,
-                                                borderColor = OrangeNeon.copy(alpha = 0.4f)
+                                    Icon(
+                                        imageVector = Icons.Default.Smartphone,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(30.dp)
+                                    )
+                                }
+                                Text(
+                                    text = if (uiState.platforms.isEmpty()) "Nenhuma plataforma cadastrada" else "Nenhum resultado com os filtros selecionados",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = if (uiState.platforms.isEmpty())
+                                        "Adicione os apps onde você trabalha para organizar repasses, faturamento e ciclos."
+                                    else
+                                        "Tente alterar a busca ou redefina os filtros.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                if (uiState.platforms.isNotEmpty()) {
+                                    TextButton(onClick = { viewModel.clearFilters() }) {
+                                        Text("Limpar filtros", color = OrangeNeon, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    Text(
+                                        text = "SUGESTÕES RÁPIDAS:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        items(POPULAR_PLATFORMS) { (name, segment, cycle) ->
+                                            SuggestionChip(
+                                                onClick = {
+                                                    viewModel.openAddDialog(name, segment, cycle)
+                                                    onNavigateToCreatePlatform()
+                                                },
+                                                label = { Text(name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) },
+                                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                                ),
+                                                border = SuggestionChipDefaults.suggestionChipBorder(
+                                                    enabled = true,
+                                                    borderColor = OrangeNeon.copy(alpha = 0.4f)
+                                                )
                                             )
-                                        )
+                                        }
                                     }
                                 }
                             }
@@ -371,7 +384,8 @@ fun PlatformsScreen(
                     platform = platform,
                     monthEarnings = monthEarnings,
                     onEditClick = { onNavigateToEditPlatform(platform.id) },
-                    onToggleActive = { viewModel.togglePlatformActive(platform) }
+                    onToggleActive = { viewModel.togglePlatformActive(platform) },
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
 
@@ -381,6 +395,7 @@ fun PlatformsScreen(
                     onClick = onNavigateToCreatePlatform,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
                         .padding(top = 8.dp),
                     shape = RoundedCornerShape(16.dp),
                     color = Color.Transparent,
@@ -431,7 +446,8 @@ fun PlatformCardItem(
     platform: Platform,
     monthEarnings: BigDecimal,
     onEditClick: () -> Unit,
-    onToggleActive: () -> Unit
+    onToggleActive: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isLogistica = platform.segment.equals("logistica", ignoreCase = true)
     val segmentBadgeColor = if (isLogistica) BlueInfo else GreenNeon
@@ -439,7 +455,7 @@ fun PlatformCardItem(
     val cycleLabel = BillingCycleCalculator.getCycleDisplayLabel(platform.cycle, platform.paymentDay)
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { onEditClick() },
