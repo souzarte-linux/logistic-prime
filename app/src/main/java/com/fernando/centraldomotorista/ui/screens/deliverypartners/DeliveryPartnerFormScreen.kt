@@ -180,7 +180,7 @@ fun DeliveryPartnerFormScreen(
         AlertDialog(
             onDismissRequest = { showIncludeEndDateDialog = false },
             icon = {
-                Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Info, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(28.dp))
             },
             title = {
                 Text(
