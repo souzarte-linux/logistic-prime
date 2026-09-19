@@ -51,6 +51,16 @@ data class DeliveryPartnerDto(
     val paymentCycleFixed: String? = null,
     @SerializedName("payment_cycle_variable_days")
     val paymentCycleVariableDays: List<Int>? = null,
+    @SerializedName("cycle_start_date")
+    val cycleStartDate: String? = null,
+    @SerializedName("cycle_end_date")
+    val cycleEndDate: String? = null,
+    @SerializedName("include_end_date")
+    val includeEndDate: Boolean = true,
+    @SerializedName("payment_delay_days")
+    val paymentDelayDays: Int? = null,
+    @SerializedName("payment_date")
+    val paymentDate: String? = null,
     @SerializedName("active")
     val active: Boolean = true,
     @SerializedName("photo_url")
@@ -84,6 +94,11 @@ fun DeliveryPartnerDto.toDomain(): DeliveryPartner {
         paymentCycleType = paymentCycleType,
         paymentCycleFixed = paymentCycleFixed,
         paymentCycleVariableDays = paymentCycleVariableDays,
+        cycleStartDate = cycleStartDate,
+        cycleEndDate = cycleEndDate,
+        includeEndDate = includeEndDate,
+        paymentDelayDays = paymentDelayDays ?: 7,
+        paymentDate = paymentDate,
         active = active,
         photoUrl = photoUrl
     )
@@ -114,6 +129,11 @@ fun DeliveryPartner.toDto(): DeliveryPartnerDto {
         paymentCycleType = paymentCycleType,
         paymentCycleFixed = if (paymentCycleType == "fixed") paymentCycleFixed?.ifBlank { null } else null,
         paymentCycleVariableDays = if (paymentCycleType == "variable") paymentCycleVariableDays else null,
+        cycleStartDate = if (paymentCycleType == "variable") cycleStartDate?.ifBlank { null } else null,
+        cycleEndDate = if (paymentCycleType == "variable") cycleEndDate?.ifBlank { null } else null,
+        includeEndDate = includeEndDate,
+        paymentDelayDays = paymentDelayDays,
+        paymentDate = if (paymentCycleType == "variable") paymentDate?.ifBlank { null } else null,
         active = active,
         photoUrl = photoUrl?.trim()?.ifBlank { null }
     )

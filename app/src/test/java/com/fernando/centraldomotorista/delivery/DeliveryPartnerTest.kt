@@ -102,5 +102,58 @@ class DeliveryPartnerTest {
         assertEquals("moto", partner.deliveryType)
         assertEquals(3, partner.rating)
         assertEquals(true, partner.active)
+        assertEquals(7, partner.paymentDelayDays)
+        assertTrue(partner.includeEndDate)
+    }
+
+    @Test
+    fun testVariablePaymentCycleDtoMapping() {
+        val partner = DeliveryPartner(
+            id = "partner-var-1",
+            userId = "user-123",
+            fullName = "Carlos Entregador",
+            paymentCycleType = "variable",
+            paymentCycleFixed = null,
+            cycleStartDate = "2026-09-01",
+            cycleEndDate = "2026-09-07",
+            includeEndDate = true,
+            paymentDelayDays = 7,
+            paymentDate = "2026-09-14",
+            active = true
+        )
+
+        val dto = partner.toDto()
+        assertEquals("2026-09-01", dto.cycleStartDate)
+        assertEquals("2026-09-07", dto.cycleEndDate)
+        assertTrue(dto.includeEndDate)
+        assertEquals(7, dto.paymentDelayDays)
+        assertEquals("2026-09-14", dto.paymentDate)
+
+        val domain = dto.toDomain()
+        assertEquals("2026-09-01", domain.cycleStartDate)
+        assertEquals("2026-09-07", domain.cycleEndDate)
+        assertTrue(domain.includeEndDate)
+        assertEquals(7, domain.paymentDelayDays)
+        assertEquals("2026-09-14", domain.paymentDate)
+    }
+
+    @Test
+    fun testDeliveryPartnerFormDataCalculation() {
+        val form = com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnerFormData(
+            cycle = "misto",
+            cycleStartDate = "2026-09-01",
+            cycleEndDate = "2026-09-07",
+            includeEndDate = true,
+            paymentDelayDaysText = "7"
+        )
+
+        assertEquals("01/09/2026", form.formattedCycleStartDate)
+        assertEquals("07/09/2026", form.formattedCycleEndDate)
+        assertEquals(7, form.paymentDelayDays)
+        assertNotNull(form.calculatedPaymentDate)
+        assertEquals("2026-09-14", form.calculatedPaymentDate.toString())
+        assertTrue(form.formattedPaymentDateText.contains("14/09/2026"))
+        assertTrue(form.formattedPaymentDateText.contains("Segunda-feira"))
     }
 }
+

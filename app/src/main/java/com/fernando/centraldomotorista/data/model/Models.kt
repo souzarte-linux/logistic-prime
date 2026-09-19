@@ -317,6 +317,11 @@ data class DeliveryPartner(
     val paymentCycleType: String = "fixed",
     val paymentCycleFixed: String? = "semanal",
     val paymentCycleVariableDays: List<Int>? = null,
+    val cycleStartDate: String? = null,
+    val cycleEndDate: String? = null,
+    val includeEndDate: Boolean = true,
+    val paymentDelayDays: Int = 7,
+    val paymentDate: String? = null,
     val active: Boolean = true,
     val photoUrl: String? = null,
 )
