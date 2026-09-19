@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.fernando.centraldomotorista.data.model.CycleEntry
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -107,8 +108,8 @@ fun DeliveryPartnerFormScreen(
     }
 
     // Ciclo ativo selecionado (compatível com a lógica de ciclo da tela Editar Plataforma)
-    val activeCycleKey = remember(form.paymentCycleType, form.paymentCycleFixed) {
-        if (form.paymentCycleType == "variable") "misto" else (form.paymentCycleFixed ?: "semanal")
+    val activeCycleKey = remember(form.cycle, form.paymentCycleType, form.paymentCycleFixed) {
+        if (form.cycle.isNotBlank()) form.cycle else if (form.paymentCycleType == "variable") "misto" else (form.paymentCycleFixed ?: "semanal")
     }
 
     // Discard changes dialog
@@ -307,7 +308,7 @@ fun DeliveryPartnerFormScreen(
                     photoUrl = form.photoUrl,
                     deliveryType = form.deliveryType,
                     cycleKey = activeCycleKey,
-                    variableCount = form.paymentCycleVariableDays.size,
+                    variableCount = form.cycleEntries.size,
                     rating = form.rating,
                     active = form.active
                 )
@@ -911,7 +912,7 @@ fun DeliveryPartnerFormScreen(
                     }
                 }
 
-                // 5. Card: CICLO DE REPASSE (Mesma estrutura da tela "Editar Plataforma")
+                // 5. Card: CICLO DE PAGAMENTO (Fiel à tela "Editar Plataforma")
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -921,22 +922,20 @@ fun DeliveryPartnerFormScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Column {
-                            Text(
-                                text = "CICLO DE REPASSE E FATURAMENTO",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "Frequência e prazos de repasse para o parceiro",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = "CICLO DE PAGAMENTO",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Como o entregador parceiro recebe os repasses das entregas",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
                         // Grid 2x2 de Ciclos (Semanal, Quinzenal, Mensal, Variável)
                         val cycleRows = listOf(
@@ -955,15 +954,15 @@ fun DeliveryPartnerFormScreen(
                                         modifier = Modifier.weight(1f),
                                         label = label,
                                         isSelected = isSelected,
-                                        onClick = { viewModel.onCycleSelectionChanged(key) }
+                                        onClick = { viewModel.onCycleChanged(key) }
                                     )
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                        // Regras e painéis específicos do ciclo selecionado (iguais ao Gestor de Plataforma)
+                        // Regras específicas do ciclo selecionado (iguais ao Gestor de Plataforma)
                         when (activeCycleKey) {
                             "semanal" -> {
                                 Column(
@@ -974,10 +973,58 @@ fun DeliveryPartnerFormScreen(
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     Text(
-                                        text = "Repasse Semanal (a cada 7 dias)",
-                                        fontSize = 13.sp,
+                                        text = "Dia de fechamento semanal",
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        WEEK_DAYS.forEach { day ->
+                                            val isDaySelected = form.paymentDay.equals(day, ignoreCase = true)
+                                            Surface(
+                                                onClick = { viewModel.onPaymentDayChanged(day) },
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(40.dp),
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isDaySelected) OrangeNeon else MaterialTheme.colorScheme.surface,
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    1.dp,
+                                                    if (isDaySelected) OrangeNeon else MaterialTheme.colorScheme.outlineVariant
+                                                )
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text(
+                                                        text = day,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 11.sp,
+                                                        color = if (isDaySelected) Color.Black else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    OutlinedTextField(
+                                        value = form.fixedPayDelay.toString(),
+                                        onValueChange = { str ->
+                                            val num = str.filter { it.isDigit() }.toIntOrNull() ?: 1
+                                            viewModel.onFixedPayDelayChanged(num)
+                                        },
+                                        label = { Text("Prazo de pagamento (dias após fechamento)") },
+                                        suffix = { Text("dias", fontWeight = FontWeight.Bold, color = OrangeNeon) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = OrangeNeon,
+                                            focusedLabelColor = OrangeNeon,
+                                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                        ),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
                                     )
 
                                     Surface(
@@ -993,7 +1040,7 @@ fun DeliveryPartnerFormScreen(
                                         ) {
                                             Icon(Icons.Default.Info, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
                                             Text(
-                                                text = "O fechamento e repasse são gerados semanalmente com base nas rotas concluídas pelo entregador nos últimos 7 dias.",
+                                                text = "Se fechar toda ${form.paymentDay} com prazo de ${form.fixedPayDelay} dias, o repasse cai na ${form.paymentDay} seguinte da semana.",
                                                 fontSize = 11.sp,
                                                 color = OrangeNeon,
                                                 lineHeight = 15.sp
@@ -1003,7 +1050,7 @@ fun DeliveryPartnerFormScreen(
                                 }
                             }
 
-                            "quinzenal" -> {
+                            "quinzenal", "mensal" -> {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1011,12 +1058,28 @@ fun DeliveryPartnerFormScreen(
                                         .padding(14.dp),
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        text = "Repasse Quinzenal (a cada 15 dias)",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                    OutlinedTextField(
+                                        value = form.fixedPayDelay.toString(),
+                                        onValueChange = { str ->
+                                            val num = str.filter { it.isDigit() }.toIntOrNull() ?: 1
+                                            viewModel.onFixedPayDelayChanged(num)
+                                        },
+                                        label = { Text("Prazo de pagamento (dias após fechamento)") },
+                                        suffix = { Text("dias", fontWeight = FontWeight.Bold, color = OrangeNeon) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = OrangeNeon,
+                                            focusedLabelColor = OrangeNeon,
+                                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                        ),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
                                     )
+
+                                    val helpText = if (activeCycleKey == "quinzenal")
+                                        "Fechamento automático no dia 15 e no último dia do mês. O pagamento é depositado ${form.fixedPayDelay} dias após cada fechamento."
+                                    else
+                                        "Fechamento automático no último dia do mês. O pagamento é depositado ${form.fixedPayDelay} dias após o fechamento."
 
                                     Surface(
                                         color = OrangeNeon.copy(alpha = 0.1f),
@@ -1031,45 +1094,7 @@ fun DeliveryPartnerFormScreen(
                                         ) {
                                             Icon(Icons.Default.Info, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
                                             Text(
-                                                text = "Fechamento automático em duas quinzenas mensais (dia 15 e último dia do mês). Ideal para equipes de médio e alto volume.",
-                                                fontSize = 11.sp,
-                                                color = OrangeNeon,
-                                                lineHeight = 15.sp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            "mensal" -> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                                        .padding(14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Text(
-                                        text = "Repasse Mensal (a cada 30 dias)",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-
-                                    Surface(
-                                        color = OrangeNeon.copy(alpha = 0.1f),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Icon(Icons.Default.Info, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
-                                            Text(
-                                                text = "O fechamento e repasse são consolidados uma única vez ao final do mês, unificando todos os pacotes e bônus do período.",
+                                                text = helpText,
                                                 fontSize = 11.sp,
                                                 color = OrangeNeon,
                                                 lineHeight = 15.sp
@@ -1100,14 +1125,14 @@ fun DeliveryPartnerFormScreen(
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                text = "Configure os fechamentos e intervalos em dias",
+                                                text = "Configure os fechamentos e dias de repasse",
                                                 fontSize = 11.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
 
                                         Surface(
-                                            onClick = { viewModel.addVariableCycleDay(7) },
+                                            onClick = { viewModel.addCycleEntry() },
                                             shape = RoundedCornerShape(8.dp),
                                             color = OrangeNeon.copy(alpha = 0.15f),
                                             border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.4f))
@@ -1133,18 +1158,18 @@ fun DeliveryPartnerFormScreen(
                                         }
                                     }
 
-                                    form.paymentCycleVariableDays.forEachIndexed { index, days ->
-                                        PartnerCycleDayCard(
+                                    form.cycleEntries.forEachIndexed { index, entry ->
+                                        CycleEntryCard(
                                             index = index,
-                                            days = days,
-                                            canRemove = form.paymentCycleVariableDays.size > 1,
-                                            onRemove = { viewModel.removeVariableCycleDay(index) },
-                                            onUpdateDays = { updatedDays -> viewModel.updateVariableCycleDay(index, updatedDays) }
+                                            entry = entry,
+                                            canRemove = form.cycleEntries.size > 1,
+                                            onRemove = { viewModel.removeCycleEntry(index) },
+                                            onUpdate = { cut, payDelay -> viewModel.updateCycleEntry(index, cut, payDelay) }
                                         )
                                     }
 
                                     OutlinedButton(
-                                        onClick = { viewModel.addVariableCycleDay(7) },
+                                        onClick = { viewModel.addCycleEntry() },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(44.dp),
@@ -1433,12 +1458,12 @@ private fun SelectableCycleCard(
 }
 
 @Composable
-private fun PartnerCycleDayCard(
+private fun CycleEntryCard(
     index: Int,
-    days: Int,
+    entry: CycleEntry,
     canRemove: Boolean,
     onRemove: () -> Unit,
-    onUpdateDays: (Int) -> Unit
+    onUpdate: (Int?, Int?) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1478,30 +1503,59 @@ private fun PartnerCycleDayCard(
                 }
             }
 
-            OutlinedTextField(
-                value = days.toString(),
-                onValueChange = { str ->
-                    val num = str.filter { it.isDigit() }.toIntOrNull() ?: 1
-                    onUpdateDays(num)
-                },
-                label = { Text("Intervalo de repasse") },
-                suffix = { Text("dias", fontWeight = FontWeight.Bold, color = OrangeNeon) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = OrangeNeon,
-                    focusedLabelColor = OrangeNeon,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                ),
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
-            )
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = if (entry.cut > 0) entry.cut.toString() else "",
+                    onValueChange = { str ->
+                        val v = str.filter { it.isDigit() }.toIntOrNull()
+                        onUpdate(v, null)
+                    },
+                    label = { Text("Fechamento (dia)") },
+                    placeholder = { Text("1-28") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                )
+
+                OutlinedTextField(
+                    value = if (entry.payDelay > 0) entry.payDelay.toString() else "",
+                    onValueChange = { str ->
+                        val v = str.filter { it.isDigit() }.toIntOrNull()
+                        onUpdate(null, v)
+                    },
+                    label = { Text("Pagamento (dias)") },
+                    placeholder = { Text("Dias") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                )
+            }
+
+            val payDayEst = entry.cut + entry.payDelay
+            val feedback = if (payDayEst > 28)
+                "Fecha dia ${entry.cut} - Pago dia ${payDayEst - 28} do mês seguinte"
+            else
+                "Fecha dia ${entry.cut} - Pago dia $payDayEst"
 
             Surface(
                 color = OrangeNeon.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(6.dp)
             ) {
                 Text(
-                    text = "Repasse do ${index + 1}º ciclo gerado a cada $days dias",
+                    text = feedback,
                     fontSize = 11.sp,
                     color = OrangeNeon,
                     fontWeight = FontWeight.Medium,

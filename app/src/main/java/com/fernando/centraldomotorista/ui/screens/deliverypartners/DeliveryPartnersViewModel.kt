@@ -2,6 +2,7 @@ package com.fernando.centraldomotorista.ui.screens.deliverypartners
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fernando.centraldomotorista.data.model.CycleEntry
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
@@ -20,6 +21,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.util.Locale
+
+val WEEK_DAYS = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SAB", "DOM")
 
 enum class PartnerStatusFilter {
     ALL, ACTIVE, INACTIVE
@@ -45,9 +48,13 @@ data class DeliveryPartnerFormData(
     val defaultBonusText: String = "0,00",
     val deliveryType: String = "moto", // "a_pe", "bike", "moto", "carro", "utilitario"
     val rating: Int = 3,
+    val cycle: String = "semanal", // "semanal" | "quinzenal" | "mensal" | "misto"
+    val paymentDay: String = "QUA",
+    val fixedPayDelay: Int = 7,
+    val cycleEntries: List<CycleEntry> = listOf(CycleEntry(1, 7), CycleEntry(16, 7)),
     val paymentCycleType: String = "fixed", // "fixed" | "variable"
     val paymentCycleFixed: String = "semanal", // "semanal" | "quinzenal" | "mensal"
-    val paymentCycleVariableDays: List<Int> = listOf(7, 7, 15, 15),
+    val paymentCycleVariableDays: List<Int> = listOf(1, 7, 16, 7),
     val active: Boolean = true,
     val photoUrl: String = ""
 ) {
@@ -161,6 +168,28 @@ class DeliveryPartnersViewModel(
     }
 
     fun openEditForm(partner: DeliveryPartner) {
+        val mappedCycle = if (partner.paymentCycleType == "variable") {
+            "misto"
+        } else {
+            partner.paymentCycleFixed?.lowercase() ?: "semanal"
+        }
+
+        val mappedEntries = if (!partner.paymentCycleVariableDays.isNullOrEmpty()) {
+            val list = partner.paymentCycleVariableDays
+            if (list.size >= 2 && list.size % 2 == 0) {
+                list.chunked(2).map {
+                    CycleEntry(
+                        cut = it[0].coerceIn(1, 28),
+                        payDelay = it[1].coerceAtLeast(1)
+                    )
+                }
+            } else {
+                list.map { CycleEntry(cut = it.coerceIn(1, 28), payDelay = 7) }
+            }
+        } else {
+            listOf(CycleEntry(1, 7), CycleEntry(16, 7))
+        }
+
         val initial = DeliveryPartnerFormData(
             id = partner.id,
             fullName = partner.fullName,
@@ -181,9 +210,13 @@ class DeliveryPartnersViewModel(
             defaultBonusText = String.format(Locale("pt", "BR"), "%.2f", partner.defaultBonus),
             deliveryType = partner.deliveryType,
             rating = partner.rating,
-            paymentCycleType = partner.paymentCycleType,
-            paymentCycleFixed = partner.paymentCycleFixed ?: "semanal",
-            paymentCycleVariableDays = partner.paymentCycleVariableDays ?: listOf(7, 7, 15, 15),
+            cycle = mappedCycle,
+            paymentDay = "QUA",
+            fixedPayDelay = 7,
+            cycleEntries = mappedEntries,
+            paymentCycleType = if (mappedCycle == "misto" || mappedCycle == "variavel") "variable" else "fixed",
+            paymentCycleFixed = if (mappedCycle != "misto" && mappedCycle != "variavel") mappedCycle else "semanal",
+            paymentCycleVariableDays = mappedEntries.flatMap { listOf(it.cut, it.payDelay) },
             active = partner.active,
             photoUrl = partner.photoUrl ?: ""
         )
@@ -342,71 +375,87 @@ class DeliveryPartnersViewModel(
         _uiState.update { it.copy(formData = it.formData.copy(paymentCycleFixed = cycle)) }
     }
 
-    fun onCycleSelectionChanged(cycleKey: String) {
-        when (cycleKey.lowercase()) {
-            "semanal" -> _uiState.update {
-                it.copy(
-                    formData = it.formData.copy(
-                        paymentCycleType = "fixed",
-                        paymentCycleFixed = "semanal"
-                    )
-                )
+    fun onCycleChanged(cycle: String) {
+        val mappedType = if (cycle == "misto" || cycle == "variavel") "variable" else "fixed"
+        val mappedFixed = if (mappedType == "fixed") cycle else null
+        _uiState.update { state ->
+            val curEntries = if (state.formData.cycleEntries.isEmpty()) {
+                listOf(CycleEntry(1, 7), CycleEntry(16, 7))
+            } else {
+                state.formData.cycleEntries
             }
-            "quinzenal" -> _uiState.update {
-                it.copy(
-                    formData = it.formData.copy(
-                        paymentCycleType = "fixed",
-                        paymentCycleFixed = "quinzenal"
-                    )
+            state.copy(
+                formData = state.formData.copy(
+                    cycle = cycle,
+                    paymentCycleType = mappedType,
+                    paymentCycleFixed = mappedFixed ?: "semanal",
+                    cycleEntries = curEntries,
+                    paymentCycleVariableDays = curEntries.flatMap { listOf(it.cut, it.payDelay) }
                 )
-            }
-            "mensal" -> _uiState.update {
-                it.copy(
-                    formData = it.formData.copy(
-                        paymentCycleType = "fixed",
-                        paymentCycleFixed = "mensal"
-                    )
-                )
-            }
-            "misto", "variavel" -> _uiState.update {
-                val currentDays = if (it.formData.paymentCycleVariableDays.isEmpty()) {
-                    listOf(7, 7, 15, 15)
-                } else {
-                    it.formData.paymentCycleVariableDays
-                }
-                it.copy(
-                    formData = it.formData.copy(
-                        paymentCycleType = "variable",
-                        paymentCycleVariableDays = currentDays
-                    )
-                )
-            }
+            )
         }
     }
 
-    fun addVariableCycleDay(days: Int) {
-        if (days <= 0) return
-        val currentList = _uiState.value.formData.paymentCycleVariableDays.toMutableList()
-        currentList.add(days)
-        _uiState.update { it.copy(formData = it.formData.copy(paymentCycleVariableDays = currentList)) }
+    fun onCycleSelectionChanged(cycleKey: String) = onCycleChanged(cycleKey)
+
+    fun onPaymentDayChanged(day: String) {
+        _uiState.update { it.copy(formData = it.formData.copy(paymentDay = day)) }
     }
 
-    fun updateVariableCycleDay(index: Int, days: Int) {
-        if (days <= 0) return
-        val currentList = _uiState.value.formData.paymentCycleVariableDays.toMutableList()
-        if (index in currentList.indices) {
-            currentList[index] = days
-            _uiState.update { it.copy(formData = it.formData.copy(paymentCycleVariableDays = currentList)) }
+    fun onFixedPayDelayChanged(delay: Int) {
+        _uiState.update { it.copy(formData = it.formData.copy(fixedPayDelay = delay.coerceAtLeast(1))) }
+    }
+
+    fun addCycleEntry() {
+        _uiState.update { state ->
+            val updated = (state.formData.cycleEntries + CycleEntry(cut = 1, payDelay = 7)).sortedBy { it.cut }
+            val flatDays = updated.flatMap { listOf(it.cut, it.payDelay) }
+            state.copy(
+                formData = state.formData.copy(
+                    cycleEntries = updated,
+                    paymentCycleVariableDays = flatDays
+                )
+            )
         }
     }
 
-    fun removeVariableCycleDay(index: Int) {
-        val currentList = _uiState.value.formData.paymentCycleVariableDays.toMutableList()
-        if (index in currentList.indices) {
-            currentList.removeAt(index)
-            _uiState.update { it.copy(formData = it.formData.copy(paymentCycleVariableDays = currentList)) }
+    fun removeCycleEntry(index: Int) {
+        _uiState.update { state ->
+            if (state.formData.cycleEntries.size <= 1) return@update state
+            val updated = state.formData.cycleEntries.filterIndexed { i, _ -> i != index }
+            val flatDays = updated.flatMap { listOf(it.cut, it.payDelay) }
+            state.copy(
+                formData = state.formData.copy(
+                    cycleEntries = updated,
+                    paymentCycleVariableDays = flatDays
+                )
+            )
         }
     }
+
+    fun updateCycleEntry(index: Int, cut: Int? = null, payDelay: Int? = null) {
+        _uiState.update { state ->
+            val updated = state.formData.cycleEntries.mapIndexed { i, entry ->
+                if (i == index) {
+                    CycleEntry(
+                        cut = cut?.coerceIn(1, 28) ?: entry.cut,
+                        payDelay = payDelay?.coerceAtLeast(1) ?: entry.payDelay
+                    )
+                } else entry
+            }.sortedBy { it.cut }
+            val flatDays = updated.flatMap { listOf(it.cut, it.payDelay) }
+            state.copy(
+                formData = state.formData.copy(
+                    cycleEntries = updated,
+                    paymentCycleVariableDays = flatDays
+                )
+            )
+        }
+    }
+
+    fun addVariableCycleDay(days: Int) = addCycleEntry()
+    fun updateVariableCycleDay(index: Int, days: Int) = updateCycleEntry(index, payDelay = days)
+    fun removeVariableCycleDay(index: Int) = removeCycleEntry(index)
 
     fun moveVariableCycleDay(fromIndex: Int, toIndex: Int) {
         val currentList = _uiState.value.formData.paymentCycleVariableDays.toMutableList()
@@ -492,9 +541,9 @@ class DeliveryPartnersViewModel(
                 defaultBonus = defaultBonus,
                 deliveryType = form.deliveryType,
                 rating = form.rating,
-                paymentCycleType = form.paymentCycleType,
-                paymentCycleFixed = if (form.paymentCycleType == "fixed") form.paymentCycleFixed else null,
-                paymentCycleVariableDays = if (form.paymentCycleType == "variable") form.paymentCycleVariableDays else null,
+                paymentCycleType = if (form.cycle == "misto" || form.cycle == "variavel") "variable" else "fixed",
+                paymentCycleFixed = if (form.cycle != "misto" && form.cycle != "variavel") form.cycle else null,
+                paymentCycleVariableDays = if (form.cycle == "misto" || form.cycle == "variavel") form.cycleEntries.flatMap { listOf(it.cut, it.payDelay) } else null,
                 active = form.active,
                 photoUrl = form.photoUrl.trim().ifBlank { null }
             )
