@@ -342,11 +342,62 @@ class DeliveryPartnersViewModel(
         _uiState.update { it.copy(formData = it.formData.copy(paymentCycleFixed = cycle)) }
     }
 
+    fun onCycleSelectionChanged(cycleKey: String) {
+        when (cycleKey.lowercase()) {
+            "semanal" -> _uiState.update {
+                it.copy(
+                    formData = it.formData.copy(
+                        paymentCycleType = "fixed",
+                        paymentCycleFixed = "semanal"
+                    )
+                )
+            }
+            "quinzenal" -> _uiState.update {
+                it.copy(
+                    formData = it.formData.copy(
+                        paymentCycleType = "fixed",
+                        paymentCycleFixed = "quinzenal"
+                    )
+                )
+            }
+            "mensal" -> _uiState.update {
+                it.copy(
+                    formData = it.formData.copy(
+                        paymentCycleType = "fixed",
+                        paymentCycleFixed = "mensal"
+                    )
+                )
+            }
+            "misto", "variavel" -> _uiState.update {
+                val currentDays = if (it.formData.paymentCycleVariableDays.isEmpty()) {
+                    listOf(7, 7, 15, 15)
+                } else {
+                    it.formData.paymentCycleVariableDays
+                }
+                it.copy(
+                    formData = it.formData.copy(
+                        paymentCycleType = "variable",
+                        paymentCycleVariableDays = currentDays
+                    )
+                )
+            }
+        }
+    }
+
     fun addVariableCycleDay(days: Int) {
         if (days <= 0) return
         val currentList = _uiState.value.formData.paymentCycleVariableDays.toMutableList()
         currentList.add(days)
         _uiState.update { it.copy(formData = it.formData.copy(paymentCycleVariableDays = currentList)) }
+    }
+
+    fun updateVariableCycleDay(index: Int, days: Int) {
+        if (days <= 0) return
+        val currentList = _uiState.value.formData.paymentCycleVariableDays.toMutableList()
+        if (index in currentList.indices) {
+            currentList[index] = days
+            _uiState.update { it.copy(formData = it.formData.copy(paymentCycleVariableDays = currentList)) }
+        }
     }
 
     fun removeVariableCycleDay(index: Int) {

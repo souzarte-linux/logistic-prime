@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -99,20 +100,23 @@ fun DeliveryPartnerFormScreen(
 
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var routeDropdownExpanded by remember { mutableStateOf(false) }
-    var cycleFixedDropdownExpanded by remember { mutableStateOf(false) }
-    var customDayInput by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
 
     val selectedRouteName = remember(form.preferredRouteId, uiState.routes) {
         uiState.routes.firstOrNull { it.id == form.preferredRouteId }?.name ?: "Nenhuma (Sem preferência)"
     }
 
+    // Ciclo ativo selecionado (compatível com a lógica de ciclo da tela Editar Plataforma)
+    val activeCycleKey = remember(form.paymentCycleType, form.paymentCycleFixed) {
+        if (form.paymentCycleType == "variable") "misto" else (form.paymentCycleFixed ?: "semanal")
+    }
+
     // Discard changes dialog
     if (uiState.showDiscardAlert) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissDiscardAlert() },
-            title = { Text("Descartar alterações?", fontWeight = FontWeight.Bold) },
-            text = { Text("Existem alterações não salvas. Deseja realmente sair e descartar tudo?") },
+            title = { Text("Descartar alterações?", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("Existem alterações não salvas. Deseja realmente sair e descartar tudo?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -128,7 +132,8 @@ fun DeliveryPartnerFormScreen(
                 OutlinedButton(onClick = { viewModel.dismissDiscardAlert() }) {
                     Text("Continuar Editando")
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -136,8 +141,8 @@ fun DeliveryPartnerFormScreen(
     if (showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Excluir Entregador", fontWeight = FontWeight.Bold) },
-            text = { Text("Tem certeza que deseja excluir ${form.fullName}? Esta ação não pode ser desfeita.") },
+            title = { Text("Excluir Entregador?", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
+            text = { Text("Tem certeza que deseja excluir ${form.fullName}? Histórico e sessões vinculadas permanecerão registrados.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -149,14 +154,15 @@ fun DeliveryPartnerFormScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
                 ) {
-                    Text("Excluir", fontWeight = FontWeight.Bold)
+                    Text("Excluir Definitivamente", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Cancelar")
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -164,13 +170,25 @@ fun DeliveryPartnerFormScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = if (isEditing) "EDITAR ENTREGADOR" else "NOVO ENTREGADOR",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 17.sp,
-                        letterSpacing = 1.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column {
+                        Text(
+                            text = if (isEditing) "EDITAR ENTREGADOR" else "NOVO ENTREGADOR",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (isEditing && form.fullName.isNotBlank()) {
+                            Text(
+                                text = form.fullName,
+                                fontSize = 12.sp,
+                                color = OrangeNeon,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = {
@@ -188,7 +206,7 @@ fun DeliveryPartnerFormScreen(
                         IconButton(onClick = { showDeleteConfirmDialog = true }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = "Excluir",
+                                contentDescription = "Excluir entregador",
                                 tint = RedAlert
                             )
                         }
@@ -210,17 +228,27 @@ fun DeliveryPartnerFormScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
                         onClick = {
                             if (uiState.isFormDirty) viewModel.requestCloseForm() else onNavigateBack()
                         },
-                        modifier = Modifier.weight(1f).height(50.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant
+                        )
                     ) {
-                        Text("Cancelar")
+                        Text("Cancelar", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Button(
@@ -230,16 +258,25 @@ fun DeliveryPartnerFormScreen(
                             containerColor = OrangeNeon,
                             contentColor = Color.Black
                         ),
-                        modifier = Modifier.weight(1.5f).height(50.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1.6f)
+                            .height(50.dp)
                     ) {
                         if (uiState.isSaving) {
-                            CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(
+                                color = Color.Black,
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp
+                            )
                         } else {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isEditing) "Salvar Alterações" else "Cadastrar",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                                text = if (isEditing) "SALVAR ALTERAÇÕES" else "CADASTRAR ENTREGADOR",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                letterSpacing = 0.5.sp
                             )
                         }
                     }
@@ -247,607 +284,1148 @@ fun DeliveryPartnerFormScreen(
             }
         }
     ) { padding ->
-        Column(
+        // Container responsivo com centralização e limite de largura (ótimo para telas pequenas, médias e tablets)
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
-            // Preview do Avatar com Foto ou Iniciais
-            Row(
+            val scrollState = rememberScrollState()
+
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .widthIn(max = 680.dp)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                PartnerAvatar(
-                    photoUrl = form.photoUrl.ifBlank { null },
+                // 0. Card de Pré-visualização do Entregador em Tempo Real (igual ao Gestor de Plataforma)
+                PartnerLivePreviewCard(
                     name = form.fullName,
-                    size = 64.dp
+                    photoUrl = form.photoUrl,
+                    deliveryType = form.deliveryType,
+                    cycleKey = activeCycleKey,
+                    variableCount = form.paymentCycleVariableDays.size,
+                    rating = form.rating,
+                    active = form.active
                 )
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (form.fullName.isNotBlank()) form.fullName else "Novo Parceiro",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (form.photoUrl.isNotBlank()) "Foto personalizada" else "Iniciais automáticas",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // -------------------------------------------------------------
-            // SEÇÃO: IDENTIFICAÇÃO E CONTATO
-            // -------------------------------------------------------------
-            SectionHeaderForm(title = "DADOS PESSOAIS & CONTATO", icon = Icons.Default.Person)
-
-            // Nome Completo *
-            OutlinedTextField(
-                value = form.fullName,
-                onValueChange = { viewModel.onFullNameChanged(it) },
-                label = { Text("Nome Completo *") },
-                singleLine = true,
-                isError = form.fullName.isBlank(),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // URL da Foto (Opcional)
-            OutlinedTextField(
-                value = form.photoUrl,
-                onValueChange = { viewModel.onPhotoUrlChanged(it) },
-                label = { Text("URL da Foto do Entregador (Opcional)") },
-                placeholder = { Text("https://exemplo.com/foto.jpg") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // CPF (Opcional com máscara e validação)
-            OutlinedTextField(
-                value = form.cpf,
-                onValueChange = { viewModel.onCpfChanged(it) },
-                label = { Text("CPF (Opcional)") },
-                placeholder = { Text("000.000.000-00") },
-                singleLine = true,
-                visualTransformation = CpfVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                isError = uiState.cpfError != null,
-                supportingText = {
-                    if (uiState.cpfError != null) {
-                        Text(uiState.cpfError!!, color = RedAlert)
-                    } else {
-                        Text("Apenas números, com validação de dígitos", fontSize = 11.sp)
-                    }
-                },
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Telefone / Contato com máscara e WhatsApp
-            OutlinedTextField(
-                value = form.phone,
-                onValueChange = { viewModel.onPhoneChanged(it) },
-                label = { Text("Celular / Contato") },
-                placeholder = { Text("(00) 00000-0000") },
-                singleLine = true,
-                visualTransformation = PhoneVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.onIsWhatsappChanged(!form.isWhatsapp) }
-                    .padding(vertical = 4.dp)
-            ) {
-                Checkbox(
-                    checked = form.isWhatsapp,
-                    onCheckedChange = { viewModel.onIsWhatsappChanged(it) },
-                    colors = CheckboxDefaults.colors(checkedColor = OrangeNeon)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Este número é WhatsApp",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            // Rede Social
-            OutlinedTextField(
-                value = form.socialMedia,
-                onValueChange = { viewModel.onSocialMediaChanged(it) },
-                label = { Text("Rede Social (Instagram, etc.)") },
-                placeholder = { Text("@usuario ou link") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // -------------------------------------------------------------
-            // SEÇÃO: ENDEREÇO (ViaCEP)
-            // -------------------------------------------------------------
-            SectionHeaderForm(title = "ENDEREÇO (VIACEP)", icon = Icons.Default.LocationOn)
-
-            // CEP
-            OutlinedTextField(
-                value = form.cep,
-                onValueChange = { viewModel.onCepChanged(it) },
-                label = { Text("CEP") },
-                placeholder = { Text("00000-000") },
-                singleLine = true,
-                visualTransformation = CepVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                trailingIcon = {
-                    if (uiState.isSearchingCep) {
-                        CircularProgressIndicator(
-                            color = OrangeNeon,
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }
-                },
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Logradouro / Rua
-            OutlinedTextField(
-                value = form.street,
-                onValueChange = { viewModel.onStreetChanged(it) },
-                label = { Text("Logradouro / Endereço") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedTextField(
-                    value = form.number,
-                    onValueChange = { viewModel.onNumberChanged(it) },
-                    label = { Text("Número") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                    colors = formOutlinedColors(),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
-
-                OutlinedTextField(
-                    value = form.neighborhood,
-                    onValueChange = { viewModel.onNeighborhoodChanged(it) },
-                    label = { Text("Bairro") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                    colors = formOutlinedColors(),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1.5f)
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedTextField(
-                    value = form.city,
-                    onValueChange = { viewModel.onCityChanged(it) },
-                    label = { Text("Cidade") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                    colors = formOutlinedColors(),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(2f)
-                )
-
-                OutlinedTextField(
-                    value = form.state,
-                    onValueChange = { viewModel.onStateChanged(it.take(2).uppercase()) },
-                    label = { Text("UF") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                    colors = formOutlinedColors(),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // -------------------------------------------------------------
-            // SEÇÃO: DADOS BANCÁRIOS E PIX
-            // -------------------------------------------------------------
-            SectionHeaderForm(title = "PAGAMENTOS (PIX)", icon = Icons.Default.AccountBalance)
-
-            OutlinedTextField(
-                value = form.pixKey,
-                onValueChange = { viewModel.onPixKeyChanged(it) },
-                label = { Text("Chave PIX") },
-                placeholder = { Text("CPF, Celular, E-mail ou Aleatória") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = form.pixBank,
-                onValueChange = { viewModel.onPixBankChanged(it) },
-                label = { Text("Instituição / Banco (Opcional)") },
-                placeholder = { Text("Ex: Nubank, Inter, Bradesco...") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                colors = formOutlinedColors(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // -------------------------------------------------------------
-            // SEÇÃO: PARÂMETROS OPERACIONAIS
-            // -------------------------------------------------------------
-            SectionHeaderForm(title = "PARÂMETROS OPERACIONAIS", icon = Icons.Default.Settings)
-
-            // Rota Preferida (Dropdown)
-            Box(modifier = Modifier.fillMaxWidth()) {
-                OutlinedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { routeDropdownExpanded = true },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 15.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "Rota Preferida",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = selectedRouteName,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = OrangeNeon)
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = routeDropdownExpanded,
-                    onDismissRequest = { routeDropdownExpanded = false },
-                    modifier = Modifier.fillMaxWidth(0.9f)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Nenhuma (Sem preferência)") },
-                        onClick = {
-                            viewModel.onPreferredRouteChanged(null)
-                            routeDropdownExpanded = false
-                        }
-                    )
-                    uiState.routes.forEach { route ->
-                        DropdownMenuItem(
-                            text = { Text(route.name) },
-                            onClick = {
-                                viewModel.onPreferredRouteChanged(route.id)
-                                routeDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Valores de Taxa e Bônus
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedTextField(
-                    value = form.packageRateText,
-                    onValueChange = { viewModel.onPackageRateChanged(it) },
-                    label = { Text("Taxa por Pacote (R$)") },
-                    placeholder = { Text("0,00") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = formOutlinedColors(),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
-
-                OutlinedTextField(
-                    value = form.defaultBonusText,
-                    onValueChange = { viewModel.onDefaultBonusChanged(it) },
-                    label = { Text("Bônus Padrão (R$)") },
-                    placeholder = { Text("0,00") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = formOutlinedColors(),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Tipo de Entrega
-            Text(
-                text = "Tipo de Entrega:",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                val types = listOf(
-                    "a_pe" to "A pé",
-                    "bike" to "Bike",
-                    "moto" to "Moto",
-                    "carro" to "Carro",
-                    "utilitario" to "Utilitário"
-                )
-                types.forEach { (typeKey, label) ->
-                    val isSelected = form.deliveryType == typeKey
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { viewModel.onDeliveryTypeChanged(typeKey) },
-                        label = { Text(label, fontSize = 11.sp) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = getDeliveryTypeIcon(typeKey),
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = OrangeNeon,
-                            selectedLabelColor = Color.Black,
-                            selectedLeadingIconColor = Color.Black
-                        )
-                    )
-                }
-            }
-
-            // Avaliação / Classificação
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Classificação do Entregador:",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Row {
-                    for (i in 1..5) {
-                        IconButton(
-                            onClick = { viewModel.onRatingChanged(i) },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (i <= form.rating) Icons.Default.Star else Icons.Default.StarBorder,
-                                contentDescription = "$i Estrelas",
-                                tint = if (i <= form.rating) Color(0xFFFFB300) else MaterialTheme.colorScheme.outline
-                            )
-                        }
-                    }
-                }
-            }
-
-            // -------------------------------------------------------------
-            // SEÇÃO: CICLO DE REPASSE E STATUS
-            // -------------------------------------------------------------
-            SectionHeaderForm(title = "CICLO DE REPASSE & STATUS", icon = Icons.Default.Schedule)
-
-            // Tipo de Ciclo: Fixo vs Variável
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                FilterChip(
-                    selected = form.paymentCycleType == "fixed",
-                    onClick = { viewModel.onPaymentCycleTypeChanged("fixed") },
-                    label = { Text("Ciclo Fixo") },
-                    modifier = Modifier.weight(1f),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = OrangeNeon.copy(alpha = 0.2f),
-                        selectedLabelColor = OrangeNeon
-                    )
-                )
-                FilterChip(
-                    selected = form.paymentCycleType == "variable",
-                    onClick = { viewModel.onPaymentCycleTypeChanged("variable") },
-                    label = { Text("Ciclo Variável (Escalonado)") },
-                    modifier = Modifier.weight(1f),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = OrangeNeon.copy(alpha = 0.2f),
-                        selectedLabelColor = OrangeNeon
-                    )
-                )
-            }
-
-            if (form.paymentCycleType == "fixed") {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { cycleFixedDropdownExpanded = true },
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Frequência: ${form.paymentCycleFixed.replaceFirstChar { it.uppercase() }}",
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = OrangeNeon)
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded = cycleFixedDropdownExpanded,
-                        onDismissRequest = { cycleFixedDropdownExpanded = false }
-                    ) {
-                        listOf("semanal" to "Semanal (a cada 7 dias)", "quinzenal" to "Quinzenal (a cada 15 dias)", "mensal" to "Mensal (a cada 30 dias)").forEach { (key, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    viewModel.onPaymentCycleFixedChanged(key)
-                                    cycleFixedDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            } else {
-                // Ciclo Variável
+                // 1. Card: Dados Pessoais & Contato
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Sequência de Dias entre Repasses:",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = OrangeNeon
+                            text = "DADOS PESSOAIS & CONTATO",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        form.paymentCycleVariableDays.forEachIndexed { index, days ->
+                        // Nome Completo *
+                        OutlinedTextField(
+                            value = form.fullName,
+                            onValueChange = { viewModel.onFullNameChanged(it) },
+                            label = { Text("Nome Completo *") },
+                            placeholder = { Text("Ex: Carlos Silva") },
+                            singleLine = true,
+                            isError = form.fullName.isBlank(),
+                            leadingIcon = {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = OrangeNeon)
+                            },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // URL da Foto (Opcional)
+                        OutlinedTextField(
+                            value = form.photoUrl,
+                            onValueChange = { viewModel.onPhotoUrlChanged(it) },
+                            label = { Text("URL da Foto do Entregador (Opcional)") },
+                            placeholder = { Text("https://exemplo.com/foto.jpg") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = OrangeNeon)
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // CPF (Opcional com máscara e validação)
+                        OutlinedTextField(
+                            value = form.cpf,
+                            onValueChange = { viewModel.onCpfChanged(it) },
+                            label = { Text("CPF (Opcional)") },
+                            placeholder = { Text("000.000.000-00") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Badge, contentDescription = null, tint = OrangeNeon)
+                            },
+                            visualTransformation = CpfVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            isError = uiState.cpfError != null,
+                            supportingText = {
+                                if (uiState.cpfError != null) {
+                                    Text(uiState.cpfError!!, color = RedAlert)
+                                } else {
+                                    Text("Apenas números, com validação de dígitos", fontSize = 11.sp)
+                                }
+                            },
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Telefone / Contato com máscara
+                        OutlinedTextField(
+                            value = form.phone,
+                            onValueChange = { viewModel.onPhoneChanged(it) },
+                            label = { Text("Celular / Contato") },
+                            placeholder = { Text("(00) 00000-0000") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Phone, contentDescription = null, tint = OrangeNeon)
+                            },
+                            visualTransformation = PhoneVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Checkbox WhatsApp
+                        Surface(
+                            onClick = { viewModel.onIsWhatsappChanged(!form.isWhatsapp) },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (form.isWhatsapp) GreenNeon.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (form.isWhatsapp) GreenNeon.copy(alpha = 0.4f) else Color.Transparent
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text("${index + 1}º ciclo: $days dias", fontSize = 13.sp)
-                                Row {
-                                    IconButton(
-                                        onClick = { viewModel.removeVariableCycleDay(index) },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Remover", tint = RedAlert, modifier = Modifier.size(16.dp))
-                                    }
+                                Checkbox(
+                                    checked = form.isWhatsapp,
+                                    onCheckedChange = { viewModel.onIsWhatsappChanged(it) },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = GreenNeon,
+                                        checkmarkColor = Color.Black
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Column {
+                                    Text(
+                                        text = "Este número é WhatsApp",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Permite abrir conversa direta pelo app em um clique",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
+                        }
+
+                        // Rede Social
+                        OutlinedTextField(
+                            value = form.socialMedia,
+                            onValueChange = { viewModel.onSocialMediaChanged(it) },
+                            label = { Text("Rede Social (Instagram, etc.)") },
+                            placeholder = { Text("@usuario ou link") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = OrangeNeon)
+                            },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // 2. Card: Endereço (ViaCEP)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "ENDEREÇO (VIACEP)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // CEP
+                        OutlinedTextField(
+                            value = form.cep,
+                            onValueChange = { viewModel.onCepChanged(it) },
+                            label = { Text("CEP") },
+                            placeholder = { Text("00000-000") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Place, contentDescription = null, tint = OrangeNeon)
+                            },
+                            visualTransformation = CepVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            trailingIcon = {
+                                if (uiState.isSearchingCep) {
+                                    CircularProgressIndicator(
+                                        color = OrangeNeon,
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            },
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Logradouro / Rua
+                        OutlinedTextField(
+                            value = form.street,
+                            onValueChange = { viewModel.onStreetChanged(it) },
+                            label = { Text("Logradouro / Endereço") },
+                            placeholder = { Text("Ex: Av. Principal") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Home, contentDescription = null, tint = OrangeNeon)
+                            },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = form.number,
+                                onValueChange = { viewModel.onNumberChanged(it) },
+                                label = { Text("Número") },
+                                placeholder = { Text("123") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                                colors = formOutlinedColors(),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedTextField(
+                                value = form.neighborhood,
+                                onValueChange = { viewModel.onNeighborhoodChanged(it) },
+                                label = { Text("Bairro") },
+                                placeholder = { Text("Bairro") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                                colors = formOutlinedColors(),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1.5f)
+                            )
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             OutlinedTextField(
-                                value = customDayInput,
-                                onValueChange = { customDayInput = it.filter { c -> c.isDigit() } },
-                                placeholder = { Text("Dias") },
+                                value = form.city,
+                                onValueChange = { viewModel.onCityChanged(it) },
+                                label = { Text("Cidade") },
+                                placeholder = { Text("Cidade") },
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                                colors = formOutlinedColors(),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(2f)
                             )
-                            Button(
-                                onClick = {
-                                    val d = customDayInput.toIntOrNull()
-                                    if (d != null && d > 0) {
-                                        viewModel.addVariableCycleDay(d)
-                                        customDayInput = ""
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black),
-                                shape = RoundedCornerShape(10.dp)
+
+                            OutlinedTextField(
+                                value = form.state,
+                                onValueChange = { viewModel.onStateChanged(it.take(2).uppercase()) },
+                                label = { Text("UF") },
+                                placeholder = { Text("UF") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                                colors = formOutlinedColors(),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                // 3. Card: Dados Bancários & PIX
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "DADOS BANCÁRIOS & PIX",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedTextField(
+                            value = form.pixKey,
+                            onValueChange = { viewModel.onPixKeyChanged(it) },
+                            label = { Text("Chave PIX para Repasse") },
+                            placeholder = { Text("CPF, Celular, E-mail ou Aleatória") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.QrCode, contentDescription = null, tint = OrangeNeon)
+                            },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = form.pixBank,
+                            onValueChange = { viewModel.onPixBankChanged(it) },
+                            label = { Text("Instituição / Banco (Opcional)") },
+                            placeholder = { Text("Ex: Nubank, Inter, Bradesco...") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = OrangeNeon)
+                            },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+                            colors = formOutlinedColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // 4. Card: Parâmetros Operacionais
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Text(
+                            text = "PARÂMETROS OPERACIONAIS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // Rota Preferida (Dropdown)
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { routeDropdownExpanded = true },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
-                                Text("Adicionar")
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(20.dp))
+                                        Column {
+                                            Text(
+                                                text = "Rota Preferida",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = selectedRouteName,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = OrangeNeon)
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = routeDropdownExpanded,
+                                onDismissRequest = { routeDropdownExpanded = false },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Nenhuma (Sem preferência)", color = MaterialTheme.colorScheme.onSurface) },
+                                    onClick = {
+                                        viewModel.onPreferredRouteChanged(null)
+                                        routeDropdownExpanded = false
+                                    }
+                                )
+                                uiState.routes.forEach { route ->
+                                    DropdownMenuItem(
+                                        text = { Text(route.name, color = MaterialTheme.colorScheme.onSurface) },
+                                        onClick = {
+                                            viewModel.onPreferredRouteChanged(route.id)
+                                            routeDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Taxa e Bônus
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = form.packageRateText,
+                                onValueChange = { viewModel.onPackageRateChanged(it) },
+                                label = { Text("Taxa / Pacote") },
+                                prefix = { Text("R$ ", fontWeight = FontWeight.Bold, color = OrangeNeon) },
+                                placeholder = { Text("0,00") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                colors = formOutlinedColors(),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedTextField(
+                                value = form.defaultBonusText,
+                                onValueChange = { viewModel.onDefaultBonusChanged(it) },
+                                label = { Text("Bônus Padrão") },
+                                prefix = { Text("R$ ", fontWeight = FontWeight.Bold, color = OrangeNeon) },
+                                placeholder = { Text("0,00") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                                colors = formOutlinedColors(),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        // SELEÇÃO DE TIPO DE ENTREGA / VEÍCULO
+                        // Disposição em 2 linhas estruturadas e equilibradas: evita overflow e corrige desalinhamento do 'Utilitário'
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "TIPO DE ENTREGA / VEÍCULO",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            // Linha 1: Moto, Carro, Utilitário (veículos motorizados de carga)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                SelectableDeliveryTypeCard(
+                                    modifier = Modifier.weight(1f),
+                                    key = "moto",
+                                    label = "Moto",
+                                    icon = Icons.Default.TwoWheeler,
+                                    isSelected = form.deliveryType == "moto",
+                                    onClick = { viewModel.onDeliveryTypeChanged("moto") }
+                                )
+                                SelectableDeliveryTypeCard(
+                                    modifier = Modifier.weight(1f),
+                                    key = "carro",
+                                    label = "Carro",
+                                    icon = Icons.Default.DirectionsCar,
+                                    isSelected = form.deliveryType == "carro",
+                                    onClick = { viewModel.onDeliveryTypeChanged("carro") }
+                                )
+                                SelectableDeliveryTypeCard(
+                                    modifier = Modifier.weight(1f),
+                                    key = "utilitario",
+                                    label = "Utilitário",
+                                    icon = Icons.Default.LocalShipping,
+                                    isSelected = form.deliveryType == "utilitario",
+                                    onClick = { viewModel.onDeliveryTypeChanged("utilitario") }
+                                )
+                            }
+
+                            // Linha 2: Bike, A pé (veículos leves / modais ativos)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                SelectableDeliveryTypeCard(
+                                    modifier = Modifier.weight(1f),
+                                    key = "bike",
+                                    label = "Bicicleta",
+                                    icon = Icons.Default.DirectionsBike,
+                                    isSelected = form.deliveryType == "bike",
+                                    onClick = { viewModel.onDeliveryTypeChanged("bike") }
+                                )
+                                SelectableDeliveryTypeCard(
+                                    modifier = Modifier.weight(1f),
+                                    key = "a_pe",
+                                    label = "A pé (Express)",
+                                    icon = Icons.Default.DirectionsWalk,
+                                    isSelected = form.deliveryType == "a_pe",
+                                    onClick = { viewModel.onDeliveryTypeChanged("a_pe") }
+                                )
+                            }
+                        }
+
+                        // CLASSIFICAÇÃO / AVALIAÇÃO
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "CLASSIFICAÇÃO DO ENTREGADOR",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            val ratingLabel = when (form.rating) {
+                                1 -> "Iniciante (1/5)"
+                                2 -> "Básico (2/5)"
+                                3 -> "Intermediário (3/5)"
+                                4 -> "Experiente (4/5)"
+                                5 -> "Excelente (5/5)"
+                                else -> "${form.rating}/5"
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row {
+                                        for (i in 1..5) {
+                                            IconButton(
+                                                onClick = { viewModel.onRatingChanged(i) },
+                                                modifier = Modifier.size(34.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (i <= form.rating) Icons.Default.Star else Icons.Default.StarBorder,
+                                                    contentDescription = "$i Estrelas",
+                                                    tint = if (i <= form.rating) Color(0xFFFFB300) else MaterialTheme.colorScheme.outline,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Surface(
+                                        color = Color(0xFFFFB300).copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = ratingLabel,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            color = Color(0xFFFFB300),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Ativo / Inativo
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Status do Entregador",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = if (form.active) "Entregador Ativo na equipe" else "Entregador Inativo (Oculto na rotina)",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                // 5. Card: CICLO DE REPASSE (Mesma estrutura da tela "Editar Plataforma")
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column {
+                            Text(
+                                text = "CICLO DE REPASSE E FATURAMENTO",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Frequência e prazos de repasse para o parceiro",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // Grid 2x2 de Ciclos (Semanal, Quinzenal, Mensal, Variável)
+                        val cycleRows = listOf(
+                            listOf("semanal" to "Semanal", "quinzenal" to "Quinzenal"),
+                            listOf("mensal" to "Mensal", "misto" to "Variável")
+                        )
+
+                        cycleRows.forEach { rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                rowItems.forEach { (key, label) ->
+                                    val isSelected = activeCycleKey == key
+                                    SelectableCycleCard(
+                                        modifier = Modifier.weight(1f),
+                                        label = label,
+                                        isSelected = isSelected,
+                                        onClick = { viewModel.onCycleSelectionChanged(key) }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        // Regras e painéis específicos do ciclo selecionado (iguais ao Gestor de Plataforma)
+                        when (activeCycleKey) {
+                            "semanal" -> {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        text = "Repasse Semanal (a cada 7 dias)",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+
+                                    Surface(
+                                        color = OrangeNeon.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.Info, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                            Text(
+                                                text = "O fechamento e repasse são gerados semanalmente com base nas rotas concluídas pelo entregador nos últimos 7 dias.",
+                                                fontSize = 11.sp,
+                                                color = OrangeNeon,
+                                                lineHeight = 15.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            "quinzenal" -> {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        text = "Repasse Quinzenal (a cada 15 dias)",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+
+                                    Surface(
+                                        color = OrangeNeon.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.Info, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                            Text(
+                                                text = "Fechamento automático em duas quinzenas mensais (dia 15 e último dia do mês). Ideal para equipes de médio e alto volume.",
+                                                fontSize = 11.sp,
+                                                color = OrangeNeon,
+                                                lineHeight = 15.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            "mensal" -> {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        text = "Repasse Mensal (a cada 30 dias)",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+
+                                    Surface(
+                                        color = OrangeNeon.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.Info, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                            Text(
+                                                text = "O fechamento e repasse são consolidados uma única vez ao final do mês, unificando todos os pacotes e bônus do período.",
+                                                fontSize = 11.sp,
+                                                color = OrangeNeon,
+                                                lineHeight = 15.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            "misto", "variavel" -> {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f, fill = false)) {
+                                            Text(
+                                                text = "Cortes & Prazos Personalizados",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "Configure os fechamentos e intervalos em dias",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        Surface(
+                                            onClick = { viewModel.addVariableCycleDay(7) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = OrangeNeon.copy(alpha = 0.15f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.4f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Add,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(14.dp),
+                                                    tint = OrangeNeon
+                                                )
+                                                Text(
+                                                    text = "Adicionar",
+                                                    color = OrangeNeon,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    form.paymentCycleVariableDays.forEachIndexed { index, days ->
+                                        PartnerCycleDayCard(
+                                            index = index,
+                                            days = days,
+                                            canRemove = form.paymentCycleVariableDays.size > 1,
+                                            onRemove = { viewModel.removeVariableCycleDay(index) },
+                                            onUpdateDays = { updatedDays -> viewModel.updateVariableCycleDay(index, updatedDays) }
+                                        )
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { viewModel.addVariableCycleDay(7) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(44.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = OrangeNeon
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f))
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = OrangeNeon)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Adicionar Ciclo de Pagamento", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
-                Switch(
-                    checked = form.active,
-                    onCheckedChange = { viewModel.onActiveChanged(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.Black,
-                        checkedTrackColor = OrangeNeon
-                    )
+                // 6. Card: Status do Entregador (Ativo / Inativo - Padrão da tela de Plataforma)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Status do Entregador",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Surface(
+                                    color = if (form.active) GreenNeon.copy(alpha = 0.15f) else RedAlert.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = if (form.active) "ATIVO" else "INATIVO",
+                                        color = if (form.active) GreenNeon else RedAlert,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Permitir selecionar este parceiro em novas rotas e sessões de entrega",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Switch(
+                            checked = form.active,
+                            onCheckedChange = { viewModel.onActiveChanged(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.Black,
+                                checkedTrackColor = GreenNeon,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                uncheckedTrackColor = RedAlert.copy(alpha = 0.6f)
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// SUB-COMPONENTES ESPECIALIZADOS
+// -------------------------------------------------------------
+
+@Composable
+private fun PartnerLivePreviewCard(
+    name: String,
+    photoUrl: String,
+    deliveryType: String,
+    cycleKey: String,
+    variableCount: Int,
+    rating: Int,
+    active: Boolean
+) {
+    val typeIcon = getDeliveryTypeIcon(deliveryType)
+    val typeLabel = getDeliveryTypeLabel(deliveryType)
+    val cycleLabel = when (cycleKey.lowercase()) {
+        "semanal" -> "Semanal (7d)"
+        "quinzenal" -> "Quinzenal (15d)"
+        "mensal" -> "Mensal (30d)"
+        "misto", "variavel" -> "Variável ($variableCount cortes)"
+        else -> cycleKey.replaceFirstChar { it.uppercase() }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (active) OrangeNeon.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            PartnerAvatar(
+                photoUrl = photoUrl.ifBlank { null },
+                name = name,
+                size = 54.dp
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = name.ifBlank { "Nome do Entregador" },
+                    fontWeight = FontWeight.Black,
+                    fontSize = 17.sp,
+                    color = if (name.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Badge Modal / Veículo
+                    Surface(
+                        color = BlueInfo.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BlueInfo.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(typeIcon, contentDescription = null, tint = BlueInfo, modifier = Modifier.size(11.dp))
+                            Text(
+                                text = typeLabel,
+                                color = BlueInfo,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+
+                    // Badge Ciclo
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = cycleLabel,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
+                    // Badge Status
+                    Surface(
+                        color = if (active) GreenNeon.copy(alpha = 0.15f) else RedAlert.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = if (active) "ATIVO" else "INATIVO",
+                            color = if (active) GreenNeon else RedAlert,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectableDeliveryTypeCard(
+    modifier: Modifier = Modifier,
+    key: String,
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) OrangeNeon.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.2.dp,
+            if (isSelected) OrangeNeon else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 12.sp,
+                color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun SelectableCycleCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) OrangeNeon.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isSelected) OrangeNeon else Color.Transparent
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurface
+            )
+            if (isSelected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = OrangeNeon,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -855,20 +1433,82 @@ fun DeliveryPartnerFormScreen(
 }
 
 @Composable
-private fun SectionHeaderForm(title: String, icon: ImageVector) {
-    Row(
-        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+private fun PartnerCycleDayCard(
+    index: Int,
+    days: Int,
+    canRemove: Boolean,
+    onRemove: () -> Unit,
+    onUpdateDays: (Int) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
-        Text(
-            text = title,
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
-            letterSpacing = 1.sp,
-            color = OrangeNeon
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "CICLO ${index + 1}",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp,
+                    color = OrangeNeon,
+                    letterSpacing = 1.sp
+                )
+                if (canRemove) {
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remover ciclo",
+                            tint = RedAlert,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = days.toString(),
+                onValueChange = { str ->
+                    val num = str.filter { it.isDigit() }.toIntOrNull() ?: 1
+                    onUpdateDays(num)
+                },
+                label = { Text("Intervalo de repasse") },
+                suffix = { Text("dias", fontWeight = FontWeight.Bold, color = OrangeNeon) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            )
+
+            Surface(
+                color = OrangeNeon.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = "Repasse do ${index + 1}º ciclo gerado a cada $days dias",
+                    fontSize = 11.sp,
+                    color = OrangeNeon,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
     }
 }
 
@@ -876,7 +1516,7 @@ private fun SectionHeaderForm(title: String, icon: ImageVector) {
 private fun formOutlinedColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = OrangeNeon,
     focusedLabelColor = OrangeNeon,
-    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
     unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
     focusedTextColor = MaterialTheme.colorScheme.onSurface,
     unfocusedTextColor = MaterialTheme.colorScheme.onSurface
