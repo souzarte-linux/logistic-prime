@@ -8,9 +8,11 @@ import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.data.remote.api.ViaCepApi
 import com.fernando.centraldomotorista.data.remote.supabase
+import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryRouteRepository
+import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import com.fernando.centraldomotorista.ui.utils.isValidCpf
 import com.fernando.centraldomotorista.util.AppDataSync
 import io.github.jan.supabase.auth.auth
@@ -171,6 +173,9 @@ data class DeliveryPartnersUiState(
     val formData: DeliveryPartnerFormData = DeliveryPartnerFormData(),
     val initialFormData: DeliveryPartnerFormData = DeliveryPartnerFormData(),
     val cpfError: String? = null,
+    val platforms: List<Platform> = emptyList(),
+    val earningsMap: Map<String, BigDecimal> = emptyMap(),
+    val selectedPlatformId: String? = null,
     val message: String? = null,
     val error: String? = null
 ) {
@@ -182,6 +187,7 @@ class DeliveryPartnersViewModel(
     private val partnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
     private val routeRepository: DeliveryRouteRepository = DeliveryRouteRepository(),
     private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
+    private val platformRepository: PlatformRepository = PlatformRepository(),
     private val viaCepApi: ViaCepApi = ViaCepApi.instance
 ) : ViewModel() {
 
@@ -209,6 +215,8 @@ class DeliveryPartnersViewModel(
             val partners = partnerRepository.getDeliveryPartners(currentUserId)
             val routes = routeRepository.getDeliveryRoutes(currentUserId)
             val sessions = sessionRepository.getSessions(currentUserId)
+            val platforms = platformRepository.getPlatforms(currentUserId)
+            val earnings = platformRepository.getMonthEarningsByPlatform(currentUserId)
             val activeSessions = sessions.filter { it.endTime == null }.associateBy { it.partnerId }
             val sessionsByPartner = sessions.groupBy { it.partnerId }
 
@@ -216,10 +224,98 @@ class DeliveryPartnersViewModel(
                 it.copy(
                     partners = partners,
                     routes = routes,
+                    platforms = platforms,
+                    earningsMap = earnings,
                     activeSessionsMap = activeSessions,
                     sessionsByPartnerMap = sessionsByPartner,
                     isLoading = false
                 )
+            }
+        }
+    }
+
+    fun selectPlatformForPartner(platform: Platform) {
+        _uiState.update { state ->
+            val updatedFormData = state.formData.copy(
+                cycle = platform.cycle,
+                paymentDay = platform.paymentDay ?: "QUA",
+                fixedPayDelayText = platform.rules.fixedPayDelay.toString()
+            )
+            state.copy(
+                selectedPlatformId = platform.id,
+                formData = updatedFormData
+            )
+        }
+    }
+
+    fun togglePlatformActive(platform: Platform) {
+        viewModelScope.launch {
+            val nextActive = !platform.active
+            try {
+                platformRepository.savePlatform(platform.copy(active = nextActive))
+                val updatedPlatforms = platformRepository.getPlatforms(currentUserId)
+                _uiState.update { it.copy(platforms = updatedPlatforms) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Erro ao alterar status da plataforma: ${e.message}") }
+            }
+        }
+    }
+
+    fun savePlatformForPartner(
+        platform: Platform,
+        preferredRouteId: String?,
+        packageRateText: String,
+        defaultBonusText: String,
+        deliveryType: String,
+        rating: Int,
+        variableCycles: List<VariableCycleFormEntry>,
+        onComplete: () -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val saved = platformRepository.savePlatform(platform.copy(userId = currentUserId))
+                val updatedPlatforms = platformRepository.getPlatforms(currentUserId)
+                val updatedEarnings = platformRepository.getMonthEarningsByPlatform(currentUserId)
+                _uiState.update { state ->
+                    val newFormData = state.formData.copy(
+                        preferredRouteId = preferredRouteId,
+                        packageRateText = packageRateText,
+                        defaultBonusText = defaultBonusText,
+                        deliveryType = deliveryType,
+                        rating = rating,
+                        cycle = saved.cycle,
+                        paymentDay = saved.paymentDay ?: "QUA",
+                        fixedPayDelayText = saved.rules.fixedPayDelay.toString(),
+                        variableCycles = variableCycles
+                    )
+                    state.copy(
+                        platforms = updatedPlatforms,
+                        earningsMap = updatedEarnings,
+                        selectedPlatformId = saved.id,
+                        formData = newFormData
+                    )
+                }
+                onComplete()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Erro ao salvar plataforma: ${e.message}") }
+            }
+        }
+    }
+
+    fun deletePlatformFromPartner(platformId: String, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                platformRepository.deletePlatform(platformId)
+                val updatedPlatforms = platformRepository.getPlatforms(currentUserId)
+                _uiState.update { state ->
+                    state.copy(
+                        platforms = updatedPlatforms,
+                        selectedPlatformId = if (state.selectedPlatformId == platformId) null else state.selectedPlatformId
+                    )
+                }
+                onComplete()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Erro ao excluir plataforma: ${e.message}") }
             }
         }
     }

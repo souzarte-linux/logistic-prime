@@ -476,7 +476,10 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnerFormScreen(
                     partnerId = null,
                     viewModel = deliveryPartnersViewModel,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToPartnerPlatformEdit = { pId, platId ->
+                        navController.navigate("partner_platform_edit?partnerId=${pId ?: ""}&platformId=${platId ?: ""}")
+                    }
                 )
             }
             composable("novo_entregador") {
@@ -484,7 +487,10 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnerFormScreen(
                     partnerId = null,
                     viewModel = deliveryPartnersViewModel,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToPartnerPlatformEdit = { pId, platId ->
+                        navController.navigate("partner_platform_edit?partnerId=${pId ?: ""}&platformId=${platId ?: ""}")
+                    }
                 )
             }
 
@@ -498,6 +504,36 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnerFormScreen(
                     partnerId = partnerId,
                     viewModel = deliveryPartnersViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToPartnerPlatformEdit = { pId, platId ->
+                        navController.navigate("partner_platform_edit?partnerId=${pId ?: ""}&platformId=${platId ?: ""}")
+                    }
+                )
+            }
+
+            // Tela Replicada Nova/Editar Plataforma no contexto do Entregador
+            composable(
+                route = "partner_platform_edit?partnerId={partnerId}&platformId={platformId}",
+                arguments = listOf(
+                    navArgument("partnerId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("platformId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val partnerId = backStackEntry.arguments?.getString("partnerId")
+                val platformId = backStackEntry.arguments?.getString("platformId")
+                val deliveryPartnersViewModel: com.fernando.centraldomotorista.ui.screens.deliverypartners.DeliveryPartnersViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.deliverypartners.PartnerPlatformEditScreen(
+                    partnerId = partnerId,
+                    platformId = platformId,
+                    deliveryPartnersViewModel = deliveryPartnersViewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
