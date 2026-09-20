@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
+import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryRouteRepository
+import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +30,8 @@ data class NewPartnerSessionUiState(
     val partner: DeliveryPartner? = null,
     val routes: List<DeliveryRoute> = emptyList(),
     val selectedRouteId: String? = null,
+    val platforms: List<Platform> = emptyList(),
+    val selectedPlatformId: String? = null,
     val expectedPackageCount: Int = 0,
     val expectedPackageCountText: String = "0",
     val packageRateText: String = "0,00",
@@ -52,7 +56,8 @@ data class NewPartnerSessionUiState(
 class NewPartnerSessionViewModel(
     private val partnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
     private val routeRepository: DeliveryRouteRepository = DeliveryRouteRepository(),
-    private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository()
+    private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
+    private val platformRepository: PlatformRepository = PlatformRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NewPartnerSessionUiState())
@@ -67,11 +72,14 @@ class NewPartnerSessionViewModel(
                 val partners = partnerRepository.getDeliveryPartners(user.id)
                 val targetPartner = partners.firstOrNull { it.id == partnerId }
                 val routes = routeRepository.getDeliveryRoutes(user.id)
+                val activePlatforms = platformRepository.getActivePlatforms(user.id, partnerId)
 
                 _uiState.update {
                     it.copy(
                         partner = targetPartner,
                         routes = routes,
+                        platforms = activePlatforms,
+                        selectedPlatformId = null,
                         selectedRouteId = targetPartner?.preferredRouteId ?: routes.firstOrNull()?.id,
                         packageRateText = String.format(Locale("pt", "BR"), "%.2f", targetPartner?.packageRate ?: BigDecimal.ZERO),
                         defaultBonusText = String.format(Locale("pt", "BR"), "%.2f", targetPartner?.defaultBonus ?: BigDecimal.ZERO),
@@ -80,9 +88,13 @@ class NewPartnerSessionViewModel(
                 }
             } catch (e: Exception) {
                 Log.e("NewSessionVM", "Erro ao carregar dados da sessão: ${e.message}", e)
-                _uiState.update { it.copy(isLoading = false, error = "Erro ao carregar entregador e rotas.") }
+                _uiState.update { it.copy(isLoading = false, error = "Erro ao carregar entregador, rotas e plataformas.") }
             }
         }
+    }
+
+    fun onPlatformSelected(platformId: String?) {
+        _uiState.update { it.copy(selectedPlatformId = platformId, error = null) }
     }
 
     fun onRouteSelected(routeId: String?) {
@@ -148,6 +160,11 @@ class NewPartnerSessionViewModel(
             return
         }
 
+        if (state.selectedPlatformId.isNullOrBlank()) {
+            _uiState.update { it.copy(error = "Campo obrigatório: Selecione uma plataforma para iniciar a sessão.") }
+            return
+        }
+
         // Se X != Y, mostrar diálogo de divergência
         if (state.hasDivergence) {
             _uiState.update { it.copy(showDivergenceDialog = true) }
@@ -170,6 +187,11 @@ class NewPartnerSessionViewModel(
         val state = _uiState.value
         val partner = state.partner ?: return
 
+        if (state.selectedPlatformId.isNullOrBlank()) {
+            _uiState.update { it.copy(error = "Campo obrigatório: Selecione uma plataforma para iniciar a sessão.") }
+            return
+        }
+
         _uiState.update { it.copy(isSaving = true, error = null) }
 
         viewModelScope.launch {
@@ -186,6 +208,7 @@ class NewPartnerSessionViewModel(
                     userId = user.id,
                     partnerId = partner.id,
                     routeId = state.selectedRouteId,
+                    platformId = state.selectedPlatformId,
                     expectedPackageCount = state.expectedPackageCount,
                     scannedBarcodes = state.scannedBarcodes.toList(),
                     scannedCount = state.scannedCount,

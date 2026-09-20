@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
+import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
@@ -87,6 +88,7 @@ fun SessionEditScreen(
     session: DeliveryPartnerSession,
     routes: List<DeliveryRoute>,
     partner: DeliveryPartner? = null,
+    platforms: List<Platform> = emptyList(),
     isReadOnly: Boolean = false,
     onToggleEditMode: (() -> Unit)? = null,
     onDismiss: () -> Unit,
@@ -109,6 +111,14 @@ fun SessionEditScreen(
     var routeDropdownOpen by remember { mutableStateOf(false) }
     val selectedRouteName = remember(selectedRouteId, routes) {
         routes.firstOrNull { it.id == selectedRouteId }?.name ?: "Sem Rota Definida"
+    }
+
+    // Plataforma selecionada
+    var selectedPlatformId by remember { mutableStateOf(session.platformId) }
+    var platformDropdownOpen by remember { mutableStateOf(false) }
+    var showMissingPlatformDialog by remember { mutableStateOf(false) }
+    val selectedPlatformName = remember(selectedPlatformId, platforms) {
+        platforms.firstOrNull { it.id == selectedPlatformId }?.name ?: if (selectedPlatformId.isNullOrBlank()) "Sem Plataforma Definida" else "Plataforma selecionada"
     }
 
     // Horários (Início e Término)
@@ -168,6 +178,34 @@ fun SessionEditScreen(
         }
     }
 
+    // Diálogo de Validação de Plataforma Obrigatória
+    if (showMissingPlatformDialog) {
+        AlertDialog(
+            onDismissRequest = { showMissingPlatformDialog = false },
+            icon = {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = RedAlert, modifier = Modifier.size(36.dp))
+            },
+            title = {
+                Text("Campo Obrigatório", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            },
+            text = {
+                Text(
+                    text = "A seleção de uma plataforma é obrigatória. Por favor, escolha a plataforma desta sessão antes de salvar as alterações.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showMissingPlatformDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black)
+                ) {
+                    Text("Entendido", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -205,6 +243,10 @@ fun SessionEditScreen(
                     } else {
                         IconButton(
                             onClick = {
+                                if (selectedPlatformId.isNullOrBlank()) {
+                                    showMissingPlatformDialog = true
+                                    return@IconButton
+                                }
                                 val exp = expectedText.toIntOrNull() ?: session.expectedPackageCount
                                 val del = deliveredText.toIntOrNull() ?: session.deliveredCount
                                 val ret = returnedText.toIntOrNull() ?: session.returnedCount
@@ -214,6 +256,7 @@ fun SessionEditScreen(
 
                                 val updated = session.copy(
                                     routeId = selectedRouteId,
+                                    platformId = selectedPlatformId,
                                     startTime = startDateTime,
                                     endTime = if (hasEndTime) endDateTime else null,
                                     expectedPackageCount = exp,
@@ -279,6 +322,10 @@ fun SessionEditScreen(
                     } else {
                         Button(
                             onClick = {
+                                if (selectedPlatformId.isNullOrBlank()) {
+                                    showMissingPlatformDialog = true
+                                    return@Button
+                                }
                                 val exp = expectedText.toIntOrNull() ?: session.expectedPackageCount
                                 val del = deliveredText.toIntOrNull() ?: session.deliveredCount
                                 val ret = returnedText.toIntOrNull() ?: session.returnedCount
@@ -288,6 +335,7 @@ fun SessionEditScreen(
 
                                 val updated = session.copy(
                                     routeId = selectedRouteId,
+                                    platformId = selectedPlatformId,
                                     startTime = startDateTime,
                                     endTime = if (hasEndTime) endDateTime else null,
                                     expectedPackageCount = exp,
@@ -481,6 +529,120 @@ fun SessionEditScreen(
                                     )
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // SEÇÃO: PLATAFORMA VINCULADA
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "PLATAFORMA VINCULADA",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                                color = OrangeNeon
+                            )
+                            if (!readOnlyMode) {
+                                Text(
+                                    text = "* Obrigatório",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = RedAlert
+                                )
+                            }
+                        }
+
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = !readOnlyMode) { platformDropdownOpen = true },
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (selectedPlatformId == null && !readOnlyMode) RedAlert.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(Icons.Default.Storefront, contentDescription = null, tint = OrangeNeon)
+                                        Text(
+                                            text = selectedPlatformName,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 15.sp,
+                                            color = if (selectedPlatformId != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (!readOnlyMode) {
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = OrangeNeon)
+                                    }
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = platformDropdownOpen,
+                                onDismissRequest = { platformDropdownOpen = false }
+                            ) {
+                                if (platforms.isEmpty()) {
+                                    DropdownMenuItem(
+                                        text = { Text("Nenhuma plataforma ativa cadastrada", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                        onClick = { platformDropdownOpen = false }
+                                    )
+                                } else {
+                                    platforms.forEach { plat ->
+                                        DropdownMenuItem(
+                                            text = { Text(plat.name) },
+                                            leadingIcon = {
+                                                Icon(Icons.Default.Storefront, contentDescription = null, tint = OrangeNeon)
+                                            },
+                                            onClick = {
+                                                selectedPlatformId = plat.id
+                                                platformDropdownOpen = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (selectedPlatformId == null && !readOnlyMode) {
+                            Text(
+                                text = "Nenhuma plataforma selecionada. Por favor, escolha a plataforma antes de salvar.",
+                                fontSize = 11.sp,
+                                color = RedAlert
+                            )
+                        } else if (platforms.isEmpty() && !readOnlyMode) {
+                            Text(
+                                text = "O entregador não possui plataformas ativas cadastradas em seu perfil.",
+                                fontSize = 11.sp,
+                                color = RedAlert
+                            )
                         }
                     }
                 }

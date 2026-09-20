@@ -16,6 +16,8 @@ data class DeliveryPartnerSessionDto(
     val partnerId: String,
     @SerializedName("route_id")
     val routeId: String? = null,
+    @SerializedName("platform_id")
+    val platformId: String? = null,
     @SerializedName("expected_package_count")
     val expectedPackageCount: Int = 0,
     @SerializedName("scanned_barcodes")
@@ -52,6 +54,7 @@ fun DeliveryPartnerSessionDto.toDomain(): DeliveryPartnerSession {
         userId = userId,
         partnerId = partnerId,
         routeId = routeId,
+        platformId = platformId,
         expectedPackageCount = expectedPackageCount,
         scannedBarcodes = scannedBarcodes,
         scannedCount = scannedCount,
@@ -73,6 +76,7 @@ fun DeliveryPartnerSession.toDto(): DeliveryPartnerSessionDto {
         userId = userId,
         partnerId = partnerId,
         routeId = routeId,
+        platformId = platformId,
         expectedPackageCount = expectedPackageCount,
         scannedBarcodes = scannedBarcodes,
         scannedCount = scannedCount,

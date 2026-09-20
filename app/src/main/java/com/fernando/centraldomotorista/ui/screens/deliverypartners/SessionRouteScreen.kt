@@ -95,6 +95,7 @@ fun SessionRouteScreen(
             session = session,
             routes = uiState.routes,
             partner = uiState.partner,
+            platforms = uiState.platforms,
             isReadOnly = uiState.isReadOnly,
             onToggleEditMode = { viewModel.toggleEditMode() },
             onDismiss = onNavigateBack,

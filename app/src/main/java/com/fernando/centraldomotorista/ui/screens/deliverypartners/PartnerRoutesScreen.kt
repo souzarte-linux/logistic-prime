@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
+import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.PartnerAvatar
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeEmoji
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeLabel
@@ -60,6 +61,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val PerformanceDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private val LocalPlatformMap = staticCompositionLocalOf<Map<String, Platform>> { emptyMap() }
 
 enum class PartnerRoutesTab(val label: String) {
     SESSOES("Sessões"),
@@ -106,6 +108,7 @@ fun PartnerRoutesScreen(
 
     val partner = uiState.partner
     val routeMap = remember(uiState.routes) { uiState.routes.associateBy { it.id } }
+    val platformMap = remember(uiState.platforms) { uiState.platforms.associateBy { it.id } }
     var selectedTab by remember { mutableStateOf(PartnerRoutesTab.SESSOES) }
     var showWhatsAppChooserPhone by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(selectedTab) {
@@ -155,9 +158,9 @@ fun PartnerRoutesScreen(
                                         colors = CheckboxDefaults.colors(checkedColor = OrangeNeon)
                                     )
                                     Text(
-                                        text = "Excluir também a despesa vinculada",
+                                        text = "Excluir também a despesa vinculada no histórico financeiro",
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -169,6 +172,7 @@ fun PartnerRoutesScreen(
                 Button(
                     onClick = {
                         viewModel.confirmDeleteSession(deletingSession, deleteExpenseAlso)
+                        viewModel.dismissDeleteSession()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
                 ) {
@@ -190,6 +194,7 @@ fun PartnerRoutesScreen(
             session = editingSession,
             routes = uiState.routes,
             partner = partner,
+            platforms = uiState.platforms,
             onDismiss = { viewModel.closeEditSession() },
             onSave = { updated -> viewModel.saveEditedSession(updated) }
         )
@@ -203,6 +208,7 @@ fun PartnerRoutesScreen(
             session = viewDetailSession,
             routeName = viewDetailSession.routeId?.let { routeMap[it]?.name } ?: "Sem rota definida",
             partnerName = partner?.fullName ?: "",
+            platformName = viewDetailSession.platformId?.let { platformMap[it]?.name },
             timeFormatter = timeFormatter,
             onDismiss = { viewModel.closeViewDetailSession() },
             onEdit = {
@@ -298,8 +304,9 @@ fun PartnerRoutesScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
+    CompositionLocalProvider(LocalPlatformMap provides platformMap) {
+        Scaffold(
+            topBar = {
             TopAppBar(
                 title = {
                     Text(
@@ -1317,6 +1324,7 @@ fun PartnerRoutesScreen(
         }
     }
 }
+}
 
 
 /**
@@ -1724,6 +1732,8 @@ private fun PartnerSessionCard(
     onDelete: () -> Unit,
     onShare: (() -> Unit)? = null
 ) {
+    val platformMap = LocalPlatformMap.current
+    val platformName = session.platformId?.let { platformMap[it]?.name }
     val isInProgress = session.endTime == null
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("pt", "BR")) }
     val hourFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR")) }
@@ -1864,7 +1874,7 @@ private fun PartnerSessionCard(
                 ) {
                     Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(15.dp))
                     Text(
-                        text = routeName,
+                        text = if (!platformName.isNullOrBlank()) "$routeName • $platformName" else routeName,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -1956,6 +1966,7 @@ private fun SessionDetailDialog(
     session: DeliveryPartnerSession,
     routeName: String,
     partnerName: String,
+    platformName: String? = null,
     timeFormatter: DateTimeFormatter,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
@@ -2017,6 +2028,9 @@ private fun SessionDetailDialog(
             ) {
                 DetailRow(label = "Entregador:", value = partnerName)
                 DetailRow(label = "Rota:", value = routeName)
+                if (!platformName.isNullOrBlank()) {
+                    DetailRow(label = "Plataforma:", value = platformName)
+                }
                 DetailRow(label = "Início:", value = startTimeStr)
                 DetailRow(label = "Término:", value = endTimeStr)
                 DetailRow(label = "Duração Rota:", value = durationStr)

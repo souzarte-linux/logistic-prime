@@ -342,6 +342,7 @@ data class DeliveryPartnerSession(
     val userId: String = "",
     val partnerId: String,
     val routeId: String? = null,
+    val platformId: String? = null,
     val expectedPackageCount: Int = 0,
     val scannedBarcodes: List<String> = emptyList(),
     val scannedCount: Int = 0,

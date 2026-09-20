@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
+import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryRouteRepository
 import com.fernando.centraldomotorista.data.repository.ExpenseRepository
+import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import com.fernando.centraldomotorista.util.AppDataSync
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +39,7 @@ import java.util.Locale
 data class PartnerRoutesUiState(
     val partner: DeliveryPartner? = null,
     val routes: List<DeliveryRoute> = emptyList(),
+    val platforms: List<Platform> = emptyList(),
     val sessions: List<DeliveryPartnerSession> = emptyList(),
     val monthGroups: List<PartnerSessionMonthGroup> = emptyList(),
     val expandedMonths: Set<String> = emptySet(),
@@ -66,6 +69,7 @@ class PartnerRoutesViewModel(
     private val routeRepository: DeliveryRouteRepository = DeliveryRouteRepository(),
     private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
     private val expenseRepository: ExpenseRepository = ExpenseRepository(),
+    private val platformRepository: PlatformRepository = PlatformRepository(),
     private val externalScope: CoroutineScope? = null,
     observeDataSync: Boolean = true,
     private val currentUserIdOverride: String? = null
@@ -116,6 +120,7 @@ class PartnerRoutesViewModel(
                 val partners = partnerRepository.getDeliveryPartners(currentUserId)
                 val targetPartner = partners.firstOrNull { it.id == partnerId }
                 val routes = routeRepository.getDeliveryRoutes(currentUserId)
+                val platforms = platformRepository.getActivePlatforms(currentUserId, partnerId)
                 val allSessions = sessionRepository.getSessionsForPartner(currentUserId, partnerId)
                     .sortedWith(
                         compareByDescending<DeliveryPartnerSession> { it.startTime ?: it.createdAt }
@@ -144,6 +149,7 @@ class PartnerRoutesViewModel(
                     it.copy(
                         partner = targetPartner,
                         routes = routes,
+                        platforms = platforms,
                         sessions = allSessions,
                         monthGroups = monthGroups,
                         expandedMonths = initialExpandedMonths,

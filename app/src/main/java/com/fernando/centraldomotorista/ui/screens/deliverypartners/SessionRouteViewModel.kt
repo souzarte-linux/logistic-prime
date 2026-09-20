@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
+import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryRouteRepository
 import com.fernando.centraldomotorista.data.repository.ExpenseRepository
+import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import com.fernando.centraldomotorista.util.AppDataSync
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ data class SessionRouteUiState(
     val session: DeliveryPartnerSession? = null,
     val partner: DeliveryPartner? = null,
     val routes: List<DeliveryRoute> = emptyList(),
+    val platforms: List<Platform> = emptyList(),
     val isReadOnly: Boolean = true,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -33,7 +36,8 @@ class SessionRouteViewModel(
     private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
     private val partnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
     private val routeRepository: DeliveryRouteRepository = DeliveryRouteRepository(),
-    private val expenseRepository: ExpenseRepository = ExpenseRepository()
+    private val expenseRepository: ExpenseRepository = ExpenseRepository(),
+    private val platformRepository: PlatformRepository = PlatformRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SessionRouteUiState())
@@ -75,12 +79,16 @@ class SessionRouteViewModel(
                 val routes = withContext(Dispatchers.IO) {
                     routeRepository.getDeliveryRoutes(session.userId)
                 }
+                val platforms = withContext(Dispatchers.IO) {
+                    platformRepository.getActivePlatforms(session.userId, session.partnerId)
+                }
 
                 _uiState.update {
                     it.copy(
                         session = session,
                         partner = partner,
                         routes = routes,
+                        platforms = platforms,
                         isReadOnly = readOnly,
                         isLoading = false,
                         error = null

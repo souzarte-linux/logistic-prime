@@ -24,6 +24,7 @@ class DeliveryPartnerSessionTest {
             userId = "user-abc",
             partnerId = "partner-xyz",
             routeId = "route-789",
+            platformId = "platform-456",
             expectedPackageCount = 80,
             scannedBarcodes = listOf("PKG001", "PKG002", "PKG003"),
             scannedCount = 3,
@@ -40,6 +41,7 @@ class DeliveryPartnerSessionTest {
         assertEquals("user-abc", dto.userId)
         assertEquals("partner-xyz", dto.partnerId)
         assertEquals("route-789", dto.routeId)
+        assertEquals("platform-456", dto.platformId)
         assertEquals(80, dto.expectedPackageCount)
         assertEquals(3, dto.scannedCount)
         assertEquals(listOf("PKG001", "PKG002", "PKG003"), dto.scannedBarcodes)
@@ -55,6 +57,7 @@ class DeliveryPartnerSessionTest {
         assertEquals(session.userId, domain.userId)
         assertEquals(session.partnerId, domain.partnerId)
         assertEquals(session.routeId, domain.routeId)
+        assertEquals(session.platformId, domain.platformId)
         assertEquals(session.expectedPackageCount, domain.expectedPackageCount)
         assertEquals(session.scannedCount, domain.scannedCount)
         assertEquals(session.scannedBarcodes, domain.scannedBarcodes)
@@ -64,6 +67,20 @@ class DeliveryPartnerSessionTest {
         assertEquals(session.expenseId, domain.expenseId)
         assertEquals(session.startTime, domain.startTime)
         assertEquals(session.endTime, domain.endTime)
+    }
+
+    @Test
+    fun testExistingSessionHasNullPlatformIdByDefault() {
+        val session = DeliveryPartnerSession(
+            partnerId = "partner-xyz"
+        )
+        assertNull(session.platformId)
+
+        val dto = session.toDto()
+        assertNull(dto.platformId)
+
+        val domain = dto.toDomain()
+        assertNull(domain.platformId)
     }
 
     @Test

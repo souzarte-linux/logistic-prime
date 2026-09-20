@@ -4,6 +4,7 @@ import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -129,9 +130,14 @@ fun NewPartnerSessionScreen(
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm") }
     var routeDropdownExpanded by remember { mutableStateOf(false) }
+    var platformDropdownExpanded by remember { mutableStateOf(false) }
 
     val selectedRouteName = remember(uiState.selectedRouteId, uiState.routes) {
         uiState.routes.firstOrNull { it.id == uiState.selectedRouteId }?.name ?: "Selecione uma rota..."
+    }
+
+    val selectedPlatformName = remember(uiState.selectedPlatformId, uiState.platforms) {
+        uiState.platforms.firstOrNull { it.id == uiState.selectedPlatformId }?.name ?: "Selecione uma plataforma..."
     }
 
     Scaffold(
@@ -325,6 +331,112 @@ fun NewPartnerSessionScreen(
                                         }
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // Card da Plataforma (Obrigatório)
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "PLATAFORMA",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp,
+                                    color = OrangeNeon
+                                )
+                                Text(
+                                    text = "* Obrigatório",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = RedAlert
+                                )
+                            }
+
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedCard(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { platformDropdownExpanded = true },
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = if (uiState.selectedPlatformId == null) OrangeNeon.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                    ),
+                                    colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Icon(Icons.Default.Storefront, contentDescription = null, tint = OrangeNeon)
+                                            Text(
+                                                text = selectedPlatformName,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (uiState.selectedPlatformId != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = OrangeNeon)
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = platformDropdownExpanded,
+                                    onDismissRequest = { platformDropdownExpanded = false },
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.9f)
+                                        .background(MaterialTheme.colorScheme.surface)
+                                ) {
+                                    if (uiState.platforms.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("Nenhuma plataforma ativa cadastrada", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                            onClick = { platformDropdownExpanded = false }
+                                        )
+                                    } else {
+                                        uiState.platforms.forEach { platform ->
+                                            DropdownMenuItem(
+                                                text = { Text(platform.name, fontWeight = FontWeight.Medium) },
+                                                leadingIcon = { Icon(Icons.Default.Storefront, contentDescription = null, tint = OrangeNeon) },
+                                                onClick = {
+                                                    viewModel.onPlatformSelected(platform.id)
+                                                    platformDropdownExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (uiState.platforms.isEmpty()) {
+                                Text(
+                                    text = "Nenhuma plataforma ativa cadastrada no perfil do entregador parceiro. Cadastre uma plataforma ativa no perfil dele para poder vincular à sessão.",
+                                    fontSize = 11.sp,
+                                    color = RedAlert,
+                                    lineHeight = 14.sp
+                                )
                             }
                         }
                     }
