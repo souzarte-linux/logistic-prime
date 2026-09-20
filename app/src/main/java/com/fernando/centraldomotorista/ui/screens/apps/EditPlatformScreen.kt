@@ -840,6 +840,75 @@ fun EditPlatformScreen(
                         }
                     }
 
+                    // Card de Exclusão da Plataforma (Modo Edição)
+                    if (isEditing) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, RedAlert.copy(alpha = 0.35f))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = RedAlert,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = "ZONA DE PERIGO",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 1.sp,
+                                        color = RedAlert
+                                    )
+                                }
+
+                                Text(
+                                    text = "Excluir esta plataforma removerá o registro para novos lançamentos. Corridas e históricos passados permanecerão preservados.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 16.sp
+                                )
+
+                                OutlinedButton(
+                                    onClick = { showDeleteConfirmDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = RedAlert
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, RedAlert)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = RedAlert,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "EXCLUIR PLATAFORMA",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = RedAlert
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }
@@ -847,7 +916,9 @@ fun EditPlatformScreen(
     }
 
     // Diálogo de confirmação de exclusão
-    if (showDeleteConfirmDialog && uiState.editingPlatformId != null) {
+    if (showDeleteConfirmDialog && isEditing) {
+        val targetId = platformId ?: uiState.editingPlatformId ?: ""
+        val displayName = uiState.name.ifBlank { "esta plataforma" }
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
             title = {
@@ -859,7 +930,7 @@ fun EditPlatformScreen(
             },
             text = {
                 Text(
-                    "Tem certeza que deseja excluir '${uiState.name}'? Histórico e corridas vinculadas permanecerão preservados.",
+                    "Tem certeza que deseja excluir '$displayName'? Histórico e corridas vinculadas permanecerão preservados.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -867,7 +938,9 @@ fun EditPlatformScreen(
                 Button(
                     onClick = {
                         showDeleteConfirmDialog = false
-                        viewModel.deletePlatform(uiState.editingPlatformId!!, onSuccess = onNavigateBack)
+                        if (targetId.isNotBlank()) {
+                            viewModel.deletePlatform(targetId, onSuccess = onNavigateBack)
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
                 ) {

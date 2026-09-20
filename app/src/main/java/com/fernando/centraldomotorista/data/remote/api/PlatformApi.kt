@@ -1,6 +1,7 @@
 package com.fernando.centraldomotorista.data.remote.api
 
 import com.fernando.centraldomotorista.data.remote.dto.PlatformDto
+import retrofit2.Response
 import retrofit2.http.*
 
 interface PlatformApi {
@@ -10,6 +11,11 @@ interface PlatformApi {
         @Query("partner_id") partnerIdFilter: String? = "is.null",
         @Query("active") activeFilter: String? = null,
         @Query("order") order: String = "name.asc"
+    ): List<PlatformDto>
+
+    @GET("platforms")
+    suspend fun getPlatformById(
+        @Query("id") idFilter: String
     ): List<PlatformDto>
 
     @Headers("Prefer: return=representation")
@@ -28,6 +34,6 @@ interface PlatformApi {
     @DELETE("platforms")
     suspend fun deletePlatform(
         @Query("id") idFilter: String
-    )
+    ): Response<Unit>
 }
 

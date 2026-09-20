@@ -7,6 +7,7 @@ import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.model.PlatformRules
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.PlatformRepository
+import com.fernando.centraldomotorista.util.AppDataSync
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -130,6 +131,11 @@ class PlatformsViewModel(
 
     init {
         loadPlatforms()
+        viewModelScope.launch {
+            AppDataSync.dataChangedEvents.collect {
+                loadPlatforms()
+            }
+        }
     }
 
     fun loadPlatforms() {
@@ -261,10 +267,9 @@ class PlatformsViewModel(
                     startEditing(existing)
                     _uiState.update { it.copy(isLoading = false) }
                 } else {
-                    val list = repository.getPlatforms(currentUserId)
-                    val platform = list.firstOrNull { it.id == platformId }
+                    val platform = repository.getPlatformById(platformId)
+                        ?: repository.getPlatforms(currentUserId).firstOrNull { it.id == platformId }
                     if (platform != null) {
-                        _uiState.update { it.copy(platforms = list) }
                         startEditing(platform)
                     } else {
                         _uiState.update { it.copy(error = "Plataforma não encontrada.") }

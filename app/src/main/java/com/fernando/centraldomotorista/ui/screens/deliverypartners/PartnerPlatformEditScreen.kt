@@ -72,6 +72,17 @@ fun PartnerPlatformEditScreen(
     val focusManager = LocalFocusManager.current
     val isEditing = !platformId.isNullOrBlank()
 
+    var fetchedPlatform by remember { mutableStateOf<Platform?>(null) }
+
+    LaunchedEffect(platformId) {
+        if (!platformId.isNullOrBlank()) {
+            val direct = deliveryPartnersViewModel.getPlatformById(platformId)
+            if (direct != null) {
+                fetchedPlatform = direct
+            }
+        }
+    }
+
     LaunchedEffect(partnerId) {
         if (!partnerId.isNullOrBlank()) {
             deliveryPartnersViewModel.loadPlatformsForPartner(partnerId)
@@ -85,21 +96,41 @@ fun PartnerPlatformEditScreen(
         } else null
     }
 
+    val currentPlatform = fetchedPlatform ?: existingPlatform
+
     // Estado do formulário da plataforma
-    var name by remember { mutableStateOf(existingPlatform?.name ?: "") }
-    var segment by remember { mutableStateOf(existingPlatform?.segment ?: "logistica") }
-    var paymentModel by remember { mutableStateOf(existingPlatform?.paymentModel ?: "producao") }
-    var cycle by remember { mutableStateOf(existingPlatform?.cycle ?: "semanal") }
-    var paymentDay by remember { mutableStateOf(existingPlatform?.paymentDay ?: "QUA") }
+    var name by remember { mutableStateOf(currentPlatform?.name ?: "") }
+    var segment by remember { mutableStateOf(currentPlatform?.segment ?: "logistica") }
+    var paymentModel by remember { mutableStateOf(currentPlatform?.paymentModel ?: "producao") }
+    var cycle by remember { mutableStateOf(currentPlatform?.cycle ?: "semanal") }
+    var paymentDay by remember { mutableStateOf(currentPlatform?.paymentDay ?: "QUA") }
     var fixedPayDelayText by remember {
-        mutableStateOf(existingPlatform?.rules?.fixedPayDelay?.toString() ?: "7")
+        mutableStateOf(currentPlatform?.rules?.fixedPayDelay?.toString() ?: "7")
     }
-    var bankName by remember { mutableStateOf(existingPlatform?.bankName ?: "") }
-    var bankAgency by remember { mutableStateOf(existingPlatform?.bankAgency ?: "") }
-    var bankAccount by remember { mutableStateOf(existingPlatform?.bankAccount ?: "") }
-    var pixKeyType by remember { mutableStateOf(existingPlatform?.pixKeyType ?: "CPF") }
-    var pixKey by remember { mutableStateOf(existingPlatform?.pixKey ?: "") }
-    var active by remember { mutableStateOf(existingPlatform?.active ?: true) }
+    var bankName by remember { mutableStateOf(currentPlatform?.bankName ?: "") }
+    var bankAgency by remember { mutableStateOf(currentPlatform?.bankAgency ?: "") }
+    var bankAccount by remember { mutableStateOf(currentPlatform?.bankAccount ?: "") }
+    var pixKeyType by remember { mutableStateOf(currentPlatform?.pixKeyType ?: "CPF") }
+    var pixKey by remember { mutableStateOf(currentPlatform?.pixKey ?: "") }
+    var active by remember { mutableStateOf(currentPlatform?.active ?: true) }
+
+    // Sincroniza campos quando a plataforma for carregada do backend
+    LaunchedEffect(currentPlatform) {
+        currentPlatform?.let { p ->
+            name = p.name
+            segment = p.segment
+            paymentModel = p.paymentModel
+            cycle = p.cycle
+            paymentDay = p.paymentDay ?: "QUA"
+            fixedPayDelayText = p.rules.fixedPayDelay.toString()
+            bankName = p.bankName ?: ""
+            bankAgency = p.bankAgency ?: ""
+            bankAccount = p.bankAccount ?: ""
+            pixKeyType = p.pixKeyType ?: "CPF"
+            pixKey = p.pixKey ?: ""
+            active = p.active
+        }
+    }
 
     // Parâmetros operacionais e regras de entrega do parceiro
     var selectedRouteId by remember { mutableStateOf(partnersUiState.formData.preferredRouteId) }
@@ -236,7 +267,9 @@ fun PartnerPlatformEditScreen(
     }
 
     // Diálogo de confirmação de exclusão
-    if (showDeleteConfirmDialog && existingPlatform != null) {
+    if (showDeleteConfirmDialog && isEditing) {
+        val targetId = platformId ?: currentPlatform?.id ?: ""
+        val displayName = name.ifBlank { currentPlatform?.name ?: "esta plataforma" }
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
             title = {
@@ -248,7 +281,7 @@ fun PartnerPlatformEditScreen(
             },
             text = {
                 Text(
-                    "Tem certeza que deseja excluir '${existingPlatform.name}'? O histórico operacional permanecerá preservado.",
+                    "Tem certeza que deseja excluir '$displayName'? O histórico operacional permanecerá preservado.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -256,9 +289,11 @@ fun PartnerPlatformEditScreen(
                 Button(
                     onClick = {
                         showDeleteConfirmDialog = false
-                        deliveryPartnersViewModel.deletePlatformFromPartner(partnerId = partnerId, platformId = existingPlatform.id) {
-                            Toast.makeText(context, "Plataforma excluída com sucesso!", Toast.LENGTH_SHORT).show()
-                            onNavigateBack()
+                        if (targetId.isNotBlank()) {
+                            deliveryPartnersViewModel.deletePlatformFromPartner(partnerId = partnerId, platformId = targetId) {
+                                Toast.makeText(context, "Plataforma excluída com sucesso!", Toast.LENGTH_SHORT).show()
+                                onNavigateBack()
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
@@ -1462,6 +1497,75 @@ fun PartnerPlatformEditScreen(
                                 uncheckedTrackColor = RedAlert.copy(alpha = 0.6f)
                             )
                         )
+                    }
+                }
+
+                // 12. SESSÃO: EXCLUIR PLATAFORMA (Modo Edição)
+                if (isEditing) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.35f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = RedAlert,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = "ZONA DE PERIGO",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp,
+                                    color = RedAlert
+                                )
+                            }
+
+                            Text(
+                                text = "Excluir esta plataforma removerá o vínculo com o entregador. O histórico de rotas e lançamentos anteriores será preservado.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 16.sp
+                            )
+
+                            OutlinedButton(
+                                onClick = { showDeleteConfirmDialog = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = RedAlert
+                                ),
+                                border = BorderStroke(1.dp, RedAlert)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = RedAlert,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "EXCLUIR PLATAFORMA",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = RedAlert
+                                )
+                            }
+                        }
                     }
                 }
 

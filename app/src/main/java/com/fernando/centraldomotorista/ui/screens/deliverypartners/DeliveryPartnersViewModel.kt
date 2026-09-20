@@ -333,20 +333,29 @@ class DeliveryPartnersViewModel(
         }
     }
 
+    suspend fun getPlatformById(platformId: String): Platform? {
+        return platformRepository.getPlatformById(platformId)
+    }
+
     fun deletePlatformFromPartner(partnerId: String?, platformId: String, onComplete: () -> Unit) {
         viewModelScope.launch {
             try {
-                platformRepository.deletePlatform(platformId)
-                val updatedPlatforms = if (!partnerId.isNullOrBlank()) {
-                    platformRepository.getPlatforms(userId = currentUserId, partnerId = partnerId)
-                } else emptyList()
-                _uiState.update { state ->
-                    state.copy(
-                        platforms = updatedPlatforms,
-                        selectedPlatformId = if (state.selectedPlatformId == platformId) null else state.selectedPlatformId
-                    )
+                val success = platformRepository.deletePlatform(platformId)
+                if (success) {
+                    val updatedPlatforms = if (!partnerId.isNullOrBlank()) {
+                        platformRepository.getPlatforms(userId = currentUserId, partnerId = partnerId)
+                    } else emptyList()
+                    _uiState.update { state ->
+                        state.copy(
+                            platforms = updatedPlatforms,
+                            selectedPlatformId = if (state.selectedPlatformId == platformId) null else state.selectedPlatformId
+                        )
+                    }
+                    AppDataSync.notifyDataChanged()
+                    onComplete()
+                } else {
+                    _uiState.update { it.copy(error = "Não foi possível excluir a plataforma no servidor.") }
                 }
-                onComplete()
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Erro ao excluir plataforma: ${e.message}") }
             }

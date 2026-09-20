@@ -6,6 +6,7 @@ import com.fernando.centraldomotorista.data.remote.RetrofitClient
 import com.fernando.centraldomotorista.data.remote.api.PlatformApi
 import com.fernando.centraldomotorista.data.remote.dto.toDomain
 import com.fernando.centraldomotorista.data.remote.dto.toDto
+import com.fernando.centraldomotorista.util.AppDataSync
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -31,6 +32,15 @@ class PlatformRepository(
         } catch (e: Exception) {
             Log.e("PlatformRepository", "Erro ao buscar todas as plataformas: ${e.message}", e)
             emptyList()
+        }
+    }
+
+    suspend fun getPlatformById(platformId: String): Platform? = withContext(Dispatchers.IO) {
+        try {
+            platformApi.getPlatformById("eq.$platformId").firstOrNull()?.toDomain()
+        } catch (e: Exception) {
+            Log.e("PlatformRepository", "Erro ao buscar plataforma por id $platformId: ${e.message}", e)
+            null
         }
     }
 
@@ -82,19 +92,28 @@ class PlatformRepository(
 
     suspend fun savePlatform(platform: Platform): Platform = withContext(Dispatchers.IO) {
         val dto = platform.toDto()
-        if (platform.id.isNotBlank()) {
+        val result = if (platform.id.isNotBlank()) {
             val updated = platformApi.updatePlatform("eq.${platform.id}", dto)
             updated.firstOrNull()?.toDomain() ?: platform
         } else {
             val created = platformApi.createPlatform(dto)
             created.firstOrNull()?.toDomain() ?: platform
         }
+        AppDataSync.notifyDataChanged()
+        result
     }
 
     suspend fun deletePlatform(platformId: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            platformApi.deletePlatform("eq.$platformId")
-            true
+            val res = platformApi.deletePlatform("eq.$platformId")
+            if (res.isSuccessful) {
+                Log.d("PlatformRepository", "Plataforma $platformId excluída com sucesso.")
+                AppDataSync.notifyDataChanged()
+                true
+            } else {
+                Log.e("PlatformRepository", "Erro ao excluir plataforma $platformId: HTTP ${res.code()}")
+                false
+            }
         } catch (e: Exception) {
             Log.e("PlatformRepository", "Erro ao excluir plataforma $platformId: ${e.message}", e)
             false
