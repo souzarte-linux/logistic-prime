@@ -322,8 +322,18 @@ data class DeliveryPartner(
     val includeEndDate: Boolean = true,
     val paymentDelayDays: Int = 7,
     val paymentDate: String? = null,
+    val variableCycles: List<VariableCycleItem>? = null,
     val active: Boolean = true,
     val photoUrl: String? = null,
+)
+
+data class VariableCycleItem(
+    val id: String = "",
+    val startDate: String = "",
+    val endDate: String = "",
+    val includeEndDate: Boolean = true,
+    val paymentDelayDays: Int = 7,
+    val paymentDate: String? = null
 )
 
 data class DeliveryPartnerSession(

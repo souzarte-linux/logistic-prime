@@ -61,6 +61,8 @@ data class DeliveryPartnerDto(
     val paymentDelayDays: Int? = null,
     @SerializedName("payment_date")
     val paymentDate: String? = null,
+    @SerializedName("variable_cycles")
+    val variableCycles: List<VariableCycleItemDto>? = null,
     @SerializedName("active")
     val active: Boolean = true,
     @SerializedName("photo_url")
@@ -68,6 +70,35 @@ data class DeliveryPartnerDto(
     @SerializedName("created_at")
     val createdAt: String? = null
 )
+
+data class VariableCycleItemDto(
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("start_date") val startDate: String = "",
+    @SerializedName("end_date") val endDate: String = "",
+    @SerializedName("include_end_date") val includeEndDate: Boolean = true,
+    @SerializedName("payment_delay_days") val paymentDelayDays: Int = 7,
+    @SerializedName("payment_date") val paymentDate: String? = null
+)
+
+fun VariableCycleItemDto.toDomain(): com.fernando.centraldomotorista.data.model.VariableCycleItem =
+    com.fernando.centraldomotorista.data.model.VariableCycleItem(
+        id = id ?: "",
+        startDate = startDate,
+        endDate = endDate,
+        includeEndDate = includeEndDate,
+        paymentDelayDays = paymentDelayDays,
+        paymentDate = paymentDate
+    )
+
+fun com.fernando.centraldomotorista.data.model.VariableCycleItem.toDto(): VariableCycleItemDto =
+    VariableCycleItemDto(
+        id = if (id.isNotBlank()) id else null,
+        startDate = startDate,
+        endDate = endDate,
+        includeEndDate = includeEndDate,
+        paymentDelayDays = paymentDelayDays,
+        paymentDate = paymentDate?.ifBlank { null }
+    )
 
 fun DeliveryPartnerDto.toDomain(): DeliveryPartner {
     return DeliveryPartner(
@@ -99,6 +130,7 @@ fun DeliveryPartnerDto.toDomain(): DeliveryPartner {
         includeEndDate = includeEndDate,
         paymentDelayDays = paymentDelayDays ?: 7,
         paymentDate = paymentDate,
+        variableCycles = variableCycles?.map { it.toDomain() },
         active = active,
         photoUrl = photoUrl
     )
@@ -134,6 +166,7 @@ fun DeliveryPartner.toDto(): DeliveryPartnerDto {
         includeEndDate = includeEndDate,
         paymentDelayDays = paymentDelayDays,
         paymentDate = if (paymentCycleType == "variable") paymentDate?.ifBlank { null } else null,
+        variableCycles = if (paymentCycleType == "variable") variableCycles?.map { it.toDto() } else null,
         active = active,
         photoUrl = photoUrl?.trim()?.ifBlank { null }
     )

@@ -41,6 +41,44 @@ data class FormCycleEntry(
     val payDelay: Int get() = payDelayText.toIntOrNull() ?: 0
 }
 
+data class VariableCycleFormEntry(
+    val id: String = UUID.randomUUID().toString(),
+    val startDate: String = "2026-09-01",
+    val endDate: String = "2026-09-07",
+    val includeEndDate: Boolean = true,
+    val paymentDelayDaysText: String = "7"
+) {
+    val paymentDelayDays: Int
+        get() = paymentDelayDaysText.toIntOrNull() ?: 7
+
+    val startDateParsed: LocalDate?
+        get() = runCatching { LocalDate.parse(startDate) }.getOrNull()
+
+    val endDateParsed: LocalDate?
+        get() = runCatching { LocalDate.parse(endDate) }.getOrNull()
+
+    val calculatedPaymentDate: LocalDate?
+        get() {
+            val end = endDateParsed ?: return null
+            return end.plusDays(paymentDelayDays.toLong())
+        }
+
+    val formattedStartDate: String
+        get() = startDateParsed?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) ?: startDate
+
+    val formattedEndDate: String
+        get() = endDateParsed?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) ?: endDate
+
+    val formattedPaymentDateText: String
+        get() {
+            val date = calculatedPaymentDate ?: return "Data a definir"
+            val dayOfWeek = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
+                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("pt", "BR")) else it.toString() }
+            val formattedDate = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            return "Seu pagamento será realizado em: $dayOfWeek, $formattedDate."
+        }
+}
+
 data class DeliveryPartnerFormData(
     val id: String? = null,
     val fullName: String = "",
@@ -75,6 +113,7 @@ data class DeliveryPartnerFormData(
     val cycleEndDate: String = "2026-09-07",
     val includeEndDate: Boolean = true,
     val paymentDelayDaysText: String = "7",
+    val variableCycles: List<VariableCycleFormEntry> = listOf(VariableCycleFormEntry()),
     val active: Boolean = true,
     val photoUrl: String = ""
 ) {
@@ -243,6 +282,29 @@ class DeliveryPartnersViewModel(
             listOf(FormCycleEntry(cutText = "1", payDelayText = "7"), FormCycleEntry(cutText = "16", payDelayText = "7"))
         }
 
+        val mappedVariableCycles = if (!partner.variableCycles.isNullOrEmpty()) {
+            partner.variableCycles.map {
+                VariableCycleFormEntry(
+                    id = it.id.ifBlank { UUID.randomUUID().toString() },
+                    startDate = it.startDate.ifBlank { "2026-09-01" },
+                    endDate = it.endDate.ifBlank { "2026-09-07" },
+                    includeEndDate = it.includeEndDate,
+                    paymentDelayDaysText = it.paymentDelayDays.toString()
+                )
+            }
+        } else if (!partner.cycleStartDate.isNullOrBlank() && !partner.cycleEndDate.isNullOrBlank()) {
+            listOf(
+                VariableCycleFormEntry(
+                    startDate = partner.cycleStartDate,
+                    endDate = partner.cycleEndDate,
+                    includeEndDate = partner.includeEndDate,
+                    paymentDelayDaysText = partner.paymentDelayDays.toString()
+                )
+            )
+        } else {
+            listOf(VariableCycleFormEntry())
+        }
+
         val initial = DeliveryPartnerFormData(
             id = partner.id,
             fullName = partner.fullName,
@@ -274,6 +336,7 @@ class DeliveryPartnersViewModel(
             cycleEndDate = partner.cycleEndDate ?: "2026-09-07",
             includeEndDate = partner.includeEndDate,
             paymentDelayDaysText = partner.paymentDelayDays.toString(),
+            variableCycles = mappedVariableCycles,
             active = partner.active,
             photoUrl = partner.photoUrl ?: ""
         )
@@ -489,6 +552,75 @@ class DeliveryPartnersViewModel(
         _uiState.update { it.copy(formData = it.formData.copy(paymentDelayDaysText = "")) }
     }
 
+    fun addVariableCycle() {
+        _uiState.update { state ->
+            val lastCycle = state.formData.variableCycles.lastOrNull()
+            val newStartDate = lastCycle?.endDateParsed?.plusDays(1)?.toString() ?: "2026-09-08"
+            val newEndDate = lastCycle?.endDateParsed?.plusDays(7)?.toString() ?: "2026-09-14"
+            val newCycle = VariableCycleFormEntry(
+                startDate = newStartDate,
+                endDate = newEndDate,
+                includeEndDate = true,
+                paymentDelayDaysText = "7"
+            )
+            state.copy(formData = state.formData.copy(variableCycles = state.formData.variableCycles + newCycle))
+        }
+    }
+
+    fun removeVariableCycle(index: Int) {
+        _uiState.update { state ->
+            if (state.formData.variableCycles.size <= 1) return@update state
+            val updated = state.formData.variableCycles.filterIndexed { i, _ -> i != index }
+            state.copy(formData = state.formData.copy(variableCycles = updated))
+        }
+    }
+
+    fun updateVariableCycleStartDate(index: Int, date: LocalDate) {
+        _uiState.update { state ->
+            val updated = state.formData.variableCycles.mapIndexed { i, cycle ->
+                if (i == index) cycle.copy(startDate = date.toString()) else cycle
+            }
+            state.copy(formData = state.formData.copy(variableCycles = updated))
+        }
+    }
+
+    fun updateVariableCycleEndDate(index: Int, date: LocalDate) {
+        _uiState.update { state ->
+            val updated = state.formData.variableCycles.mapIndexed { i, cycle ->
+                if (i == index) cycle.copy(endDate = date.toString()) else cycle
+            }
+            state.copy(formData = state.formData.copy(variableCycles = updated))
+        }
+    }
+
+    fun updateVariableCycleIncludeEndDate(index: Int, include: Boolean) {
+        _uiState.update { state ->
+            val updated = state.formData.variableCycles.mapIndexed { i, cycle ->
+                if (i == index) cycle.copy(includeEndDate = include) else cycle
+            }
+            state.copy(formData = state.formData.copy(variableCycles = updated))
+        }
+    }
+
+    fun updateVariableCyclePaymentDelayDays(index: Int, text: String) {
+        val filtered = text.filter { it.isDigit() }.take(3)
+        _uiState.update { state ->
+            val updated = state.formData.variableCycles.mapIndexed { i, cycle ->
+                if (i == index) cycle.copy(paymentDelayDaysText = filtered) else cycle
+            }
+            state.copy(formData = state.formData.copy(variableCycles = updated))
+        }
+    }
+
+    fun clearVariableCyclePaymentDelayDays(index: Int) {
+        _uiState.update { state ->
+            val updated = state.formData.variableCycles.mapIndexed { i, cycle ->
+                if (i == index) cycle.copy(paymentDelayDaysText = "") else cycle
+            }
+            state.copy(formData = state.formData.copy(variableCycles = updated))
+        }
+    }
+
     fun addCycleEntry() {
         _uiState.update { state ->
             val updated = state.formData.cycleEntries + FormCycleEntry(cutText = "1", payDelayText = "7")
@@ -668,11 +800,29 @@ class DeliveryPartnersViewModel(
                         .sortedBy { it.cut }
                         .flatMap { listOf(it.cut, it.payDelay) }
                 } else null,
-                cycleStartDate = if (form.cycle == "misto" || form.cycle == "variavel") form.cycleStartDate else null,
-                cycleEndDate = if (form.cycle == "misto" || form.cycle == "variavel") form.cycleEndDate else null,
-                includeEndDate = form.includeEndDate,
-                paymentDelayDays = form.paymentDelayDays,
-                paymentDate = if (form.cycle == "misto" || form.cycle == "variavel") form.calculatedPaymentDate?.toString() else null,
+                cycleStartDate = if (form.cycle == "misto" || form.cycle == "variavel") {
+                    form.variableCycles.firstOrNull()?.startDate ?: form.cycleStartDate
+                } else null,
+                cycleEndDate = if (form.cycle == "misto" || form.cycle == "variavel") {
+                    form.variableCycles.firstOrNull()?.endDate ?: form.cycleEndDate
+                } else null,
+                includeEndDate = form.variableCycles.firstOrNull()?.includeEndDate ?: form.includeEndDate,
+                paymentDelayDays = form.variableCycles.firstOrNull()?.paymentDelayDays ?: form.paymentDelayDays,
+                paymentDate = if (form.cycle == "misto" || form.cycle == "variavel") {
+                    form.variableCycles.firstOrNull()?.calculatedPaymentDate?.toString() ?: form.calculatedPaymentDate?.toString()
+                } else null,
+                variableCycles = if (form.cycle == "misto" || form.cycle == "variavel") {
+                    form.variableCycles.map {
+                        com.fernando.centraldomotorista.data.model.VariableCycleItem(
+                            id = it.id,
+                            startDate = it.startDate,
+                            endDate = it.endDate,
+                            includeEndDate = it.includeEndDate,
+                            paymentDelayDays = it.paymentDelayDays,
+                            paymentDate = it.calculatedPaymentDate?.toString()
+                        )
+                    }
+                } else null,
                 active = form.active,
                 photoUrl = form.photoUrl.trim().ifBlank { null }
             )

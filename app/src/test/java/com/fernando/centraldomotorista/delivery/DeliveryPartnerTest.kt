@@ -2,8 +2,10 @@ package com.fernando.centraldomotorista.delivery
 
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
+import com.fernando.centraldomotorista.data.model.VariableCycleItem
 import com.fernando.centraldomotorista.data.remote.dto.toDomain
 import com.fernando.centraldomotorista.data.remote.dto.toDto
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.VariableCycleFormEntry
 import com.fernando.centraldomotorista.ui.utils.isValidCpf
 import org.junit.Assert.*
 import org.junit.Test
@@ -135,6 +137,72 @@ class DeliveryPartnerTest {
         assertTrue(domain.includeEndDate)
         assertEquals(7, domain.paymentDelayDays)
         assertEquals("2026-09-14", domain.paymentDate)
+    }
+
+    @Test
+    fun testMultipleVariableCyclesDtoMapping() {
+        val cycles = listOf(
+            VariableCycleItem(
+                startDate = "2026-09-01",
+                endDate = "2026-09-07",
+                includeEndDate = true,
+                paymentDelayDays = 7,
+                paymentDate = "2026-09-14"
+            ),
+            VariableCycleItem(
+                startDate = "2026-09-08",
+                endDate = "2026-09-14",
+                includeEndDate = false,
+                paymentDelayDays = 5,
+                paymentDate = "2026-09-19"
+            )
+        )
+
+        val partner = DeliveryPartner(
+            id = "partner-var-multi",
+            fullName = "Roberto Ciclos",
+            paymentCycleType = "variable",
+            variableCycles = cycles
+        )
+
+        val dto = partner.toDto()
+        assertNotNull(dto.variableCycles)
+        assertEquals(2, dto.variableCycles?.size)
+        assertEquals("2026-09-01", dto.variableCycles?.get(0)?.startDate)
+        assertEquals("2026-09-07", dto.variableCycles?.get(0)?.endDate)
+        assertTrue(dto.variableCycles?.get(0)?.includeEndDate == true)
+        assertEquals(7, dto.variableCycles?.get(0)?.paymentDelayDays)
+        assertEquals("2026-09-14", dto.variableCycles?.get(0)?.paymentDate)
+
+        assertEquals("2026-09-08", dto.variableCycles?.get(1)?.startDate)
+        assertEquals("2026-09-14", dto.variableCycles?.get(1)?.endDate)
+        assertFalse(dto.variableCycles?.get(1)?.includeEndDate == true)
+        assertEquals(5, dto.variableCycles?.get(1)?.paymentDelayDays)
+        assertEquals("2026-09-19", dto.variableCycles?.get(1)?.paymentDate)
+
+        val domain = dto.toDomain()
+        assertNotNull(domain.variableCycles)
+        assertEquals(2, domain.variableCycles?.size)
+        assertEquals(cycles[0], domain.variableCycles?.get(0))
+        assertEquals(cycles[1], domain.variableCycles?.get(1))
+    }
+
+    @Test
+    fun testVariableCycleFormEntryCalculation() {
+        val cycleEntry = VariableCycleFormEntry(
+            startDate = "2026-09-01",
+            endDate = "2026-09-07",
+            includeEndDate = true,
+            paymentDelayDaysText = "7"
+        )
+
+        assertEquals("01/09/2026", cycleEntry.formattedStartDate)
+        assertEquals("07/09/2026", cycleEntry.formattedEndDate)
+        assertEquals(7, cycleEntry.paymentDelayDays)
+        assertNotNull(cycleEntry.calculatedPaymentDate)
+        assertEquals("2026-09-14", cycleEntry.calculatedPaymentDate.toString())
+        assertTrue(cycleEntry.formattedPaymentDateText.contains("14/09/2026"))
+        assertTrue(cycleEntry.formattedPaymentDateText.contains("Segunda-feira"))
     }
 
     @Test
