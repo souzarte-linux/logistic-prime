@@ -68,6 +68,7 @@ fun DeliveryPartnerFormScreen(
             } else {
                 viewModel.loadData()
             }
+            viewModel.loadPlatformsForPartner(partnerId)
         } else {
             viewModel.openCreateForm()
         }
@@ -78,6 +79,7 @@ fun DeliveryPartnerFormScreen(
             val existing = uiState.partners.firstOrNull { it.id == partnerId }
             if (existing != null) {
                 viewModel.openEditForm(existing)
+                viewModel.loadPlatformsForPartner(partnerId)
             }
         }
     }
@@ -656,7 +658,7 @@ fun DeliveryPartnerFormScreen(
                             onNavigateToPartnerPlatformEdit(form.id, null)
                         },
                         onToggleActive = { platform ->
-                            viewModel.togglePlatformActive(platform)
+                            viewModel.togglePlatformActive(form.id, platform)
                         }
                     )
                 }

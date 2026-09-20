@@ -26,6 +26,8 @@ data class PlatformDto(
     val id: String? = null,
     @SerializedName("user_id")
     val userId: String,
+    @SerializedName("partner_id")
+    val partnerId: String? = null,
     @SerializedName("name")
     val name: String,
     @SerializedName("cycle")
@@ -78,6 +80,7 @@ fun PlatformDto.toDomain(): Platform {
     return Platform(
         id = id ?: "",
         userId = userId,
+        partnerId = partnerId,
         name = name,
         cycle = cycle,
         paymentDay = paymentDay,
@@ -98,6 +101,7 @@ fun Platform.toDto(): PlatformDto {
     return PlatformDto(
         id = if (id.isNotEmpty()) id else null,
         userId = userId,
+        partnerId = partnerId,
         name = name,
         cycle = cycle,
         paymentDay = paymentDay,

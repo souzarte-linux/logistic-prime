@@ -210,13 +210,19 @@ fun PartnerPlatformsSection(
                         modifier = Modifier.size(32.dp)
                     )
                     Text(
-                        text = "Nenhuma plataforma encontrada",
+                        text = if (platforms.isEmpty())
+                            "Nenhuma plataforma cadastrada"
+                        else
+                            "Nenhuma plataforma encontrada",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Tente ajustar os filtros ou cadastre uma nova plataforma para o entregador.",
+                        text = if (platforms.isEmpty())
+                            "Esta parceira ainda não possui plataformas vinculadas. Toque no botão abaixo para adicionar a primeira plataforma."
+                        else
+                            "Nenhum resultado corresponde aos filtros selecionados. Tente ajustar os filtros.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center

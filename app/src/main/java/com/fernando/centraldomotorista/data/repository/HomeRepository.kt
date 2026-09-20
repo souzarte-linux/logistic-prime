@@ -132,7 +132,12 @@ class HomeRepository(
             }
             val platformsDeferred = async {
                 try {
-                    platformApi.getPlatforms(userFilter, null, "name.asc").map { it.toDomain() }
+                    platformApi.getPlatforms(
+                        userIdFilter = userFilter,
+                        partnerIdFilter = "is.null",
+                        activeFilter = null,
+                        order = "name.asc"
+                    ).map { it.toDomain() }
                 } catch (e: Exception) {
                     Log.e("HomeRepository", "Erro ao buscar platforms: ${e.message}", e)
                     emptyList()

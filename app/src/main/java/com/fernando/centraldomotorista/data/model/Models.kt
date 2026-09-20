@@ -44,6 +44,7 @@ data class PlatformRules(
 data class Platform(
     val id: String,
     val userId: String,
+    val partnerId: String? = null,
     val name: String,
     val cycle: String,           // "semanal" | "quinzenal" | "mensal" | "misto"
     val paymentDay: String?,

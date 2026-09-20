@@ -18,20 +18,32 @@ class PlatformRepository(
     private val routeRepository: RouteRepository = RouteRepository(),
     private val dailyTotalRepository: DailyTotalRepository = DailyTotalRepository()
 ) {
-    suspend fun getPlatforms(userId: String): List<Platform> = withContext(Dispatchers.IO) {
+    suspend fun getPlatforms(userId: String, partnerId: String? = null): List<Platform> = withContext(Dispatchers.IO) {
         try {
             val userFilter = "eq.$userId"
-            platformApi.getPlatforms(userIdFilter = userFilter, activeFilter = null, order = "name.asc").map { it.toDomain() }
+            val partnerFilter = if (partnerId != null) "eq.$partnerId" else "is.null"
+            platformApi.getPlatforms(
+                userIdFilter = userFilter,
+                partnerIdFilter = partnerFilter,
+                activeFilter = null,
+                order = "name.asc"
+            ).map { it.toDomain() }
         } catch (e: Exception) {
             Log.e("PlatformRepository", "Erro ao buscar todas as plataformas: ${e.message}", e)
             emptyList()
         }
     }
 
-    suspend fun getActivePlatforms(userId: String): List<Platform> = withContext(Dispatchers.IO) {
+    suspend fun getActivePlatforms(userId: String, partnerId: String? = null): List<Platform> = withContext(Dispatchers.IO) {
         try {
             val userFilter = "eq.$userId"
-            platformApi.getPlatforms(userIdFilter = userFilter, activeFilter = "eq.true", order = "name.asc").map { it.toDomain() }
+            val partnerFilter = if (partnerId != null) "eq.$partnerId" else "is.null"
+            platformApi.getPlatforms(
+                userIdFilter = userFilter,
+                partnerIdFilter = partnerFilter,
+                activeFilter = "eq.true",
+                order = "name.asc"
+            ).map { it.toDomain() }
         } catch (e: Exception) {
             Log.e("PlatformRepository", "Erro ao buscar plataformas ativas: ${e.message}", e)
             emptyList()

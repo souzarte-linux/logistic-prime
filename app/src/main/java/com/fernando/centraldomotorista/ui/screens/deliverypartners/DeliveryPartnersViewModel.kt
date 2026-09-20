@@ -1,5 +1,6 @@
 package com.fernando.centraldomotorista.ui.screens.deliverypartners
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.CycleEntry
@@ -204,6 +205,7 @@ class DeliveryPartnersViewModel(
                 loadData()
                 _uiState.value.formData.id?.let { partnerId ->
                     loadPartnerSessions(partnerId)
+                    loadPlatformsForPartner(partnerId)
                 }
             }
         }
@@ -215,8 +217,6 @@ class DeliveryPartnersViewModel(
             val partners = partnerRepository.getDeliveryPartners(currentUserId)
             val routes = routeRepository.getDeliveryRoutes(currentUserId)
             val sessions = sessionRepository.getSessions(currentUserId)
-            val platforms = platformRepository.getPlatforms(currentUserId)
-            val earnings = platformRepository.getMonthEarningsByPlatform(currentUserId)
             val activeSessions = sessions.filter { it.endTime == null }.associateBy { it.partnerId }
             val sessionsByPartner = sessions.groupBy { it.partnerId }
 
@@ -224,12 +224,34 @@ class DeliveryPartnersViewModel(
                 it.copy(
                     partners = partners,
                     routes = routes,
-                    platforms = platforms,
-                    earningsMap = earnings,
+                    platforms = emptyList(), // Nunca pré-carregar plataformas Master do Fernando aqui
+                    earningsMap = emptyMap(),
                     activeSessionsMap = activeSessions,
                     sessionsByPartnerMap = sessionsByPartner,
                     isLoading = false
                 )
+            }
+        }
+    }
+
+    fun loadPlatformsForPartner(partnerId: String?) {
+        if (partnerId.isNullOrBlank()) {
+            _uiState.update { it.copy(platforms = emptyList(), earningsMap = emptyMap(), selectedPlatformId = null) }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val partnerPlatforms = platformRepository.getPlatforms(userId = currentUserId, partnerId = partnerId)
+                _uiState.update {
+                    it.copy(
+                        platforms = partnerPlatforms,
+                        earningsMap = emptyMap(),
+                        selectedPlatformId = partnerPlatforms.firstOrNull()?.id
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("DeliveryPartnersVM", "Erro ao carregar plataformas do parceiro $partnerId: ${e.message}", e)
+                _uiState.update { it.copy(platforms = emptyList()) }
             }
         }
     }
@@ -248,12 +270,15 @@ class DeliveryPartnersViewModel(
         }
     }
 
-    fun togglePlatformActive(platform: Platform) {
+    fun togglePlatformActive(partnerId: String?, platform: Platform) {
         viewModelScope.launch {
             val nextActive = !platform.active
             try {
-                platformRepository.savePlatform(platform.copy(active = nextActive))
-                val updatedPlatforms = platformRepository.getPlatforms(currentUserId)
+                val targetPartnerId = partnerId ?: platform.partnerId
+                platformRepository.savePlatform(platform.copy(active = nextActive, partnerId = targetPartnerId))
+                val updatedPlatforms = if (!targetPartnerId.isNullOrBlank()) {
+                    platformRepository.getPlatforms(userId = currentUserId, partnerId = targetPartnerId)
+                } else emptyList()
                 _uiState.update { it.copy(platforms = updatedPlatforms) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Erro ao alterar status da plataforma: ${e.message}") }
@@ -262,6 +287,7 @@ class DeliveryPartnersViewModel(
     }
 
     fun savePlatformForPartner(
+        partnerId: String?,
         platform: Platform,
         preferredRouteId: String?,
         packageRateText: String,
@@ -273,9 +299,14 @@ class DeliveryPartnersViewModel(
     ) {
         viewModelScope.launch {
             try {
-                val saved = platformRepository.savePlatform(platform.copy(userId = currentUserId))
-                val updatedPlatforms = platformRepository.getPlatforms(currentUserId)
-                val updatedEarnings = platformRepository.getMonthEarningsByPlatform(currentUserId)
+                val platformToSave = platform.copy(
+                    userId = currentUserId,
+                    partnerId = partnerId
+                )
+                val saved = platformRepository.savePlatform(platformToSave)
+                val updatedPlatforms = if (!partnerId.isNullOrBlank()) {
+                    platformRepository.getPlatforms(userId = currentUserId, partnerId = partnerId)
+                } else emptyList()
                 _uiState.update { state ->
                     val newFormData = state.formData.copy(
                         preferredRouteId = preferredRouteId,
@@ -290,7 +321,7 @@ class DeliveryPartnersViewModel(
                     )
                     state.copy(
                         platforms = updatedPlatforms,
-                        earningsMap = updatedEarnings,
+                        earningsMap = emptyMap(),
                         selectedPlatformId = saved.id,
                         formData = newFormData
                     )
@@ -302,11 +333,13 @@ class DeliveryPartnersViewModel(
         }
     }
 
-    fun deletePlatformFromPartner(platformId: String, onComplete: () -> Unit) {
+    fun deletePlatformFromPartner(partnerId: String?, platformId: String, onComplete: () -> Unit) {
         viewModelScope.launch {
             try {
                 platformRepository.deletePlatform(platformId)
-                val updatedPlatforms = platformRepository.getPlatforms(currentUserId)
+                val updatedPlatforms = if (!partnerId.isNullOrBlank()) {
+                    platformRepository.getPlatforms(userId = currentUserId, partnerId = partnerId)
+                } else emptyList()
                 _uiState.update { state ->
                     state.copy(
                         platforms = updatedPlatforms,
@@ -350,7 +383,10 @@ class DeliveryPartnersViewModel(
                 initialFormData = initial,
                 showDiscardAlert = false,
                 cpfError = null,
-                error = null
+                error = null,
+                platforms = emptyList(),
+                earningsMap = emptyMap(),
+                selectedPlatformId = null
             )
         }
     }
@@ -444,10 +480,14 @@ class DeliveryPartnersViewModel(
                 showDiscardAlert = false,
                 cpfError = null,
                 error = null,
-                partnerSessions = emptyList()
+                partnerSessions = emptyList(),
+                platforms = emptyList(),
+                earningsMap = emptyMap(),
+                selectedPlatformId = null
             )
         }
         loadPartnerSessions(partner.id)
+        loadPlatformsForPartner(partner.id)
     }
 
     fun requestCloseForm() {

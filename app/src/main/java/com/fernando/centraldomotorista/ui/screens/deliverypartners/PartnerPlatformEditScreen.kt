@@ -72,6 +72,12 @@ fun PartnerPlatformEditScreen(
     val focusManager = LocalFocusManager.current
     val isEditing = !platformId.isNullOrBlank()
 
+    LaunchedEffect(partnerId) {
+        if (!partnerId.isNullOrBlank()) {
+            deliveryPartnersViewModel.loadPlatformsForPartner(partnerId)
+        }
+    }
+
     // Busca a plataforma se for edição
     val existingPlatform = remember(platformId, partnersUiState.platforms) {
         if (!platformId.isNullOrBlank()) {
@@ -250,7 +256,7 @@ fun PartnerPlatformEditScreen(
                 Button(
                     onClick = {
                         showDeleteConfirmDialog = false
-                        deliveryPartnersViewModel.deletePlatformFromPartner(existingPlatform.id) {
+                        deliveryPartnersViewModel.deletePlatformFromPartner(partnerId = partnerId, platformId = existingPlatform.id) {
                             Toast.makeText(context, "Plataforma excluída com sucesso!", Toast.LENGTH_SHORT).show()
                             onNavigateBack()
                         }
@@ -373,6 +379,7 @@ fun PartnerPlatformEditScreen(
 
                             // Salva a plataforma no banco e sincroniza com o formulário do entregador
                             deliveryPartnersViewModel.savePlatformForPartner(
+                                partnerId = partnerId,
                                 platform = platformToSave,
                                 preferredRouteId = selectedRouteId,
                                 packageRateText = packageRateText,

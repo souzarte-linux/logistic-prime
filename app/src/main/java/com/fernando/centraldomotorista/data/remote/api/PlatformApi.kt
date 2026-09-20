@@ -7,6 +7,7 @@ interface PlatformApi {
     @GET("platforms")
     suspend fun getPlatforms(
         @Query("user_id") userIdFilter: String,
+        @Query("partner_id") partnerIdFilter: String? = "is.null",
         @Query("active") activeFilter: String? = null,
         @Query("order") order: String = "name.asc"
     ): List<PlatformDto>
