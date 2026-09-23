@@ -6,6 +6,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,10 +26,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,11 +39,13 @@ import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.data.model.Platform
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.BarcodeScannerScreen
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.util.Locale
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime
@@ -163,11 +169,56 @@ fun SessionEditScreen(
         mutableStateOf(initialAmount.toPlainString())
     }
 
-    // Bipagens (Códigos Bipados)
+    // Bipagens (Códigos Bipados e Devolvidos)
     var barcodes by remember { mutableStateOf(session.scannedBarcodes) }
+    var returnedBarcodes by remember { mutableStateOf(session.returnedBarcodes.toSet()) }
+    var isScannerOpen by remember { mutableStateOf(false) }
     var newBarcodeInput by remember { mutableStateOf("") }
     var barcodeToDelete by remember { mutableStateOf<String?>(null) }
     var showClearAllConfirmation by remember { mutableStateOf(false) }
+
+    // Intercept back handler when scanner is open
+    BackHandler(enabled = isScannerOpen) {
+        isScannerOpen = false
+    }
+
+    if (isScannerOpen) {
+        val baseCount = expectedText.toIntOrNull() ?: (barcodes.size + returnedBarcodes.size)
+        BarcodeScannerScreen(
+            scannedCount = returnedBarcodes.size,
+            expectedCount = baseCount,
+            scannedBarcodes = returnedBarcodes,
+            onBarcodeScanned = { code ->
+                val trimmed = code.trim()
+                if (trimmed.isNotBlank()) {
+                    returnedBarcodes = returnedBarcodes + trimmed
+                    val ret = returnedBarcodes.size
+                    returnedText = ret.toString()
+                    val exp = expectedText.toIntOrNull() ?: (barcodes.size + returnedBarcodes.size)
+                    val newDel = (exp - ret).coerceAtLeast(0)
+                    deliveredText = newDel.toString()
+                    val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                    val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                    val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
+                    amountPaidText = total.toPlainString()
+                }
+            },
+            onRemoveBarcode = { code ->
+                returnedBarcodes = returnedBarcodes - code
+                val ret = returnedBarcodes.size
+                returnedText = ret.toString()
+                val exp = expectedText.toIntOrNull() ?: (barcodes.size + returnedBarcodes.size)
+                val newDel = (exp - ret).coerceAtLeast(0)
+                deliveredText = newDel.toString()
+                val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
+                amountPaidText = total.toPlainString()
+            },
+            onCloseScanner = { isScannerOpen = false }
+        )
+        return
+    }
 
     // Duração calculada em tempo real
     val calculatedDurationStr = remember(startDateTime, hasEndTime, endDateTime) {
@@ -254,6 +305,7 @@ fun SessionEditScreen(
                                 val defBonus = parseAmount(defaultBonusText)
                                 val amtPaid = parseAmount(amountPaidText)
 
+                                val allConsolidated = (barcodes + returnedBarcodes).distinct()
                                 val updated = session.copy(
                                     routeId = selectedRouteId,
                                     platformId = selectedPlatformId,
@@ -265,8 +317,9 @@ fun SessionEditScreen(
                                     packageRate = pkgRate,
                                     defaultBonus = defBonus,
                                     amountPaid = amtPaid,
-                                    scannedBarcodes = barcodes,
-                                    scannedCount = barcodes.size
+                                    scannedBarcodes = allConsolidated,
+                                    returnedBarcodes = returnedBarcodes.toList(),
+                                    scannedCount = allConsolidated.size
                                 )
                                 onSave(updated)
                             }
@@ -333,6 +386,7 @@ fun SessionEditScreen(
                                 val defBonus = parseAmount(defaultBonusText)
                                 val amtPaid = parseAmount(amountPaidText)
 
+                                val allConsolidated = (barcodes + returnedBarcodes).distinct()
                                 val updated = session.copy(
                                     routeId = selectedRouteId,
                                     platformId = selectedPlatformId,
@@ -344,8 +398,9 @@ fun SessionEditScreen(
                                     packageRate = pkgRate,
                                     defaultBonus = defBonus,
                                     amountPaid = amtPaid,
-                                    scannedBarcodes = barcodes,
-                                    scannedCount = barcodes.size
+                                    scannedBarcodes = allConsolidated,
+                                    returnedBarcodes = returnedBarcodes.toList(),
+                                    scannedCount = allConsolidated.size
                                 )
                                 onSave(updated)
                             },
@@ -1020,6 +1075,18 @@ fun SessionEditScreen(
                                 },
                                 readOnly = readOnlyMode,
                                 label = { Text("Devolvidos", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                trailingIcon = if (!readOnlyMode) {
+                                    {
+                                        IconButton(onClick = { isScannerOpen = true }) {
+                                            Icon(
+                                                imageVector = Icons.Default.QrCodeScanner,
+                                                contentDescription = "Bipar Devolvidos",
+                                                tint = RedAlert,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                } else null,
                                 singleLine = true,
                                 maxLines = 1,
                                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = RedAlert),
@@ -1223,8 +1290,19 @@ fun SessionEditScreen(
                 }
             }
 
-            // 5. SEÇÃO: BIPAGEM DE PACOTES (scannedBarcodes)
+            // 5. SEÇÃO: ITENS BIPADOS (scannedBarcodes + returnedBarcodes)
             item {
+                val allScannedItems = remember(barcodes, returnedBarcodes) {
+                    val allCodes = (barcodes + returnedBarcodes).distinct()
+                    // Organizado em ordem de sucesso de entrega (0) para insucesso (1)
+                    allCodes.sortedWith(
+                        compareBy<String> { code -> if (returnedBarcodes.contains(code)) 1 else 0 }
+                            .thenBy { it }
+                    )
+                }
+                val deliveredInListCount = allScannedItems.count { !returnedBarcodes.contains(it) }
+                val returnedInListCount = allScannedItems.count { returnedBarcodes.contains(it) }
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -1236,6 +1314,7 @@ fun SessionEditScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Cabeçalho da Seção
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1243,51 +1322,137 @@ fun SessionEditScreen(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
+                                Icon(
+                                    imageVector = Icons.Default.QrCodeScanner,
+                                    contentDescription = null,
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(20.dp)
+                                )
                                 Text(
-                                    text = "CÓDIGOS BIPADOS (${barcodes.size})",
-                                    fontSize = 11.sp,
+                                    text = "ITENS BIPADOS (${allScannedItems.size})",
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp,
-                                    color = OrangeNeon
+                                    letterSpacing = 0.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
 
-                            if (barcodes.isNotEmpty()) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Button(
-                                        onClick = {
-                                            val allCodes = barcodes.joinToString("\n")
-                                            clipboardManager.setText(AnnotatedString(allCodes))
-                                            Toast.makeText(context, "${barcodes.size} códigos copiados!", Toast.LENGTH_SHORT).show()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = OrangeNeon.copy(alpha = 0.2f),
-                                            contentColor = OrangeNeon
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.height(28.dp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Surface(
+                                    color = GreenNeon.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "$deliveredInListCount Entregues",
+                                        color = GreenNeon,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                    )
+                                }
+                                if (returnedInListCount > 0) {
+                                    Surface(
+                                        color = RedAlert.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(6.dp)
                                     ) {
-                                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Copiar Todos", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            text = "$returnedInListCount Devolvidos",
+                                            color = RedAlert,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                        )
                                     }
+                                }
+                            }
+                        }
 
-                                    if (!readOnlyMode) {
-                                        OutlinedButton(
-                                            onClick = { showClearAllConfirmation = true },
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                            shape = RoundedCornerShape(8.dp),
-                                            modifier = Modifier.height(28.dp),
-                                            border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f))
-                                        ) {
-                                            Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = RedAlert, modifier = Modifier.size(12.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Limpar", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = RedAlert)
-                                        }
+                        // Botão para abrir câmera / bipar pacotes devolvidos (quando editável)
+                        if (!readOnlyMode) {
+                            Button(
+                                onClick = { isScannerOpen = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = OrangeNeon,
+                                    contentColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(42.dp)
+                            ) {
+                                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (returnedInListCount > 0) "Bipar Mais Devolvidos ($returnedInListCount)" else "Bipar Pacotes Devolvidos",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                        // Botões de Ação: "Copiar Todos" e "Exportar Imagem" (e "Limpar" se !readOnlyMode)
+                        if (allScannedItems.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val allCodesText = allScannedItems.joinToString("\n")
+                                        clipboardManager.setText(AnnotatedString(allCodesText))
+                                        Toast.makeText(context, "${allScannedItems.size} códigos copiados!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.weight(1f).height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(13.dp), tint = OrangeNeon)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Copiar Todos", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        val sessionDateFormatted = startDateTime.atZoneSameInstant(ZoneId.systemDefault()).format(dateFormatter)
+                                        SessionShareHelper.shareScannedBarcodesImage(
+                                            context = context,
+                                            partnerName = partner?.fullName ?: "Entregador",
+                                            routeName = selectedRouteName,
+                                            sessionDateStr = sessionDateFormatted,
+                                            items = allScannedItems.map { code ->
+                                                ScannedItemExport(
+                                                    barcode = code,
+                                                    isReturned = returnedBarcodes.contains(code)
+                                                )
+                                            }
+                                        )
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = OrangeNeon.copy(alpha = 0.2f),
+                                        contentColor = OrangeNeon
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.weight(1f).height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(13.dp), tint = OrangeNeon)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Exportar Imagem", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                if (!readOnlyMode) {
+                                    OutlinedButton(
+                                        onClick = { showClearAllConfirmation = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.height(36.dp),
+                                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.5f))
+                                    ) {
+                                        Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = RedAlert, modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Limpar", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = RedAlert)
                                     }
                                 }
                             }
@@ -1318,7 +1483,7 @@ fun SessionEditScreen(
                                         val code = newBarcodeInput.trim()
                                         if (code.isBlank()) {
                                             Toast.makeText(context, "Digite um código válido", Toast.LENGTH_SHORT).show()
-                                        } else if (barcodes.contains(code)) {
+                                        } else if (barcodes.contains(code) || returnedBarcodes.contains(code)) {
                                             Toast.makeText(context, "Código já consta na lista!", Toast.LENGTH_SHORT).show()
                                         } else {
                                             barcodes = barcodes + code
@@ -1335,8 +1500,10 @@ fun SessionEditScreen(
                             }
                         }
 
-                        // Lista de códigos bipados vazia
-                        if (barcodes.isEmpty()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        // Listagem de Itens Bipados
+                        if (allScannedItems.isEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1349,79 +1516,158 @@ fun SessionEditScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        }
-                    }
-                }
-            }
-
-            // Exibição dos itens individuais de códigos bipados
-            itemsIndexed(barcodes, key = { index, code -> "$code-$index" }) { index, code ->
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "${index + 1}.",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = code,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    clipboardManager.setText(AnnotatedString(code))
-                                    Toast.makeText(context, "Código copiado: $code", Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.size(28.dp)
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = "Copiar Código",
-                                    tint = OrangeNeon,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
+                                allScannedItems.forEachIndexed { index, code ->
+                                    val isReturned = returnedBarcodes.contains(code)
+                                    Surface(
+                                        color = if (isReturned) RedAlert.copy(alpha = 0.08f) else GreenNeon.copy(alpha = 0.08f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isReturned) RedAlert.copy(alpha = 0.35f) else GreenNeon.copy(alpha = 0.3f),
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isReturned) Icons.AutoMirrored.Filled.KeyboardReturn else Icons.Default.CheckCircle,
+                                                    contentDescription = if (isReturned) "Devolvido" else "Entregue",
+                                                    tint = if (isReturned) RedAlert else GreenNeon,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Text(
+                                                    text = code,
+                                                    fontSize = 13.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isReturned) RedAlert else GreenNeon,
+                                                    style = TextStyle(
+                                                        textDecoration = if (isReturned) TextDecoration.LineThrough else null
+                                                    ),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
 
-                            if (!readOnlyMode) {
-                                IconButton(
-                                    onClick = {
-                                        barcodeToDelete = code
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Remover Código",
-                                        tint = RedAlert,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                // Badge de Status
+                                                Surface(
+                                                    color = if (isReturned) RedAlert.copy(alpha = 0.18f) else GreenNeon.copy(alpha = 0.18f),
+                                                    shape = RoundedCornerShape(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (isReturned) "DEVOLVIDO" else "ENTREGUE",
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isReturned) RedAlert else GreenNeon,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+
+                                                // Copiar registro individual
+                                                IconButton(
+                                                    onClick = {
+                                                        clipboardManager.setText(AnnotatedString(code))
+                                                        Toast.makeText(context, "Código copiado: $code", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ContentCopy,
+                                                        contentDescription = "Copiar Código",
+                                                        tint = if (isReturned) RedAlert else GreenNeon,
+                                                        modifier = Modifier.size(15.dp)
+                                                    )
+                                                }
+
+                                                // Desfazer devolução (se devolvido) ou Marcar Devolução (se entregue) em modo edição
+                                                if (!readOnlyMode) {
+                                                    if (isReturned) {
+                                                        IconButton(
+                                                            onClick = {
+                                                                returnedBarcodes = returnedBarcodes - code
+                                                                val ret = returnedBarcodes.size
+                                                                returnedText = ret.toString()
+                                                                val exp = expectedText.toIntOrNull() ?: allScannedItems.size
+                                                                val newDel = (exp - ret).coerceAtLeast(0)
+                                                                deliveredText = newDel.toString()
+                                                                val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                                                                val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                                                                val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
+                                                                amountPaidText = total.toPlainString()
+                                                                Toast.makeText(context, "Marcado como entregue", Toast.LENGTH_SHORT).show()
+                                                            },
+                                                            modifier = Modifier.size(28.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Refresh,
+                                                                contentDescription = "Desfazer Devolução",
+                                                                tint = GreenNeon,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    } else {
+                                                        IconButton(
+                                                            onClick = {
+                                                                returnedBarcodes = returnedBarcodes + code
+                                                                val ret = returnedBarcodes.size
+                                                                returnedText = ret.toString()
+                                                                val exp = expectedText.toIntOrNull() ?: allScannedItems.size
+                                                                val newDel = (exp - ret).coerceAtLeast(0)
+                                                                deliveredText = newDel.toString()
+                                                                val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                                                                val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                                                                val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
+                                                                amountPaidText = total.toPlainString()
+                                                                Toast.makeText(context, "Marcado como devolvido", Toast.LENGTH_SHORT).show()
+                                                            },
+                                                            modifier = Modifier.size(28.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
+                                                                contentDescription = "Marcar Devolvido",
+                                                                tint = RedAlert,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    }
+
+                                                    // Excluir código completamente da sessão
+                                                    IconButton(
+                                                        onClick = { barcodeToDelete = code },
+                                                        modifier = Modifier.size(28.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Close,
+                                                            contentDescription = "Remover Código",
+                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1454,6 +1700,17 @@ fun SessionEditScreen(
                 Button(
                     onClick = {
                         barcodes = barcodes.filter { it != codeTarget }
+                        returnedBarcodes = returnedBarcodes - codeTarget
+                        val ret = returnedBarcodes.size
+                        returnedText = ret.toString()
+                        val allCodes = (barcodes + returnedBarcodes).distinct()
+                        val exp = expectedText.toIntOrNull() ?: allCodes.size
+                        val newDel = (exp - ret).coerceAtLeast(0)
+                        deliveredText = newDel.toString()
+                        val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                        val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                        val total = SessionCalculationHelper.calculateAmount(newDel, rate, bonus)
+                        amountPaidText = total.toPlainString()
                         barcodeToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)
@@ -1471,6 +1728,7 @@ fun SessionEditScreen(
 
     // Diálogo de Confirmação para Limpar Todos os Códigos
     if (showClearAllConfirmation) {
+        val totalCodesCount = (barcodes + returnedBarcodes).distinct().size
         AlertDialog(
             onDismissRequest = { showClearAllConfirmation = false },
             icon = {
@@ -1485,12 +1743,19 @@ fun SessionEditScreen(
                 Text("Limpar Todos os Códigos", fontWeight = FontWeight.Bold, fontSize = 17.sp)
             },
             text = {
-                Text("Deseja realmente remover todos os ${barcodes.size} códigos bipados desta sessão?")
+                Text("Deseja realmente remover todos os $totalCodesCount códigos bipados desta sessão?")
             },
             confirmButton = {
                 Button(
                     onClick = {
                         barcodes = emptyList()
+                        returnedBarcodes = emptySet()
+                        returnedText = "0"
+                        deliveredText = "0"
+                        val rate = SessionCalculationHelper.parseAmount(packageRateText)
+                        val bonus = SessionCalculationHelper.parseAmount(defaultBonusText)
+                        val total = SessionCalculationHelper.calculateAmount(0, rate, bonus)
+                        amountPaidText = total.toPlainString()
                         showClearAllConfirmation = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = RedAlert, contentColor = Color.White)

@@ -83,9 +83,11 @@ class ClosePartnerSessionViewModel(
                 val routes = routeRepository.getDeliveryRoutes(user.id)
                 val route = routes.firstOrNull { it.id == session.routeId }
 
-                // Pre-fill deliveredCount with expectedPackageCount (base) initially
+                // Pre-fill deliveredCount with base and loaded returnedBarcodes
                 val baseCount = if (session.expectedPackageCount > 0) session.expectedPackageCount else session.scannedCount
-                val initialDelivered = baseCount
+                val initialReturnedBarcodes = session.returnedBarcodes.toSet()
+                val initialReturnedCount = if (initialReturnedBarcodes.isNotEmpty()) initialReturnedBarcodes.size else session.returnedCount
+                val initialDelivered = (baseCount - initialReturnedCount).coerceAtLeast(0)
                 val packageRate = if (session.packageRate > BigDecimal.ZERO) session.packageRate else (partner?.packageRate ?: BigDecimal.ZERO)
                 val defaultBonus = if (session.defaultBonus > BigDecimal.ZERO) session.defaultBonus else (partner?.defaultBonus ?: BigDecimal.ZERO)
                 val calculatedSuggested = BigDecimal(initialDelivered).multiply(packageRate).add(defaultBonus)
@@ -94,7 +96,7 @@ class ClosePartnerSessionViewModel(
                 val initialStartTime = session.startTime ?: OffsetDateTime.now()
                 val sessionDate = initialStartTime.atZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
                 val nowTime = LocalTime.now().withSecond(0).withNano(0)
-                val initialEndTime = LocalDateTime.of(sessionDate, nowTime).atZone(ZoneId.systemDefault()).toOffsetDateTime()
+                val initialEndTime = session.endTime ?: LocalDateTime.of(sessionDate, nowTime).atZone(ZoneId.systemDefault()).toOffsetDateTime()
 
                 _uiState.update {
                     it.copy(
@@ -105,9 +107,9 @@ class ClosePartnerSessionViewModel(
                         endTime = initialEndTime,
                         deliveredCount = initialDelivered,
                         deliveredCountText = initialDelivered.toString(),
-                        returnedCount = 0,
-                        returnedCountText = "0",
-                        returnedBarcodes = emptySet(),
+                        returnedCount = initialReturnedCount,
+                        returnedCountText = initialReturnedCount.toString(),
+                        returnedBarcodes = initialReturnedBarcodes,
                         isScannerOpen = false,
                         suggestedAmount = calculatedSuggested,
                         amountPaid = calculatedSuggested,
@@ -206,6 +208,12 @@ class ClosePartnerSessionViewModel(
         _uiState.update { it.copy(endTime = updated) }
     }
 
+    fun onEndDateChanged(year: Int, month: Int, dayOfMonth: Int) {
+        val current = _uiState.value.endTime.atZoneSameInstant(ZoneId.systemDefault())
+        val updated = current.withYear(year).withMonth(month).withDayOfMonth(dayOfMonth).toOffsetDateTime()
+        _uiState.update { it.copy(endTime = updated) }
+    }
+
     fun onDeliveredCountChanged(text: String) {
         val clean = text.filter { it.isDigit() }
         _uiState.update { current ->
@@ -298,6 +306,7 @@ class ClosePartnerSessionViewModel(
                 val sessionToFinalize = session.copy(
                     deliveredCount = state.deliveredCount,
                     returnedCount = state.returnedCount,
+                    returnedBarcodes = state.returnedBarcodes.toList(),
                     startTime = state.startTime,
                     endTime = state.endTime,
                     amountPaid = state.amountPaid

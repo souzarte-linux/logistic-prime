@@ -28,6 +28,8 @@ data class DeliveryPartnerSessionDto(
     val deliveredCount: Int = 0,
     @SerializedName("returned_count")
     val returnedCount: Int = 0,
+    @SerializedName("returned_barcodes")
+    val returnedBarcodes: List<String> = emptyList(),
     @SerializedName("start_time")
     val startTime: String? = null,
     @SerializedName("end_time")
@@ -60,6 +62,7 @@ fun DeliveryPartnerSessionDto.toDomain(): DeliveryPartnerSession {
         scannedCount = scannedCount,
         deliveredCount = deliveredCount,
         returnedCount = returnedCount,
+        returnedBarcodes = returnedBarcodes,
         startTime = parsedStartTime,
         endTime = parsedEndTime,
         amountPaid = amountPaid,
@@ -82,6 +85,7 @@ fun DeliveryPartnerSession.toDto(): DeliveryPartnerSessionDto {
         scannedCount = scannedCount,
         deliveredCount = deliveredCount,
         returnedCount = returnedCount,
+        returnedBarcodes = returnedBarcodes,
         startTime = startTime?.toString(),
         endTime = endTime?.toString(),
         amountPaid = amountPaid,

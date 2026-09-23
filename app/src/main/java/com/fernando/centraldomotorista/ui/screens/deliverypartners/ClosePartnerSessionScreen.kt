@@ -59,6 +59,7 @@ fun ClosePartnerSessionScreen(
     val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR")) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("pt", "BR")) }
     var isEditingStartTime by remember { mutableStateOf(false) }
+    var isEditingEndTime by remember { mutableStateOf(false) }
     var barcodeToDelete by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(sessionId) {
@@ -460,55 +461,169 @@ fun ClosePartnerSessionScreen(
                     }
                 }
 
-                // 2. Hora de Fim
+                // 2. Data e Hora de Término (Visualização inicial com Edição de Data e Hora)
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "HORA DE TÉRMINO",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        OutlinedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val curTime = uiState.endTime.atZoneSameInstant(ZoneId.systemDefault())
-                                    TimePickerDialog(
-                                        context,
-                                        { _, hour, min ->
-                                            viewModel.onEndTimeChanged(hour, min)
-                                        },
-                                        curTime.hour,
-                                        curTime.minute,
-                                        true
-                                    ).show()
-                                },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
+                            Text(
+                                text = "DATA E HORA DE TÉRMINO",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (!isEditingEndTime) {
+                                TextButton(
+                                    onClick = { isEditingEndTime = true },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Editar", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        val endZoned = uiState.endTime.atZoneSameInstant(ZoneId.systemDefault())
+
+                        if (!isEditingEndTime) {
+                            // Modo Visualização Apenas
+                            OutlinedCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 15.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .clickable { isEditingEndTime = true },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
                                 Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 15.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Icon(Icons.Default.AccessTime, contentDescription = null, tint = OrangeNeon)
-                                    Text(
-                                        text = uiState.endTime.atZoneSameInstant(ZoneId.systemDefault()).format(timeFormatter),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = OrangeNeon)
+                                        Text(
+                                            text = "${endZoned.format(dateFormatter)} às ${endZoned.format(timeFormatter)}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Text("Alterar", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.SemiBold)
                                 }
-                                Text("Alterar", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.SemiBold)
+                            }
+                        } else {
+                            // Modo Edição
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(1.dp, OrangeNeon.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        text = "Toque nos campos abaixo para alterar a data ou a hora de término:",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // Botão Seletor de Data
+                                        OutlinedCard(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable {
+                                                    DatePickerDialog(
+                                                        context,
+                                                        { _, year, month, dayOfMonth ->
+                                                            viewModel.onEndDateChanged(year, month + 1, dayOfMonth)
+                                                        },
+                                                        endZoned.year,
+                                                        endZoned.monthValue - 1,
+                                                        endZoned.dayOfMonth
+                                                    ).show()
+                                                },
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                                Text(endZoned.format(dateFormatter), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+
+                                        // Botão Seletor de Hora
+                                        OutlinedCard(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable {
+                                                    TimePickerDialog(
+                                                        context,
+                                                        { _, hour, min ->
+                                                            viewModel.onEndTimeChanged(hour, min)
+                                                        },
+                                                        endZoned.hour,
+                                                        endZoned.minute,
+                                                        true
+                                                    ).show()
+                                                },
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(Icons.Default.AccessTime, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                                Text(endZoned.format(timeFormatter), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = { isEditingEndTime = false },
+                                        colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(42.dp)
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Concluir Edição", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
+                                }
                             }
                         }
                     }

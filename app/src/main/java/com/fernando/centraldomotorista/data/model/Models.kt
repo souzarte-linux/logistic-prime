@@ -348,6 +348,7 @@ data class DeliveryPartnerSession(
     val scannedCount: Int = 0,
     val deliveredCount: Int = 0,
     val returnedCount: Int = 0,
+    val returnedBarcodes: List<String> = emptyList(),
     val startTime: OffsetDateTime? = null,
     val endTime: OffsetDateTime? = null,
     val amountPaid: BigDecimal = BigDecimal.ZERO,
