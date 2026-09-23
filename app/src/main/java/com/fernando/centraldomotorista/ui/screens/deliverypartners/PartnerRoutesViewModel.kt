@@ -49,9 +49,6 @@ data class PartnerRoutesUiState(
     val monthDeliveredCount: Int = 0,
     val monthTotalAmountPaid: BigDecimal = BigDecimal.ZERO,
     val performanceMetrics: PartnerPerformanceMetrics = PartnerPerformanceMetrics(),
-    val costEfficiency: PartnerCostEfficiency? = null,
-    val regularity: PartnerRegularity? = null,
-    val isLoadingInsights: Boolean = false,
     val trendRange: TrendRange = TrendRange.SEVEN_DAYS,
     val trendBuckets: List<DailyTrendBucket> = emptyList(),
     val maxTrendAmount: BigDecimal = BigDecimal.ONE,
@@ -109,8 +106,6 @@ class PartnerRoutesViewModel(
             it.copy(
                 isLoading = true,
                 error = null,
-                costEfficiency = if (isNewPartner) null else it.costEfficiency,
-                regularity = if (isNewPartner) null else it.regularity,
                 selectedTrendDay = if (isNewPartner) null else it.selectedTrendDay
             )
         }
@@ -185,51 +180,6 @@ class PartnerRoutesViewModel(
 
     fun selectTrendDay(bucket: DailyTrendBucket?) {
         _uiState.update { it.copy(selectedTrendDay = bucket) }
-    }
-
-    fun loadPartnerInsights(forceReload: Boolean = false) {
-        if (!forceReload && (_uiState.value.costEfficiency != null || _uiState.value.isLoadingInsights)) return
-        _uiState.update { it.copy(isLoadingInsights = true) }
-        scope.launch {
-            try {
-                val today = LocalDate.now()
-                val zone = ZoneId.systemDefault()
-                val mySessions = _uiState.value.sessions // allSessions já carregada em loadData()
-                val myMonthSessions = mySessions.filter { session ->
-                    val date = (session.startTime ?: session.createdAt)?.atZoneSameInstant(zone)?.toLocalDate()
-                    date?.year == today.year && date?.monthValue == today.monthValue
-                }
-                val myMonthEarnings = myMonthSessions.fold(BigDecimal.ZERO) { acc, s -> acc.add(s.amountPaid) }
-                val myMonthDelivered = myMonthSessions.sumOf { it.deliveredCount }
-
-                val allPartnersSessions = sessionRepository.getSessions(currentUserId)
-                val allPartnersMonthSessions = allPartnersSessions.filter { session ->
-                    val date = (session.startTime ?: session.createdAt)?.atZoneSameInstant(zone)?.toLocalDate()
-                    date?.year == today.year && date?.monthValue == today.monthValue
-                }
-
-                val costPerPackage = calculateCostPerPackage(myMonthEarnings, myMonthDelivered)
-                val othersAverage = calculateOthersAverageCostPerPackage(allPartnersMonthSessions, currentPartnerId)
-                val pctVsOthers = if (othersAverage != null && othersAverage > BigDecimal.ZERO) {
-                    costPerPackage.subtract(othersAverage)
-                        .multiply(BigDecimal(100))
-                        .divide(othersAverage, 1, RoundingMode.HALF_UP)
-                } else null
-
-                val regularity = calculateRegularity(mySessions, today, zone)
-
-                _uiState.update {
-                    it.copy(
-                        costEfficiency = PartnerCostEfficiency(costPerPackage, othersAverage, pctVsOthers),
-                        regularity = regularity,
-                        isLoadingInsights = false
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e("PartnerRoutesVM", "Erro ao carregar insights do parceiro: ${e.message}", e)
-                _uiState.update { it.copy(isLoadingInsights = false) }
-            }
-        }
     }
 
     fun applyPeriodPreset(preset: PartnerPeriodPreset) {

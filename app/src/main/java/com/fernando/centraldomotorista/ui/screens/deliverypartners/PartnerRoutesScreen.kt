@@ -56,6 +56,7 @@ import java.text.NumberFormat
 import java.time.Duration
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -66,7 +67,7 @@ private val LocalPlatformMap = staticCompositionLocalOf<Map<String, Platform>> {
 enum class PartnerRoutesTab(val label: String) {
     SESSOES("Sessões"),
     DESEMPENHO("Desempenho"),
-    PAINEL("Painel")
+    FINANCAS("Finanças")
 }
 
 private fun BigDecimal.formatCurrency(): String {
@@ -111,11 +112,6 @@ fun PartnerRoutesScreen(
     val platformMap = remember(uiState.platforms) { uiState.platforms.associateBy { it.id } }
     var selectedTab by remember { mutableStateOf(PartnerRoutesTab.SESSOES) }
     var showWhatsAppChooserPhone by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(selectedTab) {
-        if (selectedTab == PartnerRoutesTab.PAINEL) {
-            viewModel.loadPartnerInsights()
-        }
-    }
 
     // Diálogo de Confirmação de Exclusão de Sessão
     val deletingSession = uiState.deletingSession
@@ -364,6 +360,16 @@ fun PartnerRoutesScreen(
                 )
             }
         } else {
+            val activePlatforms = remember(uiState.platforms) {
+                uiState.platforms.filter { it.active }
+            }
+
+            val availableMonths = remember(uiState.sessions) {
+                uiState.sessions.mapNotNull { s ->
+                    (s.startTime ?: s.createdAt)?.atZoneSameInstant(ZoneId.systemDefault())?.toLocalDate()?.let { YearMonth.from(it) }
+                }.distinct().sortedDescending()
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1068,6 +1074,18 @@ fun PartnerRoutesScreen(
                             )
                         }
 
+                        // 4.1 Card de Tendência de Desempenho (movido do Painel para Desempenho)
+                        item {
+                            PerformanceTrendChart(
+                                range = uiState.trendRange,
+                                buckets = uiState.trendBuckets,
+                                maxTrendAmount = uiState.maxTrendAmount,
+                                selectedBucket = uiState.selectedTrendDay,
+                                onRangeSelected = { viewModel.setTrendRange(it) },
+                                onBucketSelected = { viewModel.selectTrendDay(it) }
+                            )
+                        }
+
                         // 5. Card: Tempo de Duração de Cada Rota
                         item {
                             val sessionsMap = remember(uiState.sessions) {
@@ -1097,226 +1115,80 @@ fun PartnerRoutesScreen(
                             )
                         }
                     }
-                } else {
-                    // ABA "PAINEL" (Insights deste parceiro específico)
-                    // 1. Card de Tendência (renderiza imediatamente com dados locais)
-                    item {
-                        PerformanceTrendChart(
-                            range = uiState.trendRange,
-                            buckets = uiState.trendBuckets,
-                            maxTrendAmount = uiState.maxTrendAmount,
-                            selectedBucket = uiState.selectedTrendDay,
-                            onRangeSelected = { viewModel.setTrendRange(it) },
-                            onBucketSelected = { viewModel.selectTrendDay(it) }
-                        )
-                    }
-
-                    // 2. Card "Eficiência de Custo"
-                    item {
-                        if (uiState.isLoadingInsights && uiState.costEfficiency == null) {
+                } else if (selectedTab == PartnerRoutesTab.FINANCAS) {
+                    // ABA "FINANÇAS" (por Plataformas Ativas e Gráfico de Ganhos)
+                    if (activePlatforms.isEmpty()) {
+                        item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(24.dp),
+                                        .padding(32.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    CircularProgressIndicator(
-                                        color = OrangeNeon,
-                                        modifier = Modifier.size(28.dp),
-                                        strokeWidth = 2.5.dp
+                                    Icon(
+                                        imageVector = Icons.Default.Storefront,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(40.dp)
                                     )
                                     Text(
-                                        text = "Carregando comparativo de eficiência...",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        } else {
-                            val cost = uiState.costEfficiency ?: PartnerCostEfficiency()
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "EFICIÊNCIA DE CUSTO",
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Black,
-                                        letterSpacing = 0.8.sp,
+                                        text = "Nenhuma Plataforma Ativa",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(
-                                                text = "Custo por Pacote (mês)",
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = cost.costPerPackageThisMonth.formatCurrency(),
-                                                fontSize = 22.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = OrangeNeon
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    if (cost.othersAverageCostPerPackage != null) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Column {
-                                                Text(
-                                                    text = "Média dos demais parceiros",
-                                                    fontSize = 12.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                                Text(
-                                                    text = cost.othersAverageCostPerPackage.formatCurrency(),
-                                                    fontSize = 16.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                            }
-
-                                            val pct = cost.percentageVsOthers
-                                            if (pct != null) {
-                                                val isHigher = pct > BigDecimal.ZERO
-                                                val badgeColor = if (isHigher) RedAlert else GreenNeon
-                                                val sign = if (isHigher) "+" else ""
-                                                Surface(
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    color = badgeColor.copy(alpha = 0.12f),
-                                                    border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.4f))
-                                                ) {
-                                                    Text(
-                                                        text = "$sign${pct.toPlainString()}% vs média",
-                                                        fontSize = 11.5.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = badgeColor,
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        Text(
-                                            text = "Sem outros parceiros ativos este mês para comparar.",
-                                            fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontStyle = FontStyle.Italic
-                                        )
-                                    }
+                                    Text(
+                                        text = "Cadastre ou ative plataformas para visualizar os repasses e gráficos financeiros detalhados.",
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
                                 }
                             }
                         }
-                    }
+                    } else {
+                        // 1. Seção: PLATAFORMAS (Cards individuais com filtros em alto relevo)
+                        item {
+                            Text(
+                                text = "PLATAFORMAS ATIVAS (${activePlatforms.size})",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                                color = OrangeNeon,
+                                modifier = Modifier.padding(start = 2.dp, top = 4.dp, bottom = 2.dp)
+                            )
+                        }
 
-                    // 3. Card "Regularidade"
-                    item {
-                        if (uiState.isLoadingInsights && uiState.regularity == null) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    CircularProgressIndicator(
-                                        color = OrangeNeon,
-                                        modifier = Modifier.size(28.dp),
-                                        strokeWidth = 2.5.dp
-                                    )
-                                    Text(
-                                        text = "Carregando regularidade...",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                        activePlatforms.forEach { platform ->
+                            item(key = "platform-finance-${platform.id}") {
+                                var platformFilter by remember(platform.id) {
+                                    mutableStateOf(PlatformFinanceFilter(preset = PlatformFinancePeriodPreset.MES_CORRENTE))
                                 }
+
+                                PlatformFinanceCard(
+                                    platform = platform,
+                                    sessions = uiState.sessions,
+                                    filter = platformFilter,
+                                    availableMonths = availableMonths,
+                                    onFilterChange = { newFilter -> platformFilter = newFilter },
+                                    onSessionClick = { s -> viewModel.openViewDetailSession(s) },
+                                    routesMap = routeMap
+                                )
                             }
-                        } else {
-                            val regularity = uiState.regularity ?: PartnerRegularity(0, 1, BigDecimal.ZERO)
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "REGULARIDADE NO MÊS",
-                                            fontSize = 12.5.sp,
-                                            fontWeight = FontWeight.Black,
-                                            letterSpacing = 0.8.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "${regularity.regularityPercent.toPlainString()}%",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = OrangeNeon
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Text(
-                                        text = "${regularity.daysWorkedThisMonth} de ${regularity.daysElapsedThisMonth} dias trabalhados este mês",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    val progressFloat = (regularity.regularityPercent.toFloat() / 100f).coerceIn(0f, 1f)
-                                    LinearProgressIndicator(
-                                        progress = { progressFloat },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(8.dp)
-                                            .clip(RoundedCornerShape(4.dp)),
-                                        color = OrangeNeon,
-                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                    )
-                                }
-                            }
+                        }
+
+                        // 2. Seção: GRÁFICO DE LINHAS DE GANHOS (Abaixo das plataformas)
+                        item(key = "platform-finance-line-chart") {
+                            PlatformEarningsLineChart(
+                                activePlatforms = activePlatforms,
+                                sessions = uiState.sessions
+                            )
                         }
                     }
                 }
