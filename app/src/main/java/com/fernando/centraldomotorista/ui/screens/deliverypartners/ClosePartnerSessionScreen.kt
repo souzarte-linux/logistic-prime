@@ -1,5 +1,6 @@
 package com.fernando.centraldomotorista.ui.screens.deliverypartners
 
+import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -31,7 +32,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.BarcodeScannerScreen
 import com.fernando.centraldomotorista.ui.theme.*
@@ -54,6 +57,8 @@ fun ClosePartnerSessionScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR")) }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("pt", "BR")) }
+    var isEditingStartTime by remember { mutableStateOf(false) }
     var barcodeToDelete by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(sessionId) {
@@ -254,8 +259,8 @@ fun ClosePartnerSessionScreen(
                             ) {
                                 Column {
                                     Text("Início da Sessão", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    val formattedStartTime = remember(session?.startTime) {
-                                        session?.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.format(timeFormatter) ?: "--:--"
+                                    val formattedStartTime = remember(uiState.startTime) {
+                                        uiState.startTime.atZoneSameInstant(ZoneId.systemDefault()).format(timeFormatter)
                                     }
                                     Text(
                                         text = formattedStartTime,
@@ -281,6 +286,174 @@ fun ClosePartnerSessionScreen(
                                         fontSize = 14.sp,
                                         color = OrangeNeon
                                     )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 1.1 Data e Hora de Início (Visualização inicial com Edição de Data e Hora)
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "DATA E HORA DE INÍCIO",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (!isEditingStartTime) {
+                                TextButton(
+                                    onClick = { isEditingStartTime = true },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Editar", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        val startZoned = uiState.startTime.atZoneSameInstant(ZoneId.systemDefault())
+
+                        if (!isEditingStartTime) {
+                            // Modo Visualização Apenas
+                            OutlinedCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { isEditingStartTime = true },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 15.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = OrangeNeon)
+                                        Text(
+                                            text = "${startZoned.format(dateFormatter)} às ${startZoned.format(timeFormatter)}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Text("Alterar", fontSize = 12.sp, color = OrangeNeon, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        } else {
+                            // Modo Edição
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(1.dp, OrangeNeon.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        text = "Toque nos campos abaixo para alterar a data ou a hora de início:",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // Botão Seletor de Data
+                                        OutlinedCard(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable {
+                                                    DatePickerDialog(
+                                                        context,
+                                                        { _, year, month, dayOfMonth ->
+                                                            viewModel.onStartDateChanged(year, month + 1, dayOfMonth)
+                                                        },
+                                                        startZoned.year,
+                                                        startZoned.monthValue - 1,
+                                                        startZoned.dayOfMonth
+                                                    ).show()
+                                                },
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                                Text(startZoned.format(dateFormatter), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+
+                                        // Botão Seletor de Hora
+                                        OutlinedCard(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable {
+                                                    TimePickerDialog(
+                                                        context,
+                                                        { _, hour, min ->
+                                                            viewModel.onStartTimeChanged(hour, min)
+                                                        },
+                                                        startZoned.hour,
+                                                        startZoned.minute,
+                                                        true
+                                                    ).show()
+                                                },
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(Icons.Default.AccessTime, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                                Text(startZoned.format(timeFormatter), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = { isEditingStartTime = false },
+                                        colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon, contentColor = Color.Black),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(42.dp)
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Concluir Edição", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
                                 }
                             }
                         }
@@ -420,177 +593,264 @@ fun ClosePartnerSessionScreen(
                     }
                 }
 
-                // 3.1 Seção Dinâmica "Pacotes Devolvidos Bipados" (criada dinamicamente pós-bipagem)
-                if (uiState.returnedBarcodes.isNotEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                // 3.1 Seção Consolidada "ITENS BIPADOS" (Entregues em verde, Devolvidos com traço vermelho)
+                item {
+                    val allScannedItems = remember(session?.scannedBarcodes, uiState.returnedBarcodes) {
+                        val allCodes = (session?.scannedBarcodes.orEmpty() + uiState.returnedBarcodes).distinct()
+                        // Organizado em ordem de sucesso de entrega (0) para insucesso (1)
+                        allCodes.sortedWith(
+                            compareBy<String> { code -> if (uiState.returnedBarcodes.contains(code)) 1 else 0 }
+                                .thenBy { it }
+                        )
+                    }
+                    val deliveredInListCount = allScannedItems.count { !uiState.returnedBarcodes.contains(it) }
+                    val returnedInListCount = allScannedItems.count { uiState.returnedBarcodes.contains(it) }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .border(
-                                        width = 1.dp,
-                                        color = RedAlert.copy(alpha = 0.4f),
-                                        shape = RoundedCornerShape(16.dp)
-                                    )
-                                    .padding(18.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            // Cabeçalho da Seção
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCodeScanner,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                     Text(
-                                        text = "PACOTES DEVOLVIDOS BIPADOS",
-                                        fontSize = 12.sp,
+                                        text = "ITENS BIPADOS (${allScannedItems.size})",
+                                        fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.sp,
-                                        color = RedAlert
+                                        letterSpacing = 0.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
 
-                                // Placar Grande: "X de Y pacotes devolvidos"
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Row(verticalAlignment = Alignment.Bottom) {
-                                        Text(
-                                            text = "${uiState.returnedBarcodes.size}",
-                                            fontSize = 42.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = RedAlert
-                                        )
-                                        Text(
-                                            text = " de ${uiState.basePackageCount} pacotes",
-                                            fontSize = 20.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(bottom = 6.dp, start = 6.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = "devolvidos bipados até o momento",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                // Botão para abrir câmera / continuar bipando
-                                Button(
-                                    onClick = { viewModel.openScanner() },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = OrangeNeon,
-                                        contentColor = Color.Black
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(48.dp)
-                                ) {
-                                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Continuar Bipagem (${uiState.returnedBarcodes.size})",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
-                                    )
-                                }
-
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Surface(
+                                        color = GreenNeon.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(6.dp)
                                     ) {
                                         Text(
-                                            text = "Códigos Bipados (${uiState.returnedBarcodes.size})",
-                                            fontSize = 13.sp,
+                                            text = "$deliveredInListCount Entregues",
+                                            color = GreenNeon,
+                                            fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                                         )
-
-                                        Button(
-                                            onClick = {
-                                                val allCodes = uiState.returnedBarcodes.joinToString("\n")
-                                                clipboardManager.setText(AnnotatedString(allCodes))
-                                                Toast.makeText(context, "${uiState.returnedBarcodes.size} códigos copiados!", Toast.LENGTH_SHORT).show()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = OrangeNeon.copy(alpha = 0.2f),
-                                                contentColor = OrangeNeon
-                                            ),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            shape = RoundedCornerShape(8.dp),
-                                            modifier = Modifier.height(30.dp)
+                                    }
+                                    if (returnedInListCount > 0) {
+                                        Surface(
+                                            color = RedAlert.copy(alpha = 0.15f),
+                                            shape = RoundedCornerShape(6.dp)
                                         ) {
-                                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(13.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Copiar Todos", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                text = "$returnedInListCount Devolvidos",
+                                                color = RedAlert,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                            )
                                         }
                                     }
+                                }
+                            }
 
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            // Botão para abrir câmera / bipar pacotes devolvidos
+                            Button(
+                                onClick = { viewModel.openScanner() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = OrangeNeon,
+                                    contentColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(42.dp)
+                            ) {
+                                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (returnedInListCount > 0) "Bipar Mais Devolvidos ($returnedInListCount)" else "Bipar Pacotes Devolvidos",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
+
+                            // Botões de Ação: "Copiar Todos" e "Exportar Imagem"
+                            if (allScannedItems.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val allCodesText = allScannedItems.joinToString("\n")
+                                            clipboardManager.setText(AnnotatedString(allCodesText))
+                                            Toast.makeText(context, "${allScannedItems.size} códigos copiados!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.weight(1f).height(36.dp)
                                     ) {
-                                        uiState.returnedBarcodes.forEach { code ->
-                                            Surface(
-                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                                shape = RoundedCornerShape(8.dp),
-                                                modifier = Modifier.fillMaxWidth()
+                                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(13.dp), tint = OrangeNeon)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Copiar Todos", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val dateStr = uiState.startTime.atZoneSameInstant(ZoneId.systemDefault()).format(dateFormatter)
+                                            SessionShareHelper.shareScannedBarcodesImage(
+                                                context = context,
+                                                partnerName = partner?.fullName ?: "Entregador",
+                                                routeName = route?.name ?: "Sem Rota",
+                                                sessionDateStr = dateStr,
+                                                items = allScannedItems.map { code ->
+                                                    ScannedItemExport(
+                                                        barcode = code,
+                                                        isReturned = uiState.returnedBarcodes.contains(code)
+                                                    )
+                                                }
+                                            )
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = OrangeNeon.copy(alpha = 0.2f),
+                                            contentColor = OrangeNeon
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.weight(1f).height(36.dp)
+                                    ) {
+                                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(13.dp), tint = OrangeNeon)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Exportar Imagem", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                            // Listagem de Itens
+                            if (allScannedItems.isEmpty()) {
+                                Text(
+                                    text = "Nenhum pacote bipado registrado nesta sessão.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp)
+                                )
+                            } else {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    allScannedItems.forEach { code ->
+                                        val isReturned = uiState.returnedBarcodes.contains(code)
+                                        Surface(
+                                            color = if (isReturned) RedAlert.copy(alpha = 0.08f) else GreenNeon.copy(alpha = 0.08f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = if (isReturned) RedAlert.copy(alpha = 0.35f) else GreenNeon.copy(alpha = 0.3f),
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
                                                 Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                                    modifier = Modifier.weight(1f),
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                                 ) {
+                                                    Icon(
+                                                        imageVector = if (isReturned) Icons.AutoMirrored.Filled.KeyboardReturn else Icons.Default.CheckCircle,
+                                                        contentDescription = if (isReturned) "Devolvido" else "Entregue",
+                                                        tint = if (isReturned) RedAlert else GreenNeon,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
                                                     Text(
                                                         text = code,
-                                                        fontSize = 12.sp,
+                                                        fontSize = 13.sp,
                                                         fontFamily = FontFamily.Monospace,
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = MaterialTheme.colorScheme.onSurface,
-                                                        modifier = Modifier.weight(1f),
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isReturned) RedAlert else GreenNeon,
+                                                        style = TextStyle(
+                                                            textDecoration = if (isReturned) TextDecoration.LineThrough else null
+                                                        ),
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
+                                                }
 
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    // Badge de Status
+                                                    Surface(
+                                                        color = if (isReturned) RedAlert.copy(alpha = 0.18f) else GreenNeon.copy(alpha = 0.18f),
+                                                        shape = RoundedCornerShape(4.dp)
                                                     ) {
-                                                        IconButton(
-                                                            onClick = {
-                                                                clipboardManager.setText(AnnotatedString(code))
-                                                                Toast.makeText(context, "Código copiado: $code", Toast.LENGTH_SHORT).show()
-                                                            },
-                                                            modifier = Modifier.size(26.dp)
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.ContentCopy,
-                                                                contentDescription = "Copiar Código",
-                                                                tint = OrangeNeon,
-                                                                modifier = Modifier.size(15.dp)
-                                                            )
-                                                        }
+                                                        Text(
+                                                            text = if (isReturned) "DEVOLVIDO" else "ENTREGUE",
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (isReturned) RedAlert else GreenNeon,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
 
+                                                    // Copiar registro individual
+                                                    IconButton(
+                                                        onClick = {
+                                                            clipboardManager.setText(AnnotatedString(code))
+                                                            Toast.makeText(context, "Código copiado: $code", Toast.LENGTH_SHORT).show()
+                                                        },
+                                                        modifier = Modifier.size(28.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.ContentCopy,
+                                                            contentDescription = "Copiar Código",
+                                                            tint = if (isReturned) RedAlert else GreenNeon,
+                                                            modifier = Modifier.size(15.dp)
+                                                        )
+                                                    }
+
+                                                    // Desfazer devolução se marcado como devolvido
+                                                    if (isReturned) {
                                                         IconButton(
                                                             onClick = { barcodeToDelete = code },
-                                                            modifier = Modifier.size(26.dp)
+                                                            modifier = Modifier.size(28.dp)
                                                         ) {
                                                             Icon(
                                                                 imageVector = Icons.Default.Close,
-                                                                contentDescription = "Remover",
+                                                                contentDescription = "Desfazer Devolução",
                                                                 tint = RedAlert,
                                                                 modifier = Modifier.size(15.dp)
                                                             )

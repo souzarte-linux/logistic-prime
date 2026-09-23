@@ -30,6 +30,7 @@ data class ClosePartnerSessionUiState(
     val session: DeliveryPartnerSession? = null,
     val partner: DeliveryPartner? = null,
     val route: DeliveryRoute? = null,
+    val startTime: OffsetDateTime = OffsetDateTime.now(),
     val endTime: OffsetDateTime = OffsetDateTime.now(),
     val deliveredCount: Int = 0,
     val deliveredCountText: String = "0",
@@ -90,7 +91,8 @@ class ClosePartnerSessionViewModel(
                 val calculatedSuggested = BigDecimal(initialDelivered).multiply(packageRate).add(defaultBonus)
                 val formattedAmount = String.format(Locale("pt", "BR"), "%.2f", calculatedSuggested)
 
-                val sessionDate = session.startTime?.atZoneSameInstant(ZoneId.systemDefault())?.toLocalDate() ?: LocalDate.now()
+                val initialStartTime = session.startTime ?: OffsetDateTime.now()
+                val sessionDate = initialStartTime.atZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
                 val nowTime = LocalTime.now().withSecond(0).withNano(0)
                 val initialEndTime = LocalDateTime.of(sessionDate, nowTime).atZone(ZoneId.systemDefault()).toOffsetDateTime()
 
@@ -99,6 +101,7 @@ class ClosePartnerSessionViewModel(
                         session = session,
                         partner = partner,
                         route = route,
+                        startTime = initialStartTime,
                         endTime = initialEndTime,
                         deliveredCount = initialDelivered,
                         deliveredCountText = initialDelivered.toString(),
@@ -183,6 +186,18 @@ class ClosePartnerSessionViewModel(
                 amountPaidText = formatted
             )
         }
+    }
+
+    fun onStartDateChanged(year: Int, month: Int, dayOfMonth: Int) {
+        val current = _uiState.value.startTime.atZoneSameInstant(ZoneId.systemDefault())
+        val updated = current.withYear(year).withMonth(month).withDayOfMonth(dayOfMonth).toOffsetDateTime()
+        _uiState.update { it.copy(startTime = updated) }
+    }
+
+    fun onStartTimeChanged(hour: Int, minute: Int) {
+        val current = _uiState.value.startTime.atZoneSameInstant(ZoneId.systemDefault())
+        val updated = current.withHour(hour).withMinute(minute).withSecond(0).toOffsetDateTime()
+        _uiState.update { it.copy(startTime = updated) }
     }
 
     fun onEndTimeChanged(hour: Int, minute: Int) {
@@ -283,6 +298,7 @@ class ClosePartnerSessionViewModel(
                 val sessionToFinalize = session.copy(
                     deliveredCount = state.deliveredCount,
                     returnedCount = state.returnedCount,
+                    startTime = state.startTime,
                     endTime = state.endTime,
                     amountPaid = state.amountPaid
                 )
