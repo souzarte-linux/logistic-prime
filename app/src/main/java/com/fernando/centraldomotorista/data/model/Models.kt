@@ -420,4 +420,5 @@ data class DeliveryPartnerSession(
     val createdAt: OffsetDateTime? = null,
     val packageRate: BigDecimal = BigDecimal.ZERO,
     val defaultBonus: BigDecimal = BigDecimal.ZERO,
+    val billingCycleId: String? = null
 )

@@ -7,6 +7,7 @@ import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.BillingCycleRepository
 import com.fernando.centraldomotorista.data.repository.BillingCycleWithTotals
 import com.fernando.centraldomotorista.data.repository.PlatformRepository
+import com.fernando.centraldomotorista.util.AppDataSync
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.time.YearMonth
 
 enum class FaturasTab(val label: String) {
     EM_ABERTO("Ciclo em Aberto"),
@@ -56,7 +58,11 @@ data class FaturasUiState(
     val newAdjustmentAmount: String = "",
     val newAdjustmentDescription: String = "",
     val newAdjustmentNotes: String = "",
-    val newAdjustmentDate: LocalDate = LocalDate.now()
+    val newAdjustmentDate: LocalDate = LocalDate.now(),
+
+    // Estado da Cascata / Accordion (Ciclo Pago)
+    val expandedMonths: Set<String> = emptySet(),
+    val expandedWeeks: Set<String> = emptySet()
 ) {
     val emAbertoCycles: List<BillingCycleWithTotals>
         get() = cycles.filter {
@@ -84,6 +90,82 @@ data class FaturasUiState(
 
     val totalPago: BigDecimal
         get() = pagoCycles.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
+
+    val pagoMonthGroups: List<FaturasPaidMonthGroup>
+        get() {
+            if (pagoCycles.isEmpty()) return emptyList()
+
+            val ptLocale = java.util.Locale("pt", "BR")
+            val monthFormatter = java.time.format.DateTimeFormatter.ofPattern("MMMM 'de' yyyy", ptLocale)
+
+            val byMonth = pagoCycles.groupBy { c ->
+                val pDate = c.cycle.paymentReceivedDate ?: c.cycle.expectedPaymentDate
+                YearMonth.from(pDate)
+            }
+
+            return byMonth.entries.sortedByDescending { it.key }.map { (ym, monthItems) ->
+                val monthLabel = ym.format(monthFormatter).replaceFirstChar { it.uppercase() }
+                val monthTotal = monthItems.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
+
+                val byWeek = monthItems.groupBy { c ->
+                    val pDate = c.cycle.paymentReceivedDate ?: c.cycle.expectedPaymentDate
+                    getWeekOfMonthInfo(pDate)
+                }
+
+                val weekGroups = byWeek.entries.sortedByDescending { it.key.first }.map { (weekInfo, weekItems) ->
+                    val (weekNum, weekLabel) = weekInfo
+                    val sortedItems = weekItems.sortedWith(
+                        compareBy<BillingCycleWithTotals> { it.platformName.lowercase().trim() }
+                            .thenBy { it.cycle.paymentReceivedDate ?: it.cycle.expectedPaymentDate }
+                    )
+                    val weekTotal = sortedItems.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
+
+                    FaturasPaidWeekGroup(
+                        weekNumber = weekNum,
+                        weekLabel = weekLabel,
+                        totalAmount = weekTotal,
+                        totalItems = sortedItems.size,
+                        items = sortedItems
+                    )
+                }
+
+                FaturasPaidMonthGroup(
+                    yearMonth = ym,
+                    monthLabel = monthLabel,
+                    totalAmount = monthTotal,
+                    totalInvoices = monthItems.size,
+                    weeks = weekGroups
+                )
+            }
+        }
+}
+
+data class FaturasPaidWeekGroup(
+    val weekNumber: Int,
+    val weekLabel: String,
+    val totalAmount: BigDecimal,
+    val totalItems: Int,
+    val items: List<BillingCycleWithTotals>
+)
+
+data class FaturasPaidMonthGroup(
+    val yearMonth: YearMonth,
+    val monthLabel: String,
+    val totalAmount: BigDecimal,
+    val totalInvoices: Int,
+    val weeks: List<FaturasPaidWeekGroup>
+)
+
+fun getWeekOfMonthInfo(date: LocalDate): Pair<Int, String> {
+    val day = date.dayOfMonth
+    val lastDay = date.lengthOfMonth()
+    return when {
+        day <= 7 -> 1 to "Semana 1 (01 a 07)"
+        day <= 14 -> 2 to "Semana 2 (08 a 14)"
+        day <= 21 -> 3 to "Semana 3 (15 a 21)"
+        day <= 28 -> 4 to "Semana 4 (22 a 28)"
+        else -> 5 to "Semana 5 (29 a %02d)".format(lastDay)
+    }
 }
 
 class FaturasViewModel(
@@ -99,6 +181,11 @@ class FaturasViewModel(
 
     init {
         loadData()
+        viewModelScope.launch {
+            AppDataSync.dataChangedEvents.collect {
+                loadData()
+            }
+        }
     }
 
     fun loadData() {
@@ -108,15 +195,54 @@ class FaturasViewModel(
                 val platforms = platformRepository.getActivePlatforms(currentUserId)
                 val cyclesWithTotals = billingCycleRepository.getBillingCyclesWithTotals(currentUserId)
 
-                _uiState.update {
-                    it.copy(
+                val currentYm = YearMonth.now()
+                val currentYmStr = currentYm.toString()
+
+                val availablePaidMonths = cyclesWithTotals.filter { it.cycle.status == "pago" }
+                    .map { YearMonth.from(it.cycle.paymentReceivedDate ?: it.cycle.expectedPaymentDate) }
+                    .distinct()
+
+                val targetMonthYm = if (availablePaidMonths.contains(currentYm)) {
+                    currentYm
+                } else {
+                    availablePaidMonths.maxOrNull()
+                }
+
+                _uiState.update { current ->
+                    val newExpandedMonths = if (current.expandedMonths.isEmpty() && targetMonthYm != null) {
+                        setOf(targetMonthYm.toString())
+                    } else {
+                        current.expandedMonths
+                    }
+
+                    val newExpandedWeeks = if (current.expandedWeeks.isEmpty() && targetMonthYm != null) {
+                        val matchingPaid = cyclesWithTotals.filter { c ->
+                            c.cycle.status == "pago" &&
+                            YearMonth.from(c.cycle.paymentReceivedDate ?: c.cycle.expectedPaymentDate) == targetMonthYm
+                        }
+                        val latestWeekNum = matchingPaid.map { c ->
+                            getWeekOfMonthInfo(c.cycle.paymentReceivedDate ?: c.cycle.expectedPaymentDate).first
+                        }.maxOrNull()
+
+                        if (latestWeekNum != null) {
+                            setOf("${targetMonthYm}_$latestWeekNum")
+                        } else {
+                            emptySet()
+                        }
+                    } else {
+                        current.expandedWeeks
+                    }
+
+                    current.copy(
                         platforms = platforms,
                         cycles = cyclesWithTotals,
                         isLoading = false,
-                        newCyclePlatformId = it.newCyclePlatformId.ifBlank { platforms.firstOrNull()?.id ?: "" },
-                        editingCycle = it.editingCycle?.let { ec -> cyclesWithTotals.find { c -> c.cycle.id == ec.cycle.id } },
-                        adjustingCycle = it.adjustingCycle?.let { ac -> cyclesWithTotals.find { c -> c.cycle.id == ac.cycle.id } },
-                        viewingCycle = it.viewingCycle?.let { vc -> cyclesWithTotals.find { c -> c.cycle.id == vc.cycle.id } }
+                        expandedMonths = newExpandedMonths,
+                        expandedWeeks = newExpandedWeeks,
+                        newCyclePlatformId = current.newCyclePlatformId.ifBlank { platforms.firstOrNull()?.id ?: "" },
+                        editingCycle = current.editingCycle?.let { ec -> cyclesWithTotals.find { c -> c.cycle.id == ec.cycle.id } },
+                        adjustingCycle = current.adjustingCycle?.let { ac -> cyclesWithTotals.find { c -> c.cycle.id == ac.cycle.id } },
+                        viewingCycle = current.viewingCycle?.let { vc -> cyclesWithTotals.find { c -> c.cycle.id == vc.cycle.id } }
                     )
                 }
             } catch (e: Exception) {
@@ -124,6 +250,28 @@ class FaturasViewModel(
                     it.copy(isLoading = false, errorMessage = "Erro ao carregar faturas: ${e.message}")
                 }
             }
+        }
+    }
+
+    fun toggleMonthExpanded(yearMonthKey: String) {
+        _uiState.update {
+            val next = if (it.expandedMonths.contains(yearMonthKey)) {
+                it.expandedMonths - yearMonthKey
+            } else {
+                it.expandedMonths + yearMonthKey
+            }
+            it.copy(expandedMonths = next)
+        }
+    }
+
+    fun toggleWeekExpanded(weekKey: String) {
+        _uiState.update {
+            val next = if (it.expandedWeeks.contains(weekKey)) {
+                it.expandedWeeks - weekKey
+            } else {
+                it.expandedWeeks + weekKey
+            }
+            it.copy(expandedWeeks = next)
         }
     }
 

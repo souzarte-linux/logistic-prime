@@ -82,4 +82,76 @@ class FaturasUiStateTest {
         assertEquals(1, plat2State.pagoCycles.size)
         assertEquals("4", plat2State.pagoCycles.first().cycle.id)
     }
+
+    @Test
+    fun `test pagoMonthGroups groups by month and week with correct sorting`() {
+        // Ciclos pagos em Setembro de 2026:
+        // c1: Shopee, pago em 05/09/2026 (Semana 1)
+        // c2: Mercado Livre, pago em 03/09/2026 (Semana 1)
+        // c3: Amazon, pago em 18/09/2026 (Semana 3)
+        // c4: Loggi, pago em 25/09/2026 (Semana 4)
+        val c1 = BillingCycleWithTotals(
+            cycle = BillingCycle(
+                id = "c1", userId = "u1", platformId = "p_shopee",
+                periodStart = LocalDate.of(2026, 8, 20), periodEnd = LocalDate.of(2026, 8, 31),
+                expectedPaymentDate = LocalDate.of(2026, 9, 5), paymentReceivedDate = LocalDate.of(2026, 9, 5),
+                status = "pago"
+            ),
+            platformName = "Shopee",
+            totalAmount = BigDecimal("500.00")
+        )
+        val c2 = BillingCycleWithTotals(
+            cycle = BillingCycle(
+                id = "c2", userId = "u1", platformId = "p_ml",
+                periodStart = LocalDate.of(2026, 8, 20), periodEnd = LocalDate.of(2026, 8, 31),
+                expectedPaymentDate = LocalDate.of(2026, 9, 3), paymentReceivedDate = LocalDate.of(2026, 9, 3),
+                status = "pago"
+            ),
+            platformName = "Mercado Livre",
+            totalAmount = BigDecimal("1200.00")
+        )
+        val c3 = BillingCycleWithTotals(
+            cycle = BillingCycle(
+                id = "c3", userId = "u1", platformId = "p_amazon",
+                periodStart = LocalDate.of(2026, 9, 1), periodEnd = LocalDate.of(2026, 9, 15),
+                expectedPaymentDate = LocalDate.of(2026, 9, 18), paymentReceivedDate = LocalDate.of(2026, 9, 18),
+                status = "pago"
+            ),
+            platformName = "Amazon",
+            totalAmount = BigDecimal("800.00")
+        )
+        val c4 = BillingCycleWithTotals(
+            cycle = BillingCycle(
+                id = "c4", userId = "u1", platformId = "p_loggi",
+                periodStart = LocalDate.of(2026, 9, 15), periodEnd = LocalDate.of(2026, 9, 21),
+                expectedPaymentDate = LocalDate.of(2026, 9, 25), paymentReceivedDate = LocalDate.of(2026, 9, 25),
+                status = "pago"
+            ),
+            platformName = "Loggi",
+            totalAmount = BigDecimal("350.00")
+        )
+
+        val state = FaturasUiState(cycles = listOf(c1, c2, c3, c4))
+        val monthGroups = state.pagoMonthGroups
+
+        assertEquals(1, monthGroups.size)
+        val septGroup = monthGroups[0]
+        assertEquals("Setembro de 2026", septGroup.monthLabel)
+        assertEquals(4, septGroup.totalInvoices)
+        assertEquals(BigDecimal("2850.00"), septGroup.totalAmount)
+
+        // Verificação das semanas do mês (ordenadas por weekNumber decrescente)
+        // Semana 4 (25/09), Semana 3 (18/09), Semana 1 (03/09 e 05/09)
+        assertEquals(3, septGroup.weeks.size)
+        assertEquals(4, septGroup.weeks[0].weekNumber)
+        assertEquals(3, septGroup.weeks[1].weekNumber)
+        assertEquals(1, septGroup.weeks[2].weekNumber)
+
+        // Na Semana 1, temos Mercado Livre (03/09) e Shopee (05/09).
+        // Ordem alfabética: Mercado Livre vem antes de Shopee!
+        val week1Items = septGroup.weeks[2].items
+        assertEquals(2, week1Items.size)
+        assertEquals("Mercado Livre", week1Items[0].platformName)
+        assertEquals("Shopee", week1Items[1].platformName)
+    }
 }

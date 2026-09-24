@@ -14,6 +14,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.time.ZoneId
 
 data class BillingCycleWithTotals(
     val cycle: BillingCycle,
@@ -22,6 +23,7 @@ data class BillingCycleWithTotals(
     val tipTotal: BigDecimal = BigDecimal.ZERO,
     val bonusTotal: BigDecimal = BigDecimal.ZERO,
     val dailyAmount: BigDecimal = BigDecimal.ZERO,
+    val sessionAmount: BigDecimal = BigDecimal.ZERO,
     val adjustmentsCredit: BigDecimal = BigDecimal.ZERO,
     val adjustmentsDebit: BigDecimal = BigDecimal.ZERO,
     val adjustmentsTotal: BigDecimal = BigDecimal.ZERO,
@@ -29,10 +31,12 @@ data class BillingCycleWithTotals(
     val routeCount: Int = 0,
     val packageCount: Int = 0,
     val dailyCount: Int = 0,
+    val sessionsCount: Int = 0,
     val adjustmentsCount: Int = 0,
     val routes: List<com.fernando.centraldomotorista.data.model.Route> = emptyList(),
     val dailyTotals: List<com.fernando.centraldomotorista.data.model.DailyTotal> = emptyList(),
-    val adjustments: List<com.fernando.centraldomotorista.data.model.FinancialAdjustment> = emptyList()
+    val adjustments: List<com.fernando.centraldomotorista.data.model.FinancialAdjustment> = emptyList(),
+    val sessions: List<com.fernando.centraldomotorista.data.model.DeliveryPartnerSession> = emptyList()
 ) {
     val isOverdue: Boolean
         get() = cycle.status != "pago" && cycle.status != "cancelado" && cycle.expectedPaymentDate.isBefore(LocalDate.now())
@@ -43,6 +47,7 @@ class BillingCycleRepository(
     private val platformRepository: PlatformRepository = PlatformRepository(),
     private val routeRepository: RouteRepository = RouteRepository(),
     private val dailyTotalRepository: DailyTotalRepository = DailyTotalRepository(),
+    private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
     private val adjustmentApi: FinancialAdjustmentApi = RetrofitClient.financialAdjustmentApi
 ) {
     suspend fun getBillingCycles(userId: String, status: String? = null): List<BillingCycle> = withContext(Dispatchers.IO) {
@@ -63,6 +68,7 @@ class BillingCycleRepository(
                 val platformsDeferred = async { platformRepository.getPlatforms(userId) }
                 val routesDeferred = async { routeRepository.getRoutes(userId) }
                 val dailyTotalsDeferred = async { dailyTotalRepository.getDailyTotals(userId) }
+                val sessionsDeferred = async { sessionRepository.getSessions(userId) }
                 val adjustmentsDeferred = async {
                     try {
                         adjustmentApi.getFinancialAdjustments("eq.$userId").map { it.toDomain() }
@@ -72,59 +78,95 @@ class BillingCycleRepository(
                 }
 
                 val cycles = cyclesDeferred.await()
-                val platformsMap = platformsDeferred.await().associate { it.id to it.name }
+                val platforms = platformsDeferred.await()
+                val platformsMap = platforms.associateBy { it.id }
                 val routes = routesDeferred.await()
                 val dailyTotals = dailyTotalsDeferred.await()
+                val sessions = sessionsDeferred.await()
                 val adjustments = adjustmentsDeferred.await()
 
+                val activeCycleIds = cycles.filter { it.status != "cancelado" }.map { it.id }.toSet()
+                val systemZone = ZoneId.systemDefault()
+
+                fun isEffectivelyUnlinked(bcId: String?): Boolean {
+                    if (bcId.isNullOrBlank()) return true
+                    return bcId !in activeCycleIds
+                }
+
                 cycles.map { cycle ->
-                    val platName = platformsMap[cycle.platformId] ?: "Plataforma"
+                    val platform = platformsMap[cycle.platformId]
+                    val platName = platform?.name ?: "Plataforma"
+                    val platPartnerId = platform?.partnerId
 
                     val cycleRoutes = routes.filter { r ->
+                        val rDate = r.occurredAt.atZoneSameInstant(systemZone).toLocalDate()
+                        val isMatchingPlatform = (r.platformId == cycle.platformId) ||
+                            (platPartnerId != null && platPartnerId == r.platformId)
+                        val isInDate = BillingCycleCalculator.isDateInCycle(
+                            rDate,
+                            cycle.periodStart,
+                            cycle.periodEnd,
+                            cycle.includeEndDate
+                        )
+
                         r.billingCycleId == cycle.id || (
-                            r.billingCycleId == null &&
-                            r.platformId == cycle.platformId &&
-                            BillingCycleCalculator.isDateInCycle(
-                                r.occurredAt.toLocalDate(),
-                                cycle.periodStart,
-                                cycle.periodEnd,
-                                cycle.includeEndDate
-                            )
+                            isEffectivelyUnlinked(r.billingCycleId) && isMatchingPlatform && isInDate
                         )
                     }
-                    val routeAmount = cycleRoutes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.amount) }
-                    val tipTotal = cycleRoutes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.tip) }
-                    val bonusTotal = cycleRoutes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.bonus) }
-                    val packageCount = cycleRoutes.sumOf { it.packageCount }
 
                     val cycleDailies = dailyTotals.filter { dt ->
+                        val dtDate = dt.occurredAt.atZoneSameInstant(systemZone).toLocalDate()
+                        val isMatchingPlatform = (dt.platformId == cycle.platformId) ||
+                            (platPartnerId != null && platPartnerId == dt.platformId)
+                        val isInDate = BillingCycleCalculator.isDateInCycle(
+                            dtDate,
+                            cycle.periodStart,
+                            cycle.periodEnd,
+                            cycle.includeEndDate
+                        )
+
                         dt.billingCycleId == cycle.id || (
-                            dt.billingCycleId == null &&
-                            dt.platformId == cycle.platformId &&
-                            BillingCycleCalculator.isDateInCycle(
-                                dt.occurredAt.toLocalDate(),
-                                cycle.periodStart,
-                                cycle.periodEnd,
-                                cycle.includeEndDate
-                            )
+                            isEffectivelyUnlinked(dt.billingCycleId) && isMatchingPlatform && isInDate
                         )
                     }
-                    val dailyAmount = cycleDailies.fold(BigDecimal.ZERO) { acc, dt -> acc.add(dt.amount) }
+
+                    val cycleSessions = sessions.filter { s ->
+                        val sDate = (s.startTime ?: s.createdAt)?.atZoneSameInstant(systemZone)?.toLocalDate()
+                        val isMatchingPlatform = (s.platformId == cycle.platformId) ||
+                            (platPartnerId != null && platPartnerId == s.partnerId)
+                        val isInDate = sDate != null && BillingCycleCalculator.isDateInCycle(
+                            sDate,
+                            cycle.periodStart,
+                            cycle.periodEnd,
+                            cycle.includeEndDate
+                        )
+
+                        s.billingCycleId == cycle.id || (
+                            isEffectivelyUnlinked(s.billingCycleId) && isMatchingPlatform && isInDate
+                        )
+                    }
 
                     val cycleAdjustments = adjustments.filter { adj ->
+                        val isMatchingPlatform = (adj.platformId == cycle.platformId) ||
+                            (platPartnerId != null && platPartnerId == adj.platformId)
+                        val isInDate = BillingCycleCalculator.isDateInCycle(
+                            adj.occurredAt,
+                            cycle.periodStart,
+                            cycle.periodEnd,
+                            cycle.includeEndDate
+                        )
+
                         adj.billingCycleId == cycle.id || (
-                            adj.billingCycleId == null &&
-                            adj.platformId == cycle.platformId &&
-                            BillingCycleCalculator.isDateInCycle(
-                                adj.occurredAt,
-                                cycle.periodStart,
-                                cycle.periodEnd,
-                                cycle.includeEndDate
-                            )
+                            isEffectivelyUnlinked(adj.billingCycleId) && isMatchingPlatform && isInDate
                         )
                     }
 
-                    val totals = BillingCycleCalculator.calculateCycleTotals(cycleRoutes, cycleDailies, cycleAdjustments)
+                    val totals = BillingCycleCalculator.calculateCycleTotals(
+                        routes = cycleRoutes,
+                        dailyTotals = cycleDailies,
+                        adjustments = cycleAdjustments,
+                        sessions = cycleSessions
+                    )
 
                     BillingCycleWithTotals(
                         cycle = cycle,
@@ -133,6 +175,7 @@ class BillingCycleRepository(
                         tipTotal = totals.totalTipsAmount,
                         bonusTotal = totals.totalBonusAmount,
                         dailyAmount = totals.grossDailyAmount,
+                        sessionAmount = totals.sessionAmount,
                         adjustmentsCredit = totals.adjustmentsCredit,
                         adjustmentsDebit = totals.adjustmentsDebit,
                         adjustmentsTotal = totals.adjustmentsTotal,
@@ -140,10 +183,12 @@ class BillingCycleRepository(
                         routeCount = totals.routesCount,
                         packageCount = totals.packagesCount,
                         dailyCount = totals.dailyTotalsCount,
+                        sessionsCount = totals.sessionsCount,
                         adjustmentsCount = totals.adjustmentsCount,
                         routes = cycleRoutes,
                         dailyTotals = cycleDailies,
-                        adjustments = cycleAdjustments
+                        adjustments = cycleAdjustments,
+                        sessions = cycleSessions
                     )
                 }
             } catch (e: Exception) {
@@ -239,11 +284,18 @@ class BillingCycleRepository(
         userId: String
     ): Unit = withContext(Dispatchers.IO) {
         try {
+            val systemZone = ZoneId.systemDefault()
+            val platforms = platformRepository.getPlatforms(userId)
+            val currentPlatform = platforms.firstOrNull { it.id == platformId }
+            val platPartnerId = currentPlatform?.partnerId
+
             val allRoutes = routeRepository.getRoutes(userId)
             val matchingRoutes = allRoutes.filter { r ->
-                r.platformId == platformId &&
+                val rDate = r.occurredAt.atZoneSameInstant(systemZone).toLocalDate()
+                val isMatchingPlatform = (r.platformId == platformId) || (platPartnerId != null && platPartnerId == r.platformId)
+                isMatchingPlatform &&
                 (r.billingCycleId == null || r.billingCycleId == cycleId) &&
-                BillingCycleCalculator.isDateInCycle(r.occurredAt.toLocalDate(), periodStart, periodEnd, includeEndDate)
+                BillingCycleCalculator.isDateInCycle(rDate, periodStart, periodEnd, includeEndDate)
             }
             matchingRoutes.forEach { r ->
                 if (r.billingCycleId != cycleId) {
@@ -253,9 +305,11 @@ class BillingCycleRepository(
 
             val allDailies = dailyTotalRepository.getDailyTotals(userId)
             val matchingDailies = allDailies.filter { dt ->
-                dt.platformId == platformId &&
+                val dtDate = dt.occurredAt.atZoneSameInstant(systemZone).toLocalDate()
+                val isMatchingPlatform = (dt.platformId == platformId) || (platPartnerId != null && platPartnerId == dt.platformId)
+                isMatchingPlatform &&
                 (dt.billingCycleId == null || dt.billingCycleId == cycleId) &&
-                BillingCycleCalculator.isDateInCycle(dt.occurredAt.toLocalDate(), periodStart, periodEnd, includeEndDate)
+                BillingCycleCalculator.isDateInCycle(dtDate, periodStart, periodEnd, includeEndDate)
             }
             matchingDailies.forEach { dt ->
                 if (dt.billingCycleId != cycleId) {
@@ -263,9 +317,24 @@ class BillingCycleRepository(
                 }
             }
 
+            val allSessions = sessionRepository.getSessions(userId)
+            val matchingSessions = allSessions.filter { s ->
+                val sDate = (s.startTime ?: s.createdAt)?.atZoneSameInstant(systemZone)?.toLocalDate()
+                val isMatchingPlatform = (s.platformId == platformId) || (platPartnerId != null && platPartnerId == s.partnerId)
+                isMatchingPlatform &&
+                (s.billingCycleId == null || s.billingCycleId == cycleId) &&
+                sDate != null && BillingCycleCalculator.isDateInCycle(sDate, periodStart, periodEnd, includeEndDate)
+            }
+            matchingSessions.forEach { s ->
+                if (s.billingCycleId != cycleId) {
+                    sessionRepository.saveSession(s.copy(billingCycleId = cycleId))
+                }
+            }
+
             val allAdjustments = adjustmentApi.getFinancialAdjustments("eq.$userId").map { it.toDomain() }
             val matchingAdjustments = allAdjustments.filter { adj ->
-                adj.platformId == platformId &&
+                val isMatchingPlatform = (adj.platformId == platformId) || (platPartnerId != null && platPartnerId == adj.platformId)
+                isMatchingPlatform &&
                 (adj.billingCycleId == null || adj.billingCycleId == cycleId) &&
                 BillingCycleCalculator.isDateInCycle(adj.occurredAt, periodStart, periodEnd, includeEndDate)
             }

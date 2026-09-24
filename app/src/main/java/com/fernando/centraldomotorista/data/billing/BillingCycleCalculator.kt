@@ -2,6 +2,7 @@ package com.fernando.centraldomotorista.data.billing
 
 import com.fernando.centraldomotorista.data.model.CycleEntry
 import com.fernando.centraldomotorista.data.model.DailyTotal
+import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.FinancialAdjustment
 import com.fernando.centraldomotorista.data.model.FinancialAdjustmentSubtype
 import com.fernando.centraldomotorista.data.model.Platform
@@ -23,6 +24,7 @@ data class BillingCycleTotals(
     val totalTipsAmount: BigDecimal = BigDecimal.ZERO,
     val totalBonusAmount: BigDecimal = BigDecimal.ZERO,
     val grossDailyAmount: BigDecimal = BigDecimal.ZERO,
+    val sessionAmount: BigDecimal = BigDecimal.ZERO,
     val adjustmentsCredit: BigDecimal = BigDecimal.ZERO,
     val adjustmentsDebit: BigDecimal = BigDecimal.ZERO,
     val adjustmentsTotal: BigDecimal = BigDecimal.ZERO,
@@ -30,6 +32,7 @@ data class BillingCycleTotals(
     val routesCount: Int = 0,
     val packagesCount: Int = 0,
     val dailyTotalsCount: Int = 0,
+    val sessionsCount: Int = 0,
     val adjustmentsCount: Int = 0
 )
 
@@ -273,14 +276,27 @@ object BillingCycleCalculator {
     fun calculateCycleTotals(
         routes: List<Route>,
         dailyTotals: List<DailyTotal>,
-        adjustments: List<FinancialAdjustment>
+        adjustments: List<FinancialAdjustment>,
+        sessions: List<DeliveryPartnerSession> = emptyList()
     ): BillingCycleTotals {
         val grossRoutes = routes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.amount) }
         val tips = routes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.tip) }
         val bonus = routes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.bonus) }
-        val packages = routes.sumOf { it.packageCount }
+        val routePackages = routes.sumOf { it.packageCount }
 
         val grossDaily = dailyTotals.fold(BigDecimal.ZERO) { acc, dt -> acc.add(dt.amount) }
+
+        val grossSessions = sessions.fold(BigDecimal.ZERO) { acc, s ->
+            val sAmt = if (s.amountPaid > BigDecimal.ZERO) {
+                s.amountPaid
+            } else {
+                BigDecimal(s.deliveredCount).multiply(s.packageRate).add(s.defaultBonus)
+            }
+            acc.add(sAmt)
+        }
+        val sessionPackages = sessions.sumOf { s ->
+            if (s.deliveredCount > 0) s.deliveredCount else (if (s.scannedCount > 0) s.scannedCount else s.expectedPackageCount)
+        }
 
         val adjustmentsCredit = adjustments.filter { adj ->
             val sub = FinancialAdjustmentSubtype.fromKey(adj.subtype)
@@ -306,6 +322,7 @@ object BillingCycleCalculator {
             .add(tips)
             .add(bonus)
             .add(grossDaily)
+            .add(grossSessions)
             .add(adjustmentsTotal)
 
         return BillingCycleTotals(
@@ -313,13 +330,15 @@ object BillingCycleCalculator {
             totalTipsAmount = tips,
             totalBonusAmount = bonus,
             grossDailyAmount = grossDaily,
+            sessionAmount = grossSessions,
             adjustmentsCredit = adjustmentsCredit,
             adjustmentsDebit = adjustmentsDebit,
             adjustmentsTotal = adjustmentsTotal,
             netTotalAmount = netTotal,
             routesCount = routes.size,
-            packagesCount = packages,
+            packagesCount = routePackages + sessionPackages,
             dailyTotalsCount = dailyTotals.size,
+            sessionsCount = sessions.size,
             adjustmentsCount = adjustments.size
         )
     }

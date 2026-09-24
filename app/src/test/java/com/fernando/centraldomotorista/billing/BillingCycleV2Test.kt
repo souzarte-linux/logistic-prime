@@ -665,4 +665,36 @@ class BillingCycleV2Test {
         // Sem data de corte e sem status -> fallback para 'em_aberto'
         assertEquals("em_aberto", normalizeBillingCycleStatus(null, null))
     }
+
+    @Test
+    fun `test calculateCycleTotals with delivery partner sessions included`() {
+        val now = OffsetDateTime.now(ZoneOffset.UTC)
+        val route = Route(
+            id = "r1", userId = "u1", platformId = "plat1", origin = null, destination = null,
+            amount = BigDecimal("200.00"), packageCount = 30, occurredAt = now
+        )
+        val session1 = DeliveryPartnerSession(
+            id = "sess-1", userId = "u1", partnerId = "part-1", platformId = "plat1",
+            deliveredCount = 45, amountPaid = BigDecimal("150.00"), createdAt = now
+        )
+        val session2 = DeliveryPartnerSession(
+            id = "sess-2", userId = "u1", partnerId = "part-2", platformId = "plat1",
+            deliveredCount = 25, amountPaid = BigDecimal("85.50"), createdAt = now
+        )
+
+        val totals = BillingCycleCalculator.calculateCycleTotals(
+            routes = listOf(route),
+            dailyTotals = emptyList(),
+            adjustments = emptyList(),
+            sessions = listOf(session1, session2)
+        )
+
+        assertEquals(BigDecimal("200.00"), totals.grossRoutesAmount)
+        assertEquals(BigDecimal("235.50"), totals.sessionAmount) // 150.00 + 85.50
+        assertEquals(2, totals.sessionsCount)
+        assertEquals(1, totals.routesCount)
+        assertEquals(100, totals.packagesCount) // 30 (route) + 45 + 25 (sessions)
+        assertEquals(BigDecimal("435.50"), totals.netTotalAmount) // 200.00 + 235.50
+    }
 }
+

@@ -439,6 +439,57 @@ fun FaturasScreen(
                             }
                         }
                     }
+                } else if (uiState.activeTab == FaturasTab.PAGO) {
+                    // 4b. Cascata em Accordion na aba 'Ciclo Pago' (Mês -> Semana -> Itens)
+                    uiState.pagoMonthGroups.forEach { monthGroup ->
+                        val ymKey = monthGroup.yearMonth.toString()
+                        val isMonthExpanded = uiState.expandedMonths.contains(ymKey)
+
+                        // Nível 1: Cabeçalho do Mês
+                        item(key = "pago_month_$ymKey") {
+                            PagoMonthHeaderCard(
+                                monthGroup = monthGroup,
+                                isExpanded = isMonthExpanded,
+                                onToggle = { viewModel.toggleMonthExpanded(ymKey) }
+                            )
+                        }
+
+                        // Nível 2: Semanas do Mês
+                        if (isMonthExpanded) {
+                            monthGroup.weeks.forEach { weekGroup ->
+                                val weekKey = "${ymKey}_${weekGroup.weekNumber}"
+                                val isWeekExpanded = uiState.expandedWeeks.contains(weekKey)
+
+                                item(key = "pago_week_$weekKey") {
+                                    PagoWeekHeaderCard(
+                                        weekGroup = weekGroup,
+                                        isExpanded = isWeekExpanded,
+                                        onToggle = { viewModel.toggleWeekExpanded(weekKey) }
+                                    )
+                                }
+
+                                // Nível 3: Itens da Semana (ordenados alfabeticamente pela empresa e por data)
+                                if (isWeekExpanded) {
+                                    items(weekGroup.items, key = { "pago_item_${it.cycle.id}" }) { cycleItem ->
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(start = 16.dp)
+                                        ) {
+                                            FaturaCardItem(
+                                                item = cycleItem,
+                                                onPay = { viewModel.openPayModal(cycleItem) },
+                                                onEditItems = { viewModel.openEditCycleModal(cycleItem) },
+                                                onAdjustments = { viewModel.openAdjustmentModal(cycleItem) },
+                                                onViewDetails = { viewModel.openDetailsModal(cycleItem) },
+                                                onDelete = { viewModel.deleteCycle(cycleItem) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
                     items(currentCycles, key = { it.cycle.id }) { cycleItem ->
                         FaturaCardItem(
@@ -668,6 +719,21 @@ fun FaturaCardItem(
                     }
                 }
 
+                if (item.sessionsCount > 0) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "${item.sessionsCount} sessões",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
                 if (item.adjustmentsCount > 0) {
                     Surface(
                         color = if (item.adjustmentsTotal >= BigDecimal.ZERO) GreenNeon.copy(alpha = 0.15f) else RedAlert.copy(alpha = 0.15f),
@@ -723,63 +789,198 @@ fun FaturaCardItem(
                 }
             }
 
-            // Linha 4: Botões de Ação Dinâmicos
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Liquidar / Baixar
-                if (!isPaid) {
-                    Button(
-                        onClick = onPay,
-                        modifier = Modifier.weight(1.3f),
+            // Linha 4: Botões de Ação Estruturados (Sem espremer)
+            if (isAVencer) {
+                // Aba "A Vencer": Botão primário full-width [ Liquidar / Baixar Repasse ] em GreenNeon
+                Button(
+                    onClick = onPay,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GreenNeon,
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Icon(Icons.Default.PriceCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Liquidar / Baixar Repasse", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+
+                // Linha secundária de ações bem espaçada
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onViewDetails,
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isAVencer) GreenNeon else OrangeNeon,
-                            contentColor = Color.Black
-                        )
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Default.PriceCheck, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Liquidar / Baixar", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Text("Detalhes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onEditItems,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = OrangeNeon)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Editar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onAdjustments,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = BlueInfo)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Ajustes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = RedAlert.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
                     }
                 }
-
-                // Editar Itens (Pacotes / Valores)
-                OutlinedButton(
-                    onClick = onEditItems,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier.weight(1f)
+            } else if (isEmAberto) {
+                // Aba "Em Aberto": Botão primário full-width + Linha secundária
+                Button(
+                    onClick = onPay,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeNeon,
+                        contentColor = Color.Black
+                    )
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = OrangeNeon)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Editar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.PriceCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Liquidar / Baixar Ciclo", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
 
-                // Ajustes (+ / -)
-                OutlinedButton(
-                    onClick = onAdjustments,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier.weight(1f)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = BlueInfo)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Ajustes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
+                    OutlinedButton(
+                        onClick = onViewDetails,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Detalhes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
 
-                // Excluir
-                IconButton(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.size(36.dp)
+                    OutlinedButton(
+                        onClick = onEditItems,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = OrangeNeon)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Editar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onAdjustments,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = BlueInfo)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Ajustes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = RedAlert.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                    }
+                }
+            } else {
+                // Aba "Pago" (ou outros status): Linha secundária de ações
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = RedAlert.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                    OutlinedButton(
+                        onClick = onViewDetails,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Detalhes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onEditItems,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = OrangeNeon)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Editar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onAdjustments,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = BlueInfo)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Ajustes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = RedAlert.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                    }
                 }
             }
         }
@@ -813,6 +1014,121 @@ fun FaturaCardItem(
             },
             containerColor = MaterialTheme.colorScheme.surface
         )
+    }
+}
+
+@Composable
+fun PagoMonthHeaderCard(
+    monthGroup: FaturasPaidMonthGroup,
+    isExpanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onToggle() },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, GreenNeon.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = monthGroup.monthLabel,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${monthGroup.totalInvoices} ${if (monthGroup.totalInvoices == 1) "fatura" else "faturas"}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = monthGroup.totalAmount.formatCurrency(),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp,
+                    color = GreenNeon
+                )
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Recolher mês" else "Expandir mês",
+                    tint = GreenNeon,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PagoWeekHeaderCard(
+    weekGroup: FaturasPaidWeekGroup,
+    isExpanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onToggle() },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = weekGroup.weekLabel,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${weekGroup.totalItems} ${if (weekGroup.totalItems == 1) "fatura" else "faturas"}",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = weekGroup.totalAmount.formatCurrency(),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) "Recolher semana" else "Expandir semana",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }
 
@@ -1247,6 +1563,21 @@ fun DetalhesFaturaModal(
                             Text("Totais diários (${cycle.dailyCount})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(
                                 cycle.dailyAmount.formatCurrency(),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    if (cycle.sessionsCount > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Sessões de Parceiros (${cycle.sessionsCount})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                cycle.sessionAmount.formatCurrency(),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
