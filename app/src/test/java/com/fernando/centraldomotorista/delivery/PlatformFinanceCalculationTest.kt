@@ -192,4 +192,32 @@ class PlatformFinanceCalculationTest {
         assertEquals(BigDecimal("175.00"), points[2].amount)
         assertEquals(35, points[2].deliveredCount)
     }
+
+    @Test
+    fun testPlatformFinanceFilterConciseDisplayLabels() {
+        val today = LocalDate.of(2026, 9, 23)
+
+        assertEquals("Mês Atual", PlatformFinanceFilter(preset = PlatformFinancePeriodPreset.MES_CORRENTE).getDisplayLabel(today))
+        assertEquals("Esta Semana", PlatformFinanceFilter(preset = PlatformFinancePeriodPreset.ESTA_SEMANA).getDisplayLabel(today))
+        assertEquals("Sem. Passada", PlatformFinanceFilter(preset = PlatformFinancePeriodPreset.SEMANA_PASSADA).getDisplayLabel(today))
+        assertEquals("Esta Quinzena", PlatformFinanceFilter(preset = PlatformFinancePeriodPreset.ESTA_QUINZENA).getDisplayLabel(today))
+        assertEquals("Mês Passado", PlatformFinanceFilter(preset = PlatformFinancePeriodPreset.MES_PASSADO).getDisplayLabel(today))
+        assertEquals("Últimos 3M", PlatformFinanceFilter(preset = PlatformFinancePeriodPreset.ULTIMOS_3_MESES).getDisplayLabel(today))
+
+        // Personalizado com mês específico (formato MMM/yyyy limpo, ex: Set/2026)
+        val filterMonth = PlatformFinanceFilter(
+            preset = PlatformFinancePeriodPreset.PERSONALIZADO,
+            specificYearMonth = java.time.YearMonth.of(2026, 9)
+        )
+        val monthLabel = filterMonth.getDisplayLabel(today)
+        assertTrue(monthLabel.contains("2026") && (monthLabel.contains("Set") || monthLabel.contains("Sep")))
+
+        // Personalizado com intervalo de datas dd/MM a dd/MM
+        val filterCustom = PlatformFinanceFilter(
+            preset = PlatformFinancePeriodPreset.PERSONALIZADO,
+            customStart = LocalDate.of(2026, 9, 1),
+            customEnd = LocalDate.of(2026, 9, 15)
+        )
+        assertEquals("01/09 a 15/09", filterCustom.getDisplayLabel(today))
+    }
 }

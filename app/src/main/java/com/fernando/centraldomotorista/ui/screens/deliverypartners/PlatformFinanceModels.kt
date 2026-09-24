@@ -82,26 +82,20 @@ data class PlatformFinanceFilter(
 
     fun getDisplayLabel(today: LocalDate = LocalDate.now()): String {
         val (s, e) = resolveRange(today)
-        val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-        val monthFmt = DateTimeFormatter.ofPattern("MMMM/yyyy", Locale("pt", "BR"))
+        val ddMM = DateTimeFormatter.ofPattern("dd/MM")
+        val monthShortFmt = DateTimeFormatter.ofPattern("MMM/yyyy", Locale("pt", "BR"))
         return when (preset) {
-            PlatformFinancePeriodPreset.MES_CORRENTE -> {
-                val name = today.format(monthFmt).replaceFirstChar { it.uppercase() }
-                "Mês Atual ($name)"
-            }
-            PlatformFinancePeriodPreset.ESTA_SEMANA -> "Esta Semana (${s.format(DateTimeFormatter.ofPattern("dd/MM"))} a ${e.format(DateTimeFormatter.ofPattern("dd/MM"))})"
-            PlatformFinancePeriodPreset.SEMANA_PASSADA -> "Semana Passada (${s.format(DateTimeFormatter.ofPattern("dd/MM"))} a ${e.format(DateTimeFormatter.ofPattern("dd/MM"))})"
-            PlatformFinancePeriodPreset.ESTA_QUINZENA -> "Quinzena (${s.format(DateTimeFormatter.ofPattern("dd/MM"))} a ${e.format(DateTimeFormatter.ofPattern("dd/MM"))})"
-            PlatformFinancePeriodPreset.MES_PASSADO -> {
-                val name = s.format(monthFmt).replaceFirstChar { it.uppercase() }
-                name
-            }
-            PlatformFinancePeriodPreset.ULTIMOS_3_MESES -> "Últimos 3 Meses"
+            PlatformFinancePeriodPreset.MES_CORRENTE -> "Mês Atual"
+            PlatformFinancePeriodPreset.ESTA_SEMANA -> "Esta Semana"
+            PlatformFinancePeriodPreset.SEMANA_PASSADA -> "Sem. Passada"
+            PlatformFinancePeriodPreset.ESTA_QUINZENA -> "Esta Quinzena"
+            PlatformFinancePeriodPreset.MES_PASSADO -> "Mês Passado"
+            PlatformFinancePeriodPreset.ULTIMOS_3_MESES -> "Últimos 3M"
             PlatformFinancePeriodPreset.PERSONALIZADO -> {
                 if (specificYearMonth != null) {
-                    specificYearMonth.format(monthFmt).replaceFirstChar { it.uppercase() }
+                    specificYearMonth.format(monthShortFmt).replace(".", "").replaceFirstChar { it.uppercase() }
                 } else {
-                    "${s.format(fmt)} a ${e.format(fmt)}"
+                    "${s.format(ddMM)} a ${e.format(ddMM)}"
                 }
             }
         }

@@ -10,10 +10,13 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -120,7 +123,7 @@ fun PlatformFinanceCard(
                         }
                     }
 
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Text(
                             text = platform.name,
                             fontWeight = FontWeight.Black,
@@ -139,33 +142,38 @@ fun PlatformFinanceCard(
                             ) {
                                 Text(
                                     text = "ATIVA",
-                                    fontSize = 9.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = GreenNeon,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                 )
                             }
                             Text(
                                 text = "• ${platform.segment.replaceFirstChar { it.uppercase() }}",
                                 fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
                 }
 
-                // Combo de Período em ALTO RELEVO (no canto superior direito)
+                // Combo de Período em Pill elegante (no canto superior direito)
                 Box {
                     Surface(
                         onClick = { isDropdownOpen = true },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        shadowElevation = 4.dp,
-                        border = BorderStroke(1.2.dp, OrangeNeon.copy(alpha = 0.6f)),
-                        modifier = Modifier.padding(start = 8.dp)
+                        border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .height(32.dp)
+                            .padding(start = 8.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
@@ -177,7 +185,7 @@ fun PlatformFinanceCard(
                             )
                             Text(
                                 text = filter.getDisplayLabel(today),
-                                fontSize = 11.5.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
@@ -281,89 +289,137 @@ fun PlatformFinanceCard(
                 }
             }
 
-            // 2. Cartões de Resumo do Período
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // 2. Métricas do Período (Card Hero + Sub-cards 50%/50%)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Total Ganho
+                // a) Card Hero (Full-Width): TOTAL REPASSADO
                 Surface(
-                    modifier = Modifier.weight(1.3f).fillMaxHeight(),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    color = GreenNeon.copy(alpha = 0.10f),
+                    color = GreenNeon.copy(alpha = 0.1f),
                     border = BorderStroke(1.dp, GreenNeon.copy(alpha = 0.35f))
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.Center
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "TOTAL REPASSADO",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GreenNeon,
-                            letterSpacing = 0.5.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Payments,
+                                contentDescription = null,
+                                tint = GreenNeon,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "TOTAL REPASSADO",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GreenNeon,
+                                letterSpacing = 0.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                         Text(
                             text = breakdown.grandTotalAmount.formatBrl(),
-                            fontSize = 17.sp,
+                            fontSize = 19.sp,
                             fontWeight = FontWeight.Black,
-                            color = GreenNeon
+                            color = GreenNeon,
+                            textAlign = TextAlign.End
                         )
                     }
                 }
 
-                // Pacotes Entregues
-                Surface(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                // b) Row de 2 Sub-cards (50% / 50%): ENTREGUES e DEVOLVIDOS
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.Center
+                    // Card ENTREGUES
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                     ) {
-                        Text(
-                            text = "ENTREGUES",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = "${breakdown.grandTotalDelivered}",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "ENTREGUES",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "${breakdown.grandTotalDelivered}",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "pacotes",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 1.5.dp)
+                                )
+                            }
+                        }
                     }
-                }
 
-                // Devolvidos / Rotas
-                Surface(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.Center
+                    // Card DEVOLVIDOS
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                     ) {
-                        Text(
-                            text = "DEVOLVIDOS",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (breakdown.grandTotalReturned > 0) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = "${breakdown.grandTotalReturned}",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (breakdown.grandTotalReturned > 0) RedAlert else MaterialTheme.colorScheme.onSurface
-                        )
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "DEVOLVIDOS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (breakdown.grandTotalReturned > 0) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "${breakdown.grandTotalReturned}",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (breakdown.grandTotalReturned > 0) RedAlert else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "pacotes",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 1.5.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -573,14 +629,30 @@ fun PlatformFinanceCard(
                                             text = "Subtotal ${monthSub.monthLabel}:",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp,
-                                            color = OrangeNeon
+                                            color = OrangeNeon,
+                                            modifier = Modifier.weight(1f, fill = false),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
-                                        Text(
-                                            text = "${monthSub.subtotalAmountPaid.formatBrl()} • ${monthSub.subtotalDelivered} pct",
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 13.sp,
-                                            color = OrangeNeon
-                                        )
+                                        Column(
+                                            horizontalAlignment = Alignment.End,
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        ) {
+                                            Text(
+                                                text = monthSub.subtotalAmountPaid.formatBrl(),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 13.sp,
+                                                color = OrangeNeon,
+                                                textAlign = TextAlign.End
+                                            )
+                                            Text(
+                                                text = "${monthSub.subtotalDelivered} pacotes",
+                                                fontWeight = FontWeight.Medium,
+                                                fontSize = 10.5.sp,
+                                                color = OrangeNeon.copy(alpha = 0.85f),
+                                                textAlign = TextAlign.End
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -793,7 +865,7 @@ fun PlatformEarningsLineChart(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.TrendingUp,
+                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                         contentDescription = null,
                         tint = OrangeNeon,
                         modifier = Modifier.size(20.dp)
@@ -819,8 +891,10 @@ fun PlatformEarningsLineChart(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Filtro de Plataforma (Chips)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilterChip(
@@ -836,7 +910,7 @@ fun PlatformEarningsLineChart(
                         )
                     )
 
-                    activePlatforms.take(4).forEach { p ->
+                    activePlatforms.forEach { p ->
                         FilterChip(
                             selected = selectedPlatformId == p.id,
                             onClick = {
@@ -859,8 +933,8 @@ fun PlatformEarningsLineChart(
                 ) {
                     val presets = listOf(
                         PlatformFinancePeriodPreset.ESTA_SEMANA to "Semana",
-                        PlatformFinancePeriodPreset.MES_CORRENTE to "Mês Atual",
-                        PlatformFinancePeriodPreset.MES_PASSADO to "Mês Anterior",
+                        PlatformFinancePeriodPreset.MES_CORRENTE to "Mês",
+                        PlatformFinancePeriodPreset.MES_PASSADO to "Mês Ant.",
                         PlatformFinancePeriodPreset.ULTIMOS_3_MESES to "3 Meses"
                     )
                     presets.forEach { (preset, label) ->
@@ -921,7 +995,7 @@ fun PlatformEarningsLineChart(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
+                    .height(160.dp)
             ) {
                 Canvas(
                     modifier = Modifier
@@ -931,9 +1005,12 @@ fun PlatformEarningsLineChart(
                                 val count = chartPoints.size
                                 if (count > 0) {
                                     val stepX = size.width / if (count > 1) (count - 1) else 1
-                                    val index = (tapOffset.x / stepX).toInt().coerceIn(0, count - 1)
-                                    val tapped = chartPoints[index]
-                                    selectedPoint = if (selectedPoint?.date == tapped.date) null else tapped
+                                    val tapped = chartPoints.minByOrNull {
+                                        kotlin.math.abs((chartPoints.indexOf(it) * stepX) - tapOffset.x)
+                                    }
+                                    if (tapped != null) {
+                                        selectedPoint = if (selectedPoint?.date == tapped.date) null else tapped
+                                    }
                                 }
                             }
                         }
