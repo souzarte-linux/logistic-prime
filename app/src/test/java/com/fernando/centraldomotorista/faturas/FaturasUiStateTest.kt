@@ -34,49 +34,52 @@ class FaturasUiStateTest {
     }
 
     @Test
-    fun `test totalAReceber and totalRecebido sum correctly`() {
+    fun `test totalEmAberto, totalAVencer and totalPago sum correctly`() {
         val cycles = listOf(
-            createDummyCycle("1", "plat_1", "aberto", BigDecimal("1500.50")),
-            createDummyCycle("2", "plat_2", "pendente_confirmacao", BigDecimal("850.00")),
+            createDummyCycle("1", "plat_1", "em_aberto", BigDecimal("1500.50")),
+            createDummyCycle("2", "plat_2", "a_vencer", BigDecimal("850.00")),
             createDummyCycle("3", "plat_1", "pago", BigDecimal("2300.00")),
             createDummyCycle("4", "plat_2", "cancelado", BigDecimal("500.00"))
         )
 
         val state = FaturasUiState(cycles = cycles)
 
-        // totalAReceber should include 'aberto' and 'pendente_confirmacao' (1500.50 + 850.00 = 2350.50)
-        assertEquals(BigDecimal("2350.50"), state.totalAReceber)
-
-        // totalRecebido should include only 'pago' (2300.00)
-        assertEquals(BigDecimal("2300.00"), state.totalRecebido)
+        assertEquals(BigDecimal("1500.50"), state.totalEmAberto)
+        assertEquals(BigDecimal("850.00"), state.totalAVencer)
+        assertEquals(BigDecimal("2300.00"), state.totalPago)
     }
 
     @Test
     fun `test filtering by platform preserves correct open and paid cycles`() {
         val cycles = listOf(
-            createDummyCycle("1", "plat_1", "aberto", BigDecimal("1000.00")),
-            createDummyCycle("2", "plat_2", "aberto", BigDecimal("500.00")),
+            createDummyCycle("1", "plat_1", "em_aberto", BigDecimal("1000.00")),
+            createDummyCycle("2", "plat_2", "em_aberto", BigDecimal("500.00")),
             createDummyCycle("3", "plat_1", "pago", BigDecimal("1200.00")),
-            createDummyCycle("4", "plat_2", "pago", BigDecimal("700.00"))
+            createDummyCycle("4", "plat_2", "pago", BigDecimal("700.00")),
+            createDummyCycle("5", "plat_1", "a_vencer", BigDecimal("350.00"))
         )
 
         // When all platforms selected
         val allState = FaturasUiState(cycles = cycles, selectedPlatformFilter = "all")
-        assertEquals(2, allState.openCycles.size)
-        assertEquals(2, allState.paidCycles.size)
+        assertEquals(2, allState.emAbertoCycles.size)
+        assertEquals(1, allState.aVencerCycles.size)
+        assertEquals(2, allState.pagoCycles.size)
 
         // When plat_1 is selected
         val plat1State = FaturasUiState(cycles = cycles, selectedPlatformFilter = "plat_1")
-        assertEquals(1, plat1State.openCycles.size)
-        assertEquals("1", plat1State.openCycles.first().cycle.id)
-        assertEquals(1, plat1State.paidCycles.size)
-        assertEquals("3", plat1State.paidCycles.first().cycle.id)
+        assertEquals(1, plat1State.emAbertoCycles.size)
+        assertEquals("1", plat1State.emAbertoCycles.first().cycle.id)
+        assertEquals(1, plat1State.aVencerCycles.size)
+        assertEquals("5", plat1State.aVencerCycles.first().cycle.id)
+        assertEquals(1, plat1State.pagoCycles.size)
+        assertEquals("3", plat1State.pagoCycles.first().cycle.id)
 
         // When plat_2 is selected
         val plat2State = FaturasUiState(cycles = cycles, selectedPlatformFilter = "plat_2")
-        assertEquals(1, plat2State.openCycles.size)
-        assertEquals("2", plat2State.openCycles.first().cycle.id)
-        assertEquals(1, plat2State.paidCycles.size)
-        assertEquals("4", plat2State.paidCycles.first().cycle.id)
+        assertEquals(1, plat2State.emAbertoCycles.size)
+        assertEquals("2", plat2State.emAbertoCycles.first().cycle.id)
+        assertEquals(0, plat2State.aVencerCycles.size)
+        assertEquals(1, plat2State.pagoCycles.size)
+        assertEquals("4", plat2State.pagoCycles.first().cycle.id)
     }
 }

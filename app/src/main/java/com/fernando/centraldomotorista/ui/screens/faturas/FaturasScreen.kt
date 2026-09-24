@@ -10,8 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -24,12 +24,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.fernando.centraldomotorista.data.model.DailyTotal
+import com.fernando.centraldomotorista.data.model.FinancialAdjustmentSubtype
+import com.fernando.centraldomotorista.data.model.Route
 import com.fernando.centraldomotorista.data.repository.BillingCycleWithTotals
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
@@ -94,7 +98,7 @@ fun FaturasScreen(
                             fontWeight = FontWeight.Black,
                             fontSize = 16.sp,
                             letterSpacing = 1.sp,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "FATURAS & CICLOS DE REPASSE",
@@ -137,283 +141,350 @@ fun FaturasScreen(
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         val currentCycles = when (uiState.activeTab) {
-            FaturasTab.ABERTO -> uiState.openCycles
-            FaturasTab.PAGO -> uiState.paidCycles
+            FaturasTab.EM_ABERTO -> uiState.emAbertoCycles
+            FaturasTab.A_VENCER -> uiState.aVencerCycles
+            FaturasTab.PAGO -> uiState.pagoCycles
         }
 
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
-            // 1. Cards de Resumo (KPIs)
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Total a Receber
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BlueInfo.copy(alpha = 0.3f))
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "A RECEBER",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
-                                color = BlueInfo
-                            )
-                            Text(
-                                text = uiState.totalAReceber.formatCurrency(),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "${uiState.openCycles.size} faturas em aberto",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    // Total Recebido
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, GreenNeon.copy(alpha = 0.3f))
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "RECEBIDO",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
-                                color = GreenNeon
-                            )
-                            Text(
-                                text = uiState.totalRecebido.formatCurrency(),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "${uiState.paidCycles.size} faturas baixadas",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 2. Filtro Horizontal de Plataformas
-            if (uiState.platforms.isNotEmpty()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 680.dp)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+            ) {
+                // 1. Cards de Resumo (KPIs em 3 Fases)
                 item {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item {
-                            FilterChip(
-                                selected = uiState.selectedPlatformFilter == "all",
-                                onClick = { viewModel.onPlatformFilterChanged("all") },
-                                label = { Text("Todas (${uiState.cycles.size})") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = OrangeNeon,
-                                    selectedLabelColor = Color.Black,
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    labelColor = MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                        }
-
-                        items(uiState.platforms) { platform ->
-                            val count = uiState.cycles.count { it.cycle.platformId == platform.id }
-                            FilterChip(
-                                selected = uiState.selectedPlatformFilter == platform.id,
-                                onClick = { viewModel.onPlatformFilterChanged(platform.id) },
-                                label = { Text("${platform.name} ($count)") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = OrangeNeon,
-                                    selectedLabelColor = Color.Black,
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    labelColor = MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 3. Alternador de Abas (Em Aberto vs Recebidas)
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FaturasTab.entries.forEach { tab ->
-                        val isSelected = uiState.activeTab == tab
-                        val count = if (tab == FaturasTab.ABERTO) uiState.openCycles.size else uiState.paidCycles.size
-                        Surface(
-                            onClick = { viewModel.onTabChanged(tab) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) OrangeNeon.copy(alpha = 0.2f) else Color.Transparent,
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (isSelected) OrangeNeon else Color.Transparent
-                            )
+                        // Total Em Aberto
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BlueInfo.copy(alpha = 0.3f))
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "${tab.label} ($count)",
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                                    color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = "EM ABERTO",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.5.sp,
+                                    color = BlueInfo
+                                )
+                                Text(
+                                    text = uiState.totalEmAberto.formatCurrency(),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${uiState.emAbertoCycles.size} faturas",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Total A Vencer
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.4f))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "A VENCER",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.5.sp,
+                                    color = OrangeNeon
+                                )
+                                Text(
+                                    text = uiState.totalAVencer.formatCurrency(),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${uiState.aVencerCycles.size} faturas",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Total Recebido / Pago
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, GreenNeon.copy(alpha = 0.3f))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "PAGO",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.5.sp,
+                                    color = GreenNeon
+                                )
+                                Text(
+                                    text = uiState.totalPago.formatCurrency(),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${uiState.pagoCycles.size} faturas",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
                     }
                 }
-            }
 
-            // 4. Lista de Faturas
-            if (uiState.isLoading) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = OrangeNeon)
+                // 2. Filtro Horizontal de Plataformas
+                if (uiState.platforms.isNotEmpty()) {
+                    item {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = uiState.selectedPlatformFilter == "all",
+                                    onClick = { viewModel.onPlatformFilterChanged("all") },
+                                    label = { Text("Todas (${uiState.cycles.size})") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = OrangeNeon,
+                                        selectedLabelColor = Color.Black,
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        labelColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+
+                            items(uiState.platforms) { platform ->
+                                val count = uiState.cycles.count { it.cycle.platformId == platform.id }
+                                FilterChip(
+                                    selected = uiState.selectedPlatformFilter == platform.id,
+                                    onClick = { viewModel.onPlatformFilterChanged(platform.id) },
+                                    label = { Text("${platform.name} ($count)") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = OrangeNeon,
+                                        selectedLabelColor = Color.Black,
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        labelColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
-            } else if (currentCycles.isEmpty()) {
+
+                // 3. 3 Abas Nativas (TabRow)
                 item {
-                    Card(
+                    Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Column(
+                        PrimaryTabRow(
+                            selectedTabIndex = uiState.activeTab.ordinal,
+                            containerColor = Color.Transparent,
+                            contentColor = OrangeNeon,
+                            indicator = {
+                                TabRowDefaults.PrimaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(uiState.activeTab.ordinal),
+                                    color = OrangeNeon
+                                )
+                            },
+                            divider = {}
+                        ) {
+                            FaturasTab.entries.forEach { tab ->
+                                val isSelected = uiState.activeTab == tab
+                                val count = when (tab) {
+                                    FaturasTab.EM_ABERTO -> uiState.emAbertoCycles.size
+                                    FaturasTab.A_VENCER -> uiState.aVencerCycles.size
+                                    FaturasTab.PAGO -> uiState.pagoCycles.size
+                                }
+                                Tab(
+                                    selected = isSelected,
+                                    onClick = { viewModel.onTabChanged(tab) },
+                                    text = {
+                                        Text(
+                                            text = "${tab.label} ($count)",
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                            color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 4. Lista de Faturas
+                if (uiState.isLoading) {
+                    item {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = if (uiState.activeTab == FaturasTab.ABERTO) Icons.Default.CheckCircle else Icons.Default.ReceiptLong,
-                                contentDescription = null,
-                                tint = GreenNeon,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Text(
-                                text = if (uiState.activeTab == FaturasTab.ABERTO) "Tudo em dia!" else "Nenhuma fatura recebida",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (uiState.activeTab == FaturasTab.ABERTO)
-                                    "Nenhuma fatura em aberto encontrada com os filtros atuais."
-                                else
-                                    "As faturas que você liquidar e der baixa aparecerão aqui.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
+                            CircularProgressIndicator(color = OrangeNeon)
+                        }
+                    }
+                } else if (currentCycles.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = when (uiState.activeTab) {
+                                        FaturasTab.PAGO -> Icons.Default.ReceiptLong
+                                        FaturasTab.A_VENCER -> Icons.Default.PendingActions
+                                        FaturasTab.EM_ABERTO -> Icons.Default.CheckCircle
+                                    },
+                                    contentDescription = null,
+                                    tint = when (uiState.activeTab) {
+                                        FaturasTab.PAGO -> GreenNeon
+                                        FaturasTab.A_VENCER -> OrangeNeon
+                                        FaturasTab.EM_ABERTO -> BlueInfo
+                                    },
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Text(
+                                    text = when (uiState.activeTab) {
+                                        FaturasTab.EM_ABERTO -> "Nenhum ciclo em aberto"
+                                        FaturasTab.A_VENCER -> "Nenhum ciclo a vencer"
+                                        FaturasTab.PAGO -> "Nenhum ciclo pago"
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = when (uiState.activeTab) {
+                                        FaturasTab.EM_ABERTO -> "Você não possui ciclos abertos dentro do período selecionado."
+                                        FaturasTab.A_VENCER -> "Não há faturas fechadas aguardando quitação/repasse."
+                                        FaturasTab.PAGO -> "As faturas liquidadas e baixadas aparecerão aqui."
+                                    },
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
 
-                            if (uiState.activeTab == FaturasTab.ABERTO) {
-                                Button(
-                                    onClick = { viewModel.openNewCycleModal() },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = OrangeNeon,
-                                        contentColor = Color.Black
-                                    ),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Fechar Ciclo / Nova Fatura", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                if (uiState.activeTab != FaturasTab.PAGO) {
+                                    Button(
+                                        onClick = { viewModel.openNewCycleModal() },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = OrangeNeon,
+                                            contentColor = Color.Black
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Fechar Ciclo / Nova Fatura", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
                                 }
                             }
                         }
                     }
+                } else {
+                    items(currentCycles, key = { it.cycle.id }) { cycleItem ->
+                        FaturaCardItem(
+                            item = cycleItem,
+                            onPay = { viewModel.openPayModal(cycleItem) },
+                            onEditItems = { viewModel.openEditCycleModal(cycleItem) },
+                            onAdjustments = { viewModel.openAdjustmentModal(cycleItem) },
+                            onViewDetails = { viewModel.openDetailsModal(cycleItem) },
+                            onDelete = { viewModel.deleteCycle(cycleItem) }
+                        )
+                    }
                 }
-            } else {
-                items(currentCycles, key = { it.cycle.id }) { cycleItem ->
-                    FaturaCardItem(
-                        item = cycleItem,
-                        onConfirm = { viewModel.confirmCycle(cycleItem) },
-                        onPay = { viewModel.openPayModal(cycleItem) },
-                        onViewDetails = { viewModel.openDetailsModal(cycleItem) },
-                        onDelete = { viewModel.deleteCycle(cycleItem) }
-                    )
-                }
-            }
 
-            // 5. Botão "+ Nova Fatura" inferior
-            item {
-                Surface(
-                    onClick = { viewModel.openNewCycleModal() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.Transparent,
-                    border = androidx.compose.foundation.BorderStroke(2.dp, OrangeNeon.copy(alpha = 0.5f))
-                ) {
-                    Row(
+                // 5. Botão "+ Nova Fatura" inferior
+                item {
+                    Surface(
+                        onClick = { viewModel.openNewCycleModal() },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 18.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(top = 8.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.Transparent,
+                        border = androidx.compose.foundation.BorderStroke(2.dp, OrangeNeon.copy(alpha = 0.5f))
                     ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = null,
-                            tint = OrangeNeon,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "FECHAR CICLO / NOVA FATURA",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 14.sp,
-                            letterSpacing = 1.sp,
-                            color = OrangeNeon
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "FECHAR CICLO / NOVA FATURA",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                letterSpacing = 1.sp,
+                                color = OrangeNeon
+                            )
+                        }
                     }
                 }
             }
@@ -428,12 +499,13 @@ fun FaturasScreen(
             onPlatformSelected = { viewModel.onNewCyclePlatformChanged(it) },
             onPeriodStartSelected = { viewModel.onNewCyclePeriodStartChanged(it) },
             onPeriodEndSelected = { viewModel.onNewCyclePeriodEndChanged(it) },
+            onIncludeEndDateChanged = { viewModel.onNewCycleIncludeEndDateChanged(it) },
             onExpectedDateSelected = { viewModel.onNewCycleExpectedDateChanged(it) },
             onSubmit = { viewModel.createBillingCycle() }
         )
     }
 
-    // Modal Liquidar / Baixar Pagamento
+    // Modal Liquidar / Baixar Pagamento (Especialmente na aba "A Vencer")
     if (uiState.payingCycle != null) {
         LiquidarFaturaModal(
             cycle = uiState.payingCycle!!,
@@ -452,32 +524,65 @@ fun FaturasScreen(
             onDismiss = { viewModel.closeDetailsModal() }
         )
     }
+
+    // Modal Edição de Itens (Valores / Pacotes em todas as fases com recálculo BigDecimal)
+    if (uiState.editingCycle != null) {
+        EditarItensFaturaModal(
+            cycle = uiState.editingCycle!!,
+            isSaving = uiState.isSaving,
+            onDismiss = { viewModel.closeEditCycleModal() },
+            onSaveRoute = { route, newPackages, newAmount ->
+                viewModel.updateRouteItem(route, newPackages, newAmount)
+            },
+            onSaveDaily = { daily, newAmount ->
+                viewModel.updateDailyTotalItem(daily, newAmount)
+            }
+        )
+    }
+
+    // Modal de Ajustes Financeiros com os 9 Subtipos
+    if (uiState.adjustingCycle != null) {
+        AjustesFaturaModal(
+            cycle = uiState.adjustingCycle!!,
+            uiState = uiState,
+            onDismiss = { viewModel.closeAdjustmentModal() },
+            onSubtypeChanged = { viewModel.onAdjustmentSubtypeChanged(it) },
+            onAmountChanged = { viewModel.onAdjustmentAmountChanged(it) },
+            onDescriptionChanged = { viewModel.onAdjustmentDescriptionChanged(it) },
+            onNotesChanged = { viewModel.onAdjustmentNotesChanged(it) },
+            onDateChanged = { viewModel.onAdjustmentDateChanged(it) },
+            onSaveAdjustment = { viewModel.saveAdjustment() },
+            onDeleteAdjustment = { viewModel.deleteAdjustment(it) }
+        )
+    }
 }
 
 @Composable
 fun FaturaCardItem(
     item: BillingCycleWithTotals,
-    onConfirm: () -> Unit,
     onPay: () -> Unit,
+    onEditItems: () -> Unit,
+    onAdjustments: () -> Unit,
     onViewDetails: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val status = item.cycle.status
-    val isPendingConfirmation = status == "pendente_confirmacao"
     val isPaid = status == "pago"
-    val isOpen = !isPaid && !isPendingConfirmation
+    val isAVencer = status == "a_vencer"
+    val isEmAberto = status == "em_aberto"
 
     val statusBadgeColor = when {
         isPaid -> GreenNeon
-        isPendingConfirmation -> Color(0xFFFFB300) // Amber
+        isAVencer -> OrangeNeon
         else -> BlueInfo
     }
     val statusLabel = when (status) {
-        "pendente_confirmacao" -> "Pendente Confirmação"
-        "pago" -> "Recebido"
-        "open" -> "A receber"
+        "pago" -> "Pago / Recebido"
+        "a_vencer" -> "A Vencer"
+        "em_aberto" -> "Em Aberto"
+        "atrasado" -> "Atrasado"
         else -> status.replaceFirstChar { it.uppercase() }
     }
 
@@ -499,7 +604,7 @@ fun FaturaCardItem(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Linha 1: Nome da Plataforma e Valor Total
+            // Linha 1: Nome da Plataforma e Valor Total Líquido
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -510,12 +615,12 @@ fun FaturaCardItem(
                         text = item.platformName,
                         fontWeight = FontWeight.Black,
                         fontSize = 16.sp,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "Período: ${item.cycle.periodStart.format(dateFormatter)} a ${item.cycle.periodEnd.format(dateFormatter)}",
+                        text = "Período: ${item.cycle.periodStart.format(dateFormatter)} a ${item.cycle.periodEnd.format(dateFormatter)}${if (!item.cycle.includeEndDate) " (excl.)" else ""}",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -525,24 +630,83 @@ fun FaturaCardItem(
                     text = item.totalAmount.formatCurrency(),
                     fontWeight = FontWeight.Black,
                     fontSize = 18.sp,
-                    color = OrangeNeon
+                    color = if (isPaid) GreenNeon else OrangeNeon
                 )
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            // Linha 2: Resumo de Pacotes e Corridas
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "${item.routeCount} corridas (${item.packageCount} pacotes)",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
 
-            // Linha 2: Vencimento e Status
+                if (item.dailyCount > 0) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "${item.dailyCount} diárias",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                if (item.adjustmentsCount > 0) {
+                    Surface(
+                        color = if (item.adjustmentsTotal >= BigDecimal.ZERO) GreenNeon.copy(alpha = 0.15f) else RedAlert.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "${item.adjustmentsCount} ajustes (${item.adjustmentsTotal.formatCurrency()})",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (item.adjustmentsTotal >= BigDecimal.ZERO) GreenNeon else RedAlert,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Linha 3: Vencimento ou Recebimento e Status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Vencimento: ${item.cycle.expectedPaymentDate.format(dateFormatter)}",
-                    fontSize = 12.sp,
-                    fontWeight = if (item.isOverdue) FontWeight.Black else FontWeight.Bold,
-                    color = if (item.isOverdue) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (isPaid && item.cycle.paymentReceivedDate != null) {
+                    Text(
+                        text = "Recebido em: ${item.cycle.paymentReceivedDate.format(dateFormatter)}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GreenNeon
+                    )
+                } else {
+                    Text(
+                        text = "Previsão: ${item.cycle.expectedPaymentDate.format(dateFormatter)}",
+                        fontSize = 12.sp,
+                        fontWeight = if (item.isOverdue) FontWeight.Black else FontWeight.Bold,
+                        color = if (item.isOverdue) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 Surface(
                     color = statusBadgeColor.copy(alpha = 0.15f),
@@ -559,33 +723,20 @@ fun FaturaCardItem(
                 }
             }
 
-            // Linha 3: Botões de Ação
+            // Linha 4: Botões de Ação Dinâmicos
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isPendingConfirmation) {
-                    Button(
-                        onClick = onConfirm,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFFB300),
-                            contentColor = Color.Black
-                        )
-                    ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Confirmar Fatura", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    }
-                } else if (isOpen) {
+                // Liquidar / Baixar
+                if (!isPaid) {
                     Button(
                         onClick = onPay,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1.3f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = GreenNeon,
+                            containerColor = if (isAVencer) GreenNeon else OrangeNeon,
                             contentColor = Color.Black
                         )
                     ) {
@@ -595,17 +746,35 @@ fun FaturaCardItem(
                     }
                 }
 
+                // Editar Itens (Pacotes / Valores)
                 OutlinedButton(
-                    onClick = onViewDetails,
+                    onClick = onEditItems,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.onSurface
                     ),
-                    modifier = if (isPaid) Modifier.weight(1f) else Modifier
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text("Detalhes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = OrangeNeon)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Editar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
+                // Ajustes (+ / -)
+                OutlinedButton(
+                    onClick = onAdjustments,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = BlueInfo)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Ajustes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // Excluir
                 IconButton(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier.size(36.dp)
@@ -622,7 +791,7 @@ fun FaturaCardItem(
             title = { Text("Excluir Fatura?", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Text(
-                    "Deseja excluir a fatura de ${item.platformName}?\nAs corridas vinculadas serão desassociadas e voltarão a ficar disponíveis.",
+                    "Deseja excluir a fatura de ${item.platformName}?\nAs corridas e diárias vinculadas retornarão ao estado desvinculado.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -655,6 +824,7 @@ fun NovaFaturaModal(
     onPlatformSelected: (String) -> Unit,
     onPeriodStartSelected: (LocalDate) -> Unit,
     onPeriodEndSelected: (LocalDate) -> Unit,
+    onIncludeEndDateChanged: (Boolean) -> Unit,
     onExpectedDateSelected: (LocalDate) -> Unit,
     onSubmit: () -> Unit
 ) {
@@ -774,6 +944,45 @@ fun NovaFaturaModal(
                 )
             }
 
+            // Switch: Incluir valores da data final no cálculo?
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Incluir valores da data final no cálculo?",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (uiState.newCycleIncludeEndDate) "Data final inclusiva (até às 23:59)" else "Data final exclusiva (corte às 00:00)",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = uiState.newCycleIncludeEndDate,
+                        onCheckedChange = { onIncludeEndDateChanged(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = OrangeNeon,
+                            checkedTrackColor = OrangeNeon.copy(alpha = 0.4f),
+                            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
+            }
+
             // Data Prevista para Pagamento
             OutlinedTextField(
                 value = uiState.newCycleExpectedDate.format(dateFormatter),
@@ -810,7 +1019,7 @@ fun NovaFaturaModal(
                 ) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = BlueInfo, modifier = Modifier.size(20.dp))
                     Text(
-                        text = "O sistema vai varrer todas as suas rotas e totais da plataforma dentro deste período e vinculá-las a esta fatura para calcular o valor exato a receber.",
+                        text = "O sistema sincroniza rotas, diárias e ajustes do período especificado recalculando o valor líquido com precisão estrita em BigDecimal.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 16.sp
@@ -834,7 +1043,7 @@ fun NovaFaturaModal(
                 if (uiState.isSaving) {
                     CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.Black, strokeWidth = 2.dp)
                 } else {
-                    Text("GERAR FATURA E VINCULAR CORRIDAS", fontWeight = FontWeight.Black, fontSize = 13.sp)
+                    Text("GERAR FATURA E VINCULAR TRANSAÇÕES", fontWeight = FontWeight.Black, fontSize = 13.sp)
                 }
             }
 
@@ -874,9 +1083,9 @@ fun LiquidarFaturaModal(
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "Valor: ${cycle.totalAmount.formatCurrency()}",
+                            text = "Valor Total: ${cycle.totalAmount.formatCurrency()}",
                             fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
+                            fontSize = 17.sp,
                             color = GreenNeon
                         )
                         Text(
@@ -940,6 +1149,7 @@ fun DetalhesFaturaModal(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -959,7 +1169,7 @@ fun DetalhesFaturaModal(
                         text = cycle.platformName,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 IconButton(onClick = onDismiss) {
@@ -978,7 +1188,12 @@ fun DetalhesFaturaModal(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Período de Apuração", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${cycle.cycle.periodStart.format(dateFormatter)} ➔ ${cycle.cycle.periodEnd.format(dateFormatter)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            "${cycle.cycle.periodStart.format(dateFormatter)} ➔ ${cycle.cycle.periodEnd.format(dateFormatter)}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
 
                     Row(
@@ -986,7 +1201,27 @@ fun DetalhesFaturaModal(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Previsão Pagamento", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(cycle.cycle.expectedPaymentDate.format(dateFormatter), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            cycle.cycle.expectedPaymentDate.format(dateFormatter),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    if (cycle.cycle.paymentReceivedDate != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Data Efetiva de Recebimento", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                cycle.cycle.paymentReceivedDate.format(dateFormatter),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GreenNeon
+                            )
+                        }
                     }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -995,25 +1230,55 @@ fun DetalhesFaturaModal(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Rotas vinculadas (${cycle.routeCount})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(cycle.routeAmount.add(cycle.tipTotal).formatCurrency(), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Rotas (${cycle.routeCount}) • Pacotes (${cycle.packageCount})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            cycle.routeAmount.add(cycle.tipTotal).add(cycle.bonusTotal).formatCurrency(),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Totais diários (${cycle.dailyCount})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(cycle.dailyAmount.formatCurrency(), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-
-                    if (cycle.adjustmentsTotal != BigDecimal.ZERO) {
+                    if (cycle.dailyCount > 0) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Acréscimos / Descontos (${cycle.adjustmentsCount})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(cycle.adjustmentsTotal.formatCurrency(), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (cycle.adjustmentsTotal > BigDecimal.ZERO) GreenNeon else RedAlert)
+                            Text("Totais diários (${cycle.dailyCount})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                cycle.dailyAmount.formatCurrency(),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    if (cycle.adjustmentsCount > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Ganhos Extras / Bônus", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "+ ${cycle.adjustmentsCredit.formatCurrency()}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GreenNeon
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Descontos / Extravios", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "- ${cycle.adjustmentsDebit.formatCurrency()}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = RedAlert
+                            )
                         }
                     }
 
@@ -1024,7 +1289,7 @@ fun DetalhesFaturaModal(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Total Líquido", fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color.White)
+                        Text("Total Líquido", fontSize = 14.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
                         Text(cycle.totalAmount.formatCurrency(), fontSize = 20.sp, fontWeight = FontWeight.Black, color = OrangeNeon)
                     }
                 }
@@ -1032,12 +1297,579 @@ fun DetalhesFaturaModal(
 
             Button(
                 onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
             ) {
                 Text("Fechar", fontWeight = FontWeight.Bold)
             }
+        }
+    }
+}
+
+// ---------------- Modal Edição de Itens (Valores / Pacotes) ----------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditarItensFaturaModal(
+    cycle: BillingCycleWithTotals,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSaveRoute: (Route, Int, BigDecimal) -> Unit,
+    onSaveDaily: (DailyTotal, BigDecimal) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "EDITAR ITENS DA FATURA",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 16.sp,
+                        color = OrangeNeon
+                    )
+                    Text(
+                        text = "Altere valores e pacotes com recálculo imediato (BigDecimal)",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Fechar")
+                }
+            }
+
+            // Seção de Rotas
+            if (cycle.routes.isNotEmpty()) {
+                Text(
+                    text = "CORRIDAS / ROTAS VINCULADAS (${cycle.routes.size})",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 0.5.sp
+                )
+
+                cycle.routes.forEach { route ->
+                    RouteEditItemCard(route = route, isSaving = isSaving, onSave = { pkgs, amt -> onSaveRoute(route, pkgs, amt) })
+                }
+            }
+
+            // Seção de Diárias
+            if (cycle.dailyTotals.isNotEmpty()) {
+                Text(
+                    text = "DIÁRIAS VINCULADAS (${cycle.dailyTotals.size})",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 0.5.sp
+                )
+
+                cycle.dailyTotals.forEach { daily ->
+                    DailyEditItemCard(daily = daily, isSaving = isSaving, onSave = { amt -> onSaveDaily(daily, amt) })
+                }
+            }
+
+            if (cycle.routes.isEmpty() && cycle.dailyTotals.isEmpty()) {
+                Text(
+                    text = "Nenhuma corrida ou diária vinculada diretamente nesta fatura.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                Text("Concluir Edição", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouteEditItemCard(
+    route: Route,
+    isSaving: Boolean,
+    onSave: (Int, BigDecimal) -> Unit
+) {
+    var packageText by remember(route.id, route.packageCount) { mutableStateOf(route.packageCount.toString()) }
+    var amountText by remember(route.id, route.amount) { mutableStateOf(route.amount.toPlainString()) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${route.occurredAt.toLocalDate().format(dateFormatter)} • ${route.origin ?: "Rota"}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = route.amount.formatCurrency(),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    color = OrangeNeon
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = packageText,
+                    onValueChange = { packageText = it.filter { ch -> ch.isDigit() } },
+                    label = { Text("Pacotes") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                )
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it.replace(',', '.') },
+                    label = { Text("Valor Total (R$)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1.4f),
+                    shape = RoundedCornerShape(8.dp)
+                )
+
+                IconButton(
+                    onClick = {
+                        val pkgs = packageText.toIntOrNull() ?: route.packageCount
+                        val amt = amountText.toBigDecimalOrNull() ?: route.amount
+                        onSave(pkgs, amt)
+                    },
+                    enabled = !isSaving
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = "Salvar", tint = GreenNeon)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyEditItemCard(
+    daily: DailyTotal,
+    isSaving: Boolean,
+    onSave: (BigDecimal) -> Unit
+) {
+    var amountText by remember(daily.id, daily.amount) { mutableStateOf(daily.amount.toPlainString()) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${daily.occurredAt.toLocalDate().format(dateFormatter)} • Diária",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = daily.amount.formatCurrency(),
+                    fontSize = 12.sp,
+                    color = OrangeNeon,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { amountText = it.replace(',', '.') },
+                label = { Text("Valor (R$)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.width(130.dp),
+                shape = RoundedCornerShape(8.dp)
+            )
+
+            IconButton(
+                onClick = {
+                    val amt = amountText.toBigDecimalOrNull() ?: daily.amount
+                    onSave(amt)
+                },
+                enabled = !isSaving
+            ) {
+                Icon(Icons.Default.Save, contentDescription = "Salvar", tint = GreenNeon)
+            }
+        }
+    }
+}
+
+// ---------------- Modal Ajustes Financeiros (9 Tipos) ----------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AjustesFaturaModal(
+    cycle: BillingCycleWithTotals,
+    uiState: FaturasUiState,
+    onDismiss: () -> Unit,
+    onSubtypeChanged: (FinancialAdjustmentSubtype) -> Unit,
+    onAmountChanged: (String) -> Unit,
+    onDescriptionChanged: (String) -> Unit,
+    onNotesChanged: (String) -> Unit,
+    onDateChanged: (LocalDate) -> Unit,
+    onSaveAdjustment: () -> Unit,
+    onDeleteAdjustment: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var isDescontoTab by remember { mutableStateOf(!uiState.newAdjustmentSubtype.isCredit) }
+
+    val subtypesOptions = if (isDescontoTab) {
+        listOf(
+            FinancialAdjustmentSubtype.PRODUTO_EXTRAVIADO,
+            FinancialAdjustmentSubtype.DESCONTO_PREVIDENCIARIO,
+            FinancialAdjustmentSubtype.DESCONTO_MULTA,
+            FinancialAdjustmentSubtype.OUTROS_DESCONTOS
+        )
+    } else {
+        listOf(
+            FinancialAdjustmentSubtype.BONUS,
+            FinancialAdjustmentSubtype.GRATIFICACAO,
+            FinancialAdjustmentSubtype.INCENTIVO,
+            FinancialAdjustmentSubtype.METAS,
+            FinancialAdjustmentSubtype.OUTROS_GANHOS
+        )
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "AJUSTES FINANCEIROS",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 16.sp,
+                        color = OrangeNeon
+                    )
+                    Text(
+                        text = "Lançamentos específicos na fatura de ${cycle.platformName}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Fechar")
+                }
+            }
+
+            // Lista de Ajustes Já Lançados
+            if (cycle.adjustments.isNotEmpty()) {
+                Text(
+                    text = "AJUSTES LANÇADOS NESTA FATURA (${cycle.adjustments.size})",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 0.5.sp
+                )
+
+                cycle.adjustments.forEach { adj ->
+                    val subtypeObj = FinancialAdjustmentSubtype.fromKey(adj.subtype)
+                    val isCred = subtypeObj?.isCredit ?: (adj.type.lowercase() in listOf("credito", "bonus", "acrescimo"))
+                    val badgeColor = if (isCred) GreenNeon else RedAlert
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = subtypeObj?.label ?: adj.type.uppercase(),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 12.sp,
+                                    color = badgeColor
+                                )
+                                Text(
+                                    text = adj.description ?: "",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (!adj.notes.isNullOrBlank()) {
+                                    Text(
+                                        text = "Rastreio / Obs: ${adj.notes}",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = (if (isCred) "+ " else "- ") + adj.amount.formatCurrency(),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.sp,
+                                    color = badgeColor
+                                )
+                                IconButton(
+                                    onClick = { onDeleteAdjustment(adj.id) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = RedAlert, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+
+            // Alternador Descontos (-) vs Ganhos (+)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    onClick = {
+                        isDescontoTab = true
+                        onSubtypeChanged(FinancialAdjustmentSubtype.OUTROS_DESCONTOS)
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isDescontoTab) RedAlert.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isDescontoTab) RedAlert else Color.Transparent)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Descontos (-)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = if (isDescontoTab) RedAlert else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = {
+                        isDescontoTab = false
+                        onSubtypeChanged(FinancialAdjustmentSubtype.BONUS)
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (!isDescontoTab) GreenNeon.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (!isDescontoTab) GreenNeon else Color.Transparent)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Ganhos (+)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = if (!isDescontoTab) GreenNeon else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Seletor dos Subtipos
+            Text(
+                text = "TIPO DE LANÇAMENTO",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                subtypesOptions.forEach { subtype ->
+                    val isSelected = uiState.newAdjustmentSubtype == subtype
+                    val activeColor = if (subtype.isCredit) GreenNeon else RedAlert
+
+                    Surface(
+                        onClick = { onSubtypeChanged(subtype) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) activeColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) activeColor else Color.Transparent)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = subtype.label,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurface
+                            )
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = activeColor, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Campo de Rastreio (se for PRODUTO_EXTRAVIADO)
+            if (uiState.newAdjustmentSubtype == FinancialAdjustmentSubtype.PRODUTO_EXTRAVIADO) {
+                OutlinedTextField(
+                    value = uiState.newAdjustmentNotes,
+                    onValueChange = { onNotesChanged(it) },
+                    label = { Text("Código de Rastreio / Detalhes do Extravio *") },
+                    placeholder = { Text("Ex: BR123456789 - Pacote não entregue") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = RedAlert,
+                        focusedLabelColor = RedAlert,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+
+            // Campos Valor e Data
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.newAdjustmentAmount,
+                    onValueChange = { onAmountChanged(it) },
+                    label = { Text("Valor (R$) *") },
+                    placeholder = { Text("0,00") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier.weight(1.2f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                OutlinedTextField(
+                    value = uiState.newAdjustmentDate.format(dateFormatter),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Data") },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            showDatePicker(context, uiState.newAdjustmentDate) { onDateChanged(it) }
+                        }) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showDatePicker(context, uiState.newAdjustmentDate) { onDateChanged(it) } },
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+
+            // Descrição adicional
+            OutlinedTextField(
+                value = uiState.newAdjustmentDescription,
+                onValueChange = { onDescriptionChanged(it) },
+                label = { Text("Descrição / Motivo (Opcional)") },
+                placeholder = { Text("Ex: Meta quinzenal atingida, avaria leve...") },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = OrangeNeon,
+                    focusedLabelColor = OrangeNeon,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            )
+
+            // Botão Adicionar Ajuste
+            Button(
+                onClick = onSaveAdjustment,
+                enabled = !uiState.isSaving,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isDescontoTab) RedAlert else GreenNeon,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isDescontoTab) "LANÇAR DESCONTO" else "LANÇAR GANHO",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }

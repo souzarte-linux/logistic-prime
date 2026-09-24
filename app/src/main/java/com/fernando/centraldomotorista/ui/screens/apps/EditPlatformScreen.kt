@@ -28,9 +28,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.content.Context
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import com.fernando.centraldomotorista.data.billing.BillingCycleCalculator
 import com.fernando.centraldomotorista.data.model.CycleEntry
 import com.fernando.centraldomotorista.ui.theme.*
+
+private val shortDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private val fullDateFormatter = DateTimeFormatter.ofPattern("EEEE, dd 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
+
+private fun showDatePicker(
+    context: Context,
+    initialDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    android.app.DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            onDateSelected(LocalDate.of(year, month + 1, dayOfMonth))
+        },
+        initialDate.year,
+        initialDate.monthValue - 1,
+        initialDate.dayOfMonth
+    ).show()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -601,29 +624,31 @@ fun EditPlatformScreen(
                                         }
 
                                         uiState.cycleEntries.forEachIndexed { index, entry ->
-                                            CycleEntryCard(
+                                            VariableCycleEntryCard(
                                                 index = index,
                                                 entry = entry,
                                                 canRemove = uiState.cycleEntries.size > 1,
                                                 onRemove = { viewModel.removeCycleEntry(index) },
-                                                onUpdate = { cut, payDelay -> viewModel.updateCycleEntry(index, cut, payDelay) }
+                                                onUpdate = { sDate, eDate, incEnd, delay ->
+                                                    viewModel.updateCycleEntryVariable(index, sDate, eDate, incEnd, delay)
+                                                }
                                             )
                                         }
 
-                                        OutlinedButton(
+                                        Button(
                                             onClick = { viewModel.addCycleEntry() },
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(44.dp),
-                                            shape = RoundedCornerShape(10.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(
-                                                contentColor = OrangeNeon
-                                            ),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f))
+                                                .height(48.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = OrangeNeon,
+                                                contentColor = Color.Black
+                                            )
                                         ) {
-                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = OrangeNeon)
+                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Adicionar Ciclo de Pagamento", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text("+ Adicionar novo Ciclo Pagamento", fontWeight = FontWeight.Black, fontSize = 13.sp)
                                         }
                                     }
                                 }
@@ -1336,6 +1361,243 @@ private fun CycleEntryCard(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VariableCycleEntryCard(
+    index: Int,
+    entry: CycleEntry,
+    canRemove: Boolean,
+    onRemove: () -> Unit,
+    onUpdate: (LocalDate?, LocalDate?, Boolean?, Int?) -> Unit
+) {
+    val context = LocalContext.current
+    val startDate = entry.startDate ?: LocalDate.now()
+    val endDate = entry.endDate ?: startDate.plusDays(14)
+    val payDelay = entry.payDelayDays.coerceAtLeast(0)
+    val paymentDate = entry.paymentDate ?: endDate.plusDays(payDelay.toLong())
+
+    val rawFullDate = paymentDate.format(fullDateFormatter)
+    val formattedFullDate = rawFullDate.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("pt", "BR")) else it.toString() }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "CICLO ${index + 1}",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    color = OrangeNeon,
+                    letterSpacing = 1.sp
+                )
+                if (canRemove) {
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remover ciclo",
+                            tint = RedAlert,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            // Campo 1: Início Ciclo & Campo 2: Final Ciclo
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = startDate.format(shortDateFormatter),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Início Ciclo") },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            showDatePicker(context, startDate) { onUpdate(it, null, null, null) }
+                        }) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showDatePicker(context, startDate) { onUpdate(it, null, null, null) } },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                OutlinedTextField(
+                    value = endDate.format(shortDateFormatter),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Final Ciclo") },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            showDatePicker(context, endDate) { onUpdate(null, it, null, null) }
+                        }) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(18.dp))
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showDatePicker(context, endDate) { onUpdate(null, it, null, null) } },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+
+            // Switch abaixo do Campo 2: "Incluir valores da data final no cálculo?"
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Incluir valores da data final no cálculo?",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (entry.includeEndDate) "Data final inclusiva (todas as corridas até às 23:59)" else "Data final exclusiva (corte às 00:00)",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = entry.includeEndDate,
+                        onCheckedChange = { onUpdate(null, null, it, null) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = OrangeNeon,
+                            checkedTrackColor = OrangeNeon.copy(alpha = 0.4f),
+                            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
+            }
+
+            // Campo 3: Dias para ser Pago & Campo 4: Data Pagamento
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = payDelay.toString(),
+                    onValueChange = { str ->
+                        val v = str.filter { it.isDigit() }.toIntOrNull() ?: 0
+                        onUpdate(null, null, null, v)
+                    },
+                    label = { Text("Dias para ser Pago:") },
+                    placeholder = { Text("0 = no mesmo dia") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    suffix = { Text(if (payDelay == 0) "mesmo dia" else "dias", fontSize = 11.sp, color = OrangeNeon, fontWeight = FontWeight.Bold) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = OrangeNeon,
+                        focusedLabelColor = OrangeNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                OutlinedTextField(
+                    value = paymentDate.format(shortDateFormatter),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Data Pagamento") },
+                    trailingIcon = {
+                        Icon(Icons.Default.Event, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(18.dp))
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenNeon,
+                        focusedLabelColor = GreenNeon,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+
+            // Campo 5: Retângulo com callout destacado e ícone Check: "Seu pagamento será realizado: [data completa formatada]"
+            Surface(
+                color = GreenNeon.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(10.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, GreenNeon.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = GreenNeon,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Seu pagamento será realizado:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = if (payDelay == 0) "$formattedFullDate (pago no mesmo dia)" else formattedFullDate,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = GreenNeon
+                        )
+                    }
+                }
             }
         }
     }

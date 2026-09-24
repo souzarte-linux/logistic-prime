@@ -2,8 +2,7 @@ package com.fernando.centraldomotorista.ui.screens.faturas
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fernando.centraldomotorista.data.model.BillingCycle
-import com.fernando.centraldomotorista.data.model.Platform
+import com.fernando.centraldomotorista.data.model.*
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.BillingCycleRepository
 import com.fernando.centraldomotorista.data.repository.BillingCycleWithTotals
@@ -18,15 +17,16 @@ import java.math.BigDecimal
 import java.time.LocalDate
 
 enum class FaturasTab(val label: String) {
-    ABERTO("Em Aberto"),
-    PAGO("Recebidas")
+    EM_ABERTO("Ciclo em Aberto"),
+    A_VENCER("Ciclo A Vencer"),
+    PAGO("Ciclo Pago")
 }
 
 data class FaturasUiState(
     val cycles: List<BillingCycleWithTotals> = emptyList(),
     val platforms: List<Platform> = emptyList(),
     val selectedPlatformFilter: String = "all",
-    val activeTab: FaturasTab = FaturasTab.ABERTO,
+    val activeTab: FaturasTab = FaturasTab.EM_ABERTO,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val actionMessage: String? = null,
@@ -38,33 +38,52 @@ data class FaturasUiState(
     val newCyclePeriodStart: LocalDate = LocalDate.now().minusDays(7),
     val newCyclePeriodEnd: LocalDate = LocalDate.now(),
     val newCycleExpectedDate: LocalDate = LocalDate.now().plusDays(3),
+    val newCycleIncludeEndDate: Boolean = true,
 
     // Modal Baixar / Liquidar Pagamento
     val payingCycle: BillingCycleWithTotals? = null,
     val paymentReceivedDate: LocalDate = LocalDate.now(),
 
     // Modal Detalhes
-    val viewingCycle: BillingCycleWithTotals? = null
+    val viewingCycle: BillingCycleWithTotals? = null,
+
+    // Modal Edição de Itens (Valores / Pacotes)
+    val editingCycle: BillingCycleWithTotals? = null,
+
+    // Modal Ajustes Financeiros (9 subtipos)
+    val adjustingCycle: BillingCycleWithTotals? = null,
+    val newAdjustmentSubtype: FinancialAdjustmentSubtype = FinancialAdjustmentSubtype.OUTROS_DESCONTOS,
+    val newAdjustmentAmount: String = "",
+    val newAdjustmentDescription: String = "",
+    val newAdjustmentNotes: String = "",
+    val newAdjustmentDate: LocalDate = LocalDate.now()
 ) {
-    val openCycles: List<BillingCycleWithTotals>
+    val emAbertoCycles: List<BillingCycleWithTotals>
         get() = cycles.filter {
-            it.cycle.status != "pago" && it.cycle.status != "cancelado" &&
+            it.cycle.status == "em_aberto" &&
             (selectedPlatformFilter == "all" || it.cycle.platformId == selectedPlatformFilter)
         }
 
-    val paidCycles: List<BillingCycleWithTotals>
+    val aVencerCycles: List<BillingCycleWithTotals>
+        get() = cycles.filter {
+            it.cycle.status == "a_vencer" &&
+            (selectedPlatformFilter == "all" || it.cycle.platformId == selectedPlatformFilter)
+        }
+
+    val pagoCycles: List<BillingCycleWithTotals>
         get() = cycles.filter {
             it.cycle.status == "pago" &&
             (selectedPlatformFilter == "all" || it.cycle.platformId == selectedPlatformFilter)
         }
 
-    val totalAReceber: BigDecimal
-        get() = cycles.filter { it.cycle.status != "pago" && it.cycle.status != "cancelado" }
-            .fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
+    val totalEmAberto: BigDecimal
+        get() = emAbertoCycles.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
 
-    val totalRecebido: BigDecimal
-        get() = cycles.filter { it.cycle.status == "pago" }
-            .fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
+    val totalAVencer: BigDecimal
+        get() = aVencerCycles.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
+
+    val totalPago: BigDecimal
+        get() = pagoCycles.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
 }
 
 class FaturasViewModel(
@@ -94,7 +113,10 @@ class FaturasViewModel(
                         platforms = platforms,
                         cycles = cyclesWithTotals,
                         isLoading = false,
-                        newCyclePlatformId = it.newCyclePlatformId.ifBlank { platforms.firstOrNull()?.id ?: "" }
+                        newCyclePlatformId = it.newCyclePlatformId.ifBlank { platforms.firstOrNull()?.id ?: "" },
+                        editingCycle = it.editingCycle?.let { ec -> cyclesWithTotals.find { c -> c.cycle.id == ec.cycle.id } },
+                        adjustingCycle = it.adjustingCycle?.let { ac -> cyclesWithTotals.find { c -> c.cycle.id == ac.cycle.id } },
+                        viewingCycle = it.viewingCycle?.let { vc -> cyclesWithTotals.find { c -> c.cycle.id == vc.cycle.id } }
                     )
                 }
             } catch (e: Exception) {
@@ -127,6 +149,7 @@ class FaturasViewModel(
                 newCyclePeriodStart = defaultStart,
                 newCyclePeriodEnd = defaultEnd,
                 newCycleExpectedDate = defaultPay,
+                newCycleIncludeEndDate = true,
                 errorMessage = null
             )
         }
@@ -140,6 +163,7 @@ class FaturasViewModel(
     fun onNewCyclePeriodStartChanged(date: LocalDate) = _uiState.update { it.copy(newCyclePeriodStart = date) }
     fun onNewCyclePeriodEndChanged(date: LocalDate) = _uiState.update { it.copy(newCyclePeriodEnd = date) }
     fun onNewCycleExpectedDateChanged(date: LocalDate) = _uiState.update { it.copy(newCycleExpectedDate = date) }
+    fun onNewCycleIncludeEndDateChanged(include: Boolean) = _uiState.update { it.copy(newCycleIncludeEndDate = include) }
 
     fun createBillingCycle() {
         val state = _uiState.value
@@ -155,11 +179,11 @@ class FaturasViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
 
-            // Checagem de sobreposição de ciclos
             val conflict = billingCycleRepository.checkOverlap(
                 platformId = state.newCyclePlatformId,
                 periodStart = state.newCyclePeriodStart,
                 periodEnd = state.newCyclePeriodEnd,
+                includeEndDate = state.newCycleIncludeEndDate,
                 userId = currentUserId
             )
 
@@ -180,7 +204,8 @@ class FaturasViewModel(
                 periodStart = state.newCyclePeriodStart,
                 periodEnd = state.newCyclePeriodEnd,
                 expectedPaymentDate = state.newCycleExpectedDate,
-                status = "open"
+                status = normalizeBillingCycleStatus("em_aberto", state.newCyclePeriodEnd),
+                includeEndDate = state.newCycleIncludeEndDate
             )
 
             val created = billingCycleRepository.createBillingCycle(newCycle)
@@ -190,6 +215,7 @@ class FaturasViewModel(
                     platformId = state.newCyclePlatformId,
                     periodStart = state.newCyclePeriodStart,
                     periodEnd = state.newCyclePeriodEnd,
+                    includeEndDate = state.newCycleIncludeEndDate,
                     userId = currentUserId
                 )
 
@@ -197,7 +223,7 @@ class FaturasViewModel(
                     it.copy(
                         isSaving = false,
                         isNewCycleModalOpen = false,
-                        actionMessage = "Fatura gerada e corridas vinculadas com sucesso!"
+                        actionMessage = "Fatura gerada e transações vinculadas com sucesso!"
                     )
                 }
                 loadData()
@@ -251,27 +277,6 @@ class FaturasViewModel(
         }
     }
 
-    // Confirmar Fatura Automática (status pendente_confirmacao -> open)
-    fun confirmCycle(cycle: BillingCycleWithTotals) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            val success = billingCycleRepository.updateStatus(cycle.cycle.id, "open")
-            if (success) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        actionMessage = "Fatura confirmada e movida para A Receber!"
-                    )
-                }
-                loadData()
-            } else {
-                _uiState.update {
-                    it.copy(isLoading = false, errorMessage = "Erro ao confirmar fatura.")
-                }
-            }
-        }
-    }
-
     // Modal de Detalhes
     fun openDetailsModal(cycle: BillingCycleWithTotals) {
         _uiState.update { it.copy(viewingCycle = cycle) }
@@ -279,6 +284,179 @@ class FaturasViewModel(
 
     fun closeDetailsModal() {
         _uiState.update { it.copy(viewingCycle = null) }
+    }
+
+    // Modal de Edição de Itens (Valores / Pacotes)
+    fun openEditCycleModal(cycle: BillingCycleWithTotals) {
+        _uiState.update { it.copy(editingCycle = cycle) }
+    }
+
+    fun closeEditCycleModal() {
+        _uiState.update { it.copy(editingCycle = null) }
+    }
+
+    fun updateRouteItem(route: Route, newPackageCount: Int, newAmount: BigDecimal) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            val updated = route.copy(
+                packageCount = newPackageCount.coerceAtLeast(0),
+                amount = newAmount.coerceAtLeast(BigDecimal.ZERO)
+            )
+            val ok = billingCycleRepository.updateRoute(updated)
+            if (ok) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        actionMessage = "Corrida e totais recalculados com sucesso!"
+                    )
+                }
+                loadData()
+            } else {
+                _uiState.update {
+                    it.copy(isSaving = false, errorMessage = "Erro ao atualizar rota.")
+                }
+            }
+        }
+    }
+
+    fun updateDailyTotalItem(dailyTotal: DailyTotal, newAmount: BigDecimal) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            val updated = dailyTotal.copy(
+                amount = newAmount.coerceAtLeast(BigDecimal.ZERO)
+            )
+            val ok = billingCycleRepository.updateDailyTotal(updated)
+            if (ok) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        actionMessage = "Diária recalculada com sucesso!"
+                    )
+                }
+                loadData()
+            } else {
+                _uiState.update {
+                    it.copy(isSaving = false, errorMessage = "Erro ao atualizar diária.")
+                }
+            }
+        }
+    }
+
+    // Modal de Ajustes Financeiros (9 subtipos)
+    fun openAdjustmentModal(cycle: BillingCycleWithTotals) {
+        _uiState.update {
+            it.copy(
+                adjustingCycle = cycle,
+                newAdjustmentSubtype = FinancialAdjustmentSubtype.OUTROS_DESCONTOS,
+                newAdjustmentAmount = "",
+                newAdjustmentDescription = "",
+                newAdjustmentNotes = "",
+                newAdjustmentDate = LocalDate.now(),
+                errorMessage = null
+            )
+        }
+    }
+
+    fun closeAdjustmentModal() {
+        _uiState.update { it.copy(adjustingCycle = null, errorMessage = null) }
+    }
+
+    fun onAdjustmentSubtypeChanged(subtype: FinancialAdjustmentSubtype) {
+        _uiState.update { it.copy(newAdjustmentSubtype = subtype) }
+    }
+
+    fun onAdjustmentAmountChanged(amount: String) {
+        _uiState.update { it.copy(newAdjustmentAmount = amount) }
+    }
+
+    fun onAdjustmentDescriptionChanged(description: String) {
+        _uiState.update { it.copy(newAdjustmentDescription = description) }
+    }
+
+    fun onAdjustmentNotesChanged(notes: String) {
+        _uiState.update { it.copy(newAdjustmentNotes = notes) }
+    }
+
+    fun onAdjustmentDateChanged(date: LocalDate) {
+        _uiState.update { it.copy(newAdjustmentDate = date) }
+    }
+
+    fun saveAdjustment() {
+        val state = _uiState.value
+        val cycle = state.adjustingCycle ?: return
+
+        val cleanAmount = state.newAdjustmentAmount
+            .replace("R$", "")
+            .replace(".", "")
+            .replace(",", ".")
+            .trim()
+
+        val parsedAmount = cleanAmount.toBigDecimalOrNull()
+        if (parsedAmount == null || parsedAmount <= BigDecimal.ZERO) {
+            _uiState.update { it.copy(errorMessage = "Informe um valor válido maior que zero.") }
+            return
+        }
+
+        val subtype = state.newAdjustmentSubtype
+        if (subtype.requiresTrackingCode && state.newAdjustmentNotes.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Informe o código de rastreio ou detalhes do produto extraviado.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, errorMessage = null) }
+
+            val adj = FinancialAdjustment(
+                id = "",
+                userId = currentUserId,
+                platformId = cycle.cycle.platformId,
+                billingCycleId = cycle.cycle.id,
+                type = subtype.defaultType,
+                subtype = subtype.key,
+                amount = parsedAmount,
+                description = state.newAdjustmentDescription.trim().ifBlank { subtype.label },
+                notes = state.newAdjustmentNotes.trim().ifBlank { null },
+                occurredAt = state.newAdjustmentDate
+            )
+
+            val created = billingCycleRepository.addFinancialAdjustment(adj)
+            if (created != null) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        newAdjustmentAmount = "",
+                        newAdjustmentDescription = "",
+                        newAdjustmentNotes = "",
+                        actionMessage = "Ajuste financeiro adicionado e fatura recalculada!"
+                    )
+                }
+                loadData()
+            } else {
+                _uiState.update {
+                    it.copy(isSaving = false, errorMessage = "Erro ao adicionar ajuste financeiro.")
+                }
+            }
+        }
+    }
+
+    fun deleteAdjustment(adjustmentId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            val ok = billingCycleRepository.deleteFinancialAdjustment(adjustmentId)
+            if (ok) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        actionMessage = "Ajuste removido com sucesso!"
+                    )
+                }
+                loadData()
+            } else {
+                _uiState.update {
+                    it.copy(isSaving = false, errorMessage = "Erro ao excluir ajuste.")
+                }
+            }
+        }
     }
 
     // Exclusão de Fatura
@@ -291,7 +469,7 @@ class FaturasViewModel(
                     it.copy(
                         isLoading = false,
                         viewingCycle = null,
-                        actionMessage = "Fatura excluída e corridas desvinculadas!"
+                        actionMessage = "Fatura excluída e transações desvinculadas!"
                     )
                 }
                 loadData()

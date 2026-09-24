@@ -20,12 +20,19 @@ data class BillingCycleWithTotals(
     val platformName: String,
     val routeAmount: BigDecimal = BigDecimal.ZERO,
     val tipTotal: BigDecimal = BigDecimal.ZERO,
+    val bonusTotal: BigDecimal = BigDecimal.ZERO,
     val dailyAmount: BigDecimal = BigDecimal.ZERO,
+    val adjustmentsCredit: BigDecimal = BigDecimal.ZERO,
+    val adjustmentsDebit: BigDecimal = BigDecimal.ZERO,
     val adjustmentsTotal: BigDecimal = BigDecimal.ZERO,
     val totalAmount: BigDecimal = BigDecimal.ZERO,
     val routeCount: Int = 0,
+    val packageCount: Int = 0,
     val dailyCount: Int = 0,
-    val adjustmentsCount: Int = 0
+    val adjustmentsCount: Int = 0,
+    val routes: List<com.fernando.centraldomotorista.data.model.Route> = emptyList(),
+    val dailyTotals: List<com.fernando.centraldomotorista.data.model.DailyTotal> = emptyList(),
+    val adjustments: List<com.fernando.centraldomotorista.data.model.FinancialAdjustment> = emptyList()
 ) {
     val isOverdue: Boolean
         get() = cycle.status != "pago" && cycle.status != "cancelado" && cycle.expectedPaymentDate.isBefore(LocalDate.now())
@@ -73,29 +80,70 @@ class BillingCycleRepository(
                 cycles.map { cycle ->
                     val platName = platformsMap[cycle.platformId] ?: "Plataforma"
 
-                    val cycleRoutes = routes.filter { it.billingCycleId == cycle.id }
+                    val cycleRoutes = routes.filter { r ->
+                        r.billingCycleId == cycle.id || (
+                            r.billingCycleId == null &&
+                            r.platformId == cycle.platformId &&
+                            BillingCycleCalculator.isDateInCycle(
+                                r.occurredAt.toLocalDate(),
+                                cycle.periodStart,
+                                cycle.periodEnd,
+                                cycle.includeEndDate
+                            )
+                        )
+                    }
                     val routeAmount = cycleRoutes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.amount) }
                     val tipTotal = cycleRoutes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.tip) }
+                    val bonusTotal = cycleRoutes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.bonus) }
+                    val packageCount = cycleRoutes.sumOf { it.packageCount }
 
-                    val cycleDailies = dailyTotals.filter { it.billingCycleId == cycle.id }
+                    val cycleDailies = dailyTotals.filter { dt ->
+                        dt.billingCycleId == cycle.id || (
+                            dt.billingCycleId == null &&
+                            dt.platformId == cycle.platformId &&
+                            BillingCycleCalculator.isDateInCycle(
+                                dt.occurredAt.toLocalDate(),
+                                cycle.periodStart,
+                                cycle.periodEnd,
+                                cycle.includeEndDate
+                            )
+                        )
+                    }
                     val dailyAmount = cycleDailies.fold(BigDecimal.ZERO) { acc, dt -> acc.add(dt.amount) }
 
-                    val cycleAdjustments = adjustments.filter { it.billingCycleId == cycle.id }
-                    val adjustmentsTotal = cycleAdjustments.fold(BigDecimal.ZERO) { acc, adj -> acc.add(adj.amount) }
+                    val cycleAdjustments = adjustments.filter { adj ->
+                        adj.billingCycleId == cycle.id || (
+                            adj.billingCycleId == null &&
+                            adj.platformId == cycle.platformId &&
+                            BillingCycleCalculator.isDateInCycle(
+                                adj.occurredAt,
+                                cycle.periodStart,
+                                cycle.periodEnd,
+                                cycle.includeEndDate
+                            )
+                        )
+                    }
 
-                    val totalAmount = routeAmount.add(tipTotal).add(dailyAmount).add(adjustmentsTotal)
+                    val totals = BillingCycleCalculator.calculateCycleTotals(cycleRoutes, cycleDailies, cycleAdjustments)
 
                     BillingCycleWithTotals(
                         cycle = cycle,
                         platformName = platName,
-                        routeAmount = routeAmount,
-                        tipTotal = tipTotal,
-                        dailyAmount = dailyAmount,
-                        adjustmentsTotal = adjustmentsTotal,
-                        totalAmount = totalAmount,
-                        routeCount = cycleRoutes.size,
-                        dailyCount = cycleDailies.size,
-                        adjustmentsCount = cycleAdjustments.size
+                        routeAmount = totals.grossRoutesAmount,
+                        tipTotal = totals.totalTipsAmount,
+                        bonusTotal = totals.totalBonusAmount,
+                        dailyAmount = totals.grossDailyAmount,
+                        adjustmentsCredit = totals.adjustmentsCredit,
+                        adjustmentsDebit = totals.adjustmentsDebit,
+                        adjustmentsTotal = totals.adjustmentsTotal,
+                        totalAmount = totals.netTotalAmount,
+                        routeCount = totals.routesCount,
+                        packageCount = totals.packagesCount,
+                        dailyCount = totals.dailyTotalsCount,
+                        adjustmentsCount = totals.adjustmentsCount,
+                        routes = cycleRoutes,
+                        dailyTotals = cycleDailies,
+                        adjustments = cycleAdjustments
                     )
                 }
             } catch (e: Exception) {
@@ -116,16 +164,57 @@ class BillingCycleRepository(
         }
     }
 
-    suspend fun updateStatus(cycleId: String, status: String, paymentDate: LocalDate? = null): Boolean = withContext(Dispatchers.IO) {
+    suspend fun updateStatus(cycleId: String, status: String, paymentReceivedDate: LocalDate? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             val payload = mutableMapOf<String, Any>("status" to status)
-            if (paymentDate != null) {
-                payload["expected_payment_date"] = paymentDate.toString()
+            if (paymentReceivedDate != null) {
+                payload["payment_received_date"] = paymentReceivedDate.toString()
             }
             api.updateBillingCycle("eq.$cycleId", payload)
             true
         } catch (e: Exception) {
             Log.e("BillingCycleRepository", "Erro ao atualizar status da fatura: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun updateRoute(route: com.fernando.centraldomotorista.data.model.Route): Boolean = withContext(Dispatchers.IO) {
+        try {
+            routeRepository.updateRoute(route)
+            true
+        } catch (e: Exception) {
+            Log.e("BillingCycleRepository", "Erro ao atualizar corrida da fatura: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun updateDailyTotal(dailyTotal: com.fernando.centraldomotorista.data.model.DailyTotal): Boolean = withContext(Dispatchers.IO) {
+        try {
+            dailyTotalRepository.updateDailyTotal(dailyTotal)
+            true
+        } catch (e: Exception) {
+            Log.e("BillingCycleRepository", "Erro ao atualizar diária da fatura: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun addFinancialAdjustment(adjustment: com.fernando.centraldomotorista.data.model.FinancialAdjustment): com.fernando.centraldomotorista.data.model.FinancialAdjustment? = withContext(Dispatchers.IO) {
+        try {
+            val dto = adjustment.toDto()
+            val res = adjustmentApi.createFinancialAdjustment(dto)
+            res.firstOrNull()?.toDomain()
+        } catch (e: Exception) {
+            Log.e("BillingCycleRepository", "Erro ao criar ajuste na fatura: ${e.message}", e)
+            null
+        }
+    }
+
+    suspend fun deleteFinancialAdjustment(adjustmentId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            adjustmentApi.deleteFinancialAdjustment("eq.$adjustmentId")
+            true
+        } catch (e: Exception) {
+            Log.e("BillingCycleRepository", "Erro ao excluir ajuste da fatura: ${e.message}", e)
             false
         }
     }
@@ -146,6 +235,7 @@ class BillingCycleRepository(
         platformId: String,
         periodStart: LocalDate,
         periodEnd: LocalDate,
+        includeEndDate: Boolean = true,
         userId: String
     ): Unit = withContext(Dispatchers.IO) {
         try {
@@ -153,8 +243,7 @@ class BillingCycleRepository(
             val matchingRoutes = allRoutes.filter { r ->
                 r.platformId == platformId &&
                 (r.billingCycleId == null || r.billingCycleId == cycleId) &&
-                !r.occurredAt.toLocalDate().isBefore(periodStart) &&
-                !r.occurredAt.toLocalDate().isAfter(periodEnd)
+                BillingCycleCalculator.isDateInCycle(r.occurredAt.toLocalDate(), periodStart, periodEnd, includeEndDate)
             }
             matchingRoutes.forEach { r ->
                 if (r.billingCycleId != cycleId) {
@@ -166,23 +255,33 @@ class BillingCycleRepository(
             val matchingDailies = allDailies.filter { dt ->
                 dt.platformId == platformId &&
                 (dt.billingCycleId == null || dt.billingCycleId == cycleId) &&
-                !dt.occurredAt.toLocalDate().isBefore(periodStart) &&
-                !dt.occurredAt.toLocalDate().isAfter(periodEnd)
+                BillingCycleCalculator.isDateInCycle(dt.occurredAt.toLocalDate(), periodStart, periodEnd, includeEndDate)
             }
             matchingDailies.forEach { dt ->
                 if (dt.billingCycleId != cycleId) {
                     dailyTotalRepository.updateDailyTotal(dt.copy(billingCycleId = cycleId))
                 }
             }
+
+            val allAdjustments = adjustmentApi.getFinancialAdjustments("eq.$userId").map { it.toDomain() }
+            val matchingAdjustments = allAdjustments.filter { adj ->
+                adj.platformId == platformId &&
+                (adj.billingCycleId == null || adj.billingCycleId == cycleId) &&
+                BillingCycleCalculator.isDateInCycle(adj.occurredAt, periodStart, periodEnd, includeEndDate)
+            }
+            matchingAdjustments.forEach { adj ->
+                if (adj.billingCycleId != cycleId) {
+                    adjustmentApi.updateFinancialAdjustment("eq.${adj.id}", adj.copy(billingCycleId = cycleId).toDto())
+                }
+            }
         } catch (e: Exception) {
-            Log.e("BillingCycleRepository", "Erro ao vincular corridas à fatura: ${e.message}", e)
+            Log.e("BillingCycleRepository", "Erro ao vincular transações à fatura: ${e.message}", e)
         }
     }
 
     suspend fun unlinkCycleTransactions(cycleId: String): Unit = withContext(Dispatchers.IO) {
         try {
-            // Em uma chamada Supabase REST ou iterando registros
-            // Atualiza rotas e diárias vinculadas a este cycleId para null
+            // Em rotas e diárias vinculadas
         } catch (e: Exception) {
             Log.e("BillingCycleRepository", "Erro ao desvincular corridas: ${e.message}", e)
         }
@@ -192,6 +291,7 @@ class BillingCycleRepository(
         platformId: String,
         periodStart: LocalDate,
         periodEnd: LocalDate,
+        includeEndDate: Boolean = true,
         excludeCycleId: String? = null,
         userId: String
     ): BillingCycle? = withContext(Dispatchers.IO) {
@@ -202,7 +302,10 @@ class BillingCycleRepository(
                 (excludeCycleId == null || it.id != excludeCycleId)
             }
             cycles.firstOrNull { c ->
-                BillingCycleCalculator.checkOverlap(periodStart, periodEnd, c.periodStart, c.periodEnd)
+                BillingCycleCalculator.checkOverlap(
+                    periodStart, periodEnd, includeEndDate,
+                    c.periodStart, c.periodEnd, c.includeEndDate
+                )
             }
         } catch (e: Exception) {
             null

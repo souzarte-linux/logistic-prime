@@ -1,7 +1,12 @@
 package com.fernando.centraldomotorista.data.billing
 
 import com.fernando.centraldomotorista.data.model.CycleEntry
+import com.fernando.centraldomotorista.data.model.DailyTotal
+import com.fernando.centraldomotorista.data.model.FinancialAdjustment
+import com.fernando.centraldomotorista.data.model.FinancialAdjustmentSubtype
 import com.fernando.centraldomotorista.data.model.Platform
+import com.fernando.centraldomotorista.data.model.Route
+import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -9,7 +14,23 @@ import java.time.temporal.TemporalAdjusters
 data class CycleInterval(
     val periodStart: LocalDate,
     val periodEnd: LocalDate,
-    val expectedPaymentDate: LocalDate
+    val expectedPaymentDate: LocalDate,
+    val includeEndDate: Boolean = true
+)
+
+data class BillingCycleTotals(
+    val grossRoutesAmount: BigDecimal = BigDecimal.ZERO,
+    val totalTipsAmount: BigDecimal = BigDecimal.ZERO,
+    val totalBonusAmount: BigDecimal = BigDecimal.ZERO,
+    val grossDailyAmount: BigDecimal = BigDecimal.ZERO,
+    val adjustmentsCredit: BigDecimal = BigDecimal.ZERO,
+    val adjustmentsDebit: BigDecimal = BigDecimal.ZERO,
+    val adjustmentsTotal: BigDecimal = BigDecimal.ZERO,
+    val netTotalAmount: BigDecimal = BigDecimal.ZERO,
+    val routesCount: Int = 0,
+    val packagesCount: Int = 0,
+    val dailyTotalsCount: Int = 0,
+    val adjustmentsCount: Int = 0
 )
 
 object BillingCycleCalculator {
@@ -46,7 +67,7 @@ object BillingCycleCalculator {
         refDate: LocalDate = LocalDate.now()
     ): List<CycleInterval> {
         val rules = platform.rules
-        val payDelay = rules.fixedPayDelay.toLong().coerceAtLeast(1L)
+        val payDelay = rules.fixedPayDelay.toLong().coerceAtLeast(0L)
         val cycle = platform.cycle.lowercase().trim()
 
         return when (cycle) {
@@ -60,8 +81,8 @@ object BillingCycleCalculator {
                 val c1Pay = c1End.plusDays(payDelay)
 
                 listOf(
-                    CycleInterval(c0Start, c0End, c0Pay),
-                    CycleInterval(c1Start, c1End, c1Pay)
+                    CycleInterval(c0Start, c0End, c0Pay, true),
+                    CycleInterval(c1Start, c1End, c1Pay, true)
                 )
             }
             "quinzenal" -> {
@@ -88,8 +109,8 @@ object BillingCycleCalculator {
                 val c1Pay = c1End.plusDays(payDelay)
 
                 listOf(
-                    CycleInterval(c0Start, c0End, c0Pay),
-                    CycleInterval(c1Start, c1End, c1Pay)
+                    CycleInterval(c0Start, c0End, c0Pay, true),
+                    CycleInterval(c1Start, c1End, c1Pay, true)
                 )
             }
             "mensal" -> {
@@ -103,11 +124,42 @@ object BillingCycleCalculator {
                 val c1Pay = c1End.plusDays(payDelay)
 
                 listOf(
-                    CycleInterval(c0Start, c0End, c0Pay),
-                    CycleInterval(c1Start, c1End, c1Pay)
+                    CycleInterval(c0Start, c0End, c0Pay, true),
+                    CycleInterval(c1Start, c1End, c1Pay, true)
                 )
             }
             "misto", "variavel" -> {
+                // 1. Suporte a ciclos variáveis com intervalos explícitos de data (início/fim/pagamento)
+                val explicitDateEntries = rules.cycleEntries.filter { it.startDate != null && it.endDate != null }
+                    .sortedBy { it.startDate }
+
+                if (explicitDateEntries.isNotEmpty()) {
+                    val matchingIndex = explicitDateEntries.indexOfFirst { entry ->
+                        isDateInCycle(refDate, entry.startDate!!, entry.endDate!!, entry.includeEndDate)
+                    }
+
+                    val chosenIndex = if (matchingIndex != -1) {
+                        matchingIndex
+                    } else {
+                        val nextFuture = explicitDateEntries.indexOfFirst { it.startDate!!.isAfter(refDate) }
+                        if (nextFuture != -1) nextFuture else explicitDateEntries.lastIndex
+                    }
+
+                    val result = mutableListOf<CycleInterval>()
+                    for (offset in 0..1) {
+                        val idx = chosenIndex + offset
+                        if (idx in explicitDateEntries.indices) {
+                            val e = explicitDateEntries[idx]
+                            val s = e.startDate!!
+                            val end = e.endDate!!
+                            val pay = e.paymentDate ?: end.plusDays(e.payDelayDays.toLong())
+                            result.add(CycleInterval(s, end, pay, e.includeEndDate))
+                        }
+                    }
+                    if (result.isNotEmpty()) return result
+                }
+
+                // 2. Fallback para ciclo misto por dias de corte mensais
                 val entries = if (rules.cycleEntries.isNotEmpty()) {
                     rules.cycleEntries
                 } else {
@@ -123,7 +175,7 @@ object BillingCycleCalculator {
                     for (entry in entries) {
                         val cutDay = entry.cut.coerceIn(1, daysInMonth)
                         val date = targetMonth.withDayOfMonth(cutDay)
-                        cutEvents.add(CutEvent(date, entry.payDelay.toLong().coerceAtLeast(1L)))
+                        cutEvents.add(CutEvent(date, entry.payDelay.toLong().coerceAtLeast(0L)))
                     }
                 }
 
@@ -155,7 +207,7 @@ object BillingCycleCalculator {
                         val start = ev.date
                         val end = nextEv.date.minusDays(1)
                         val payDate = end.plusDays(ev.payDelay)
-                        intervals.add(CycleInterval(start, end, payDate))
+                        intervals.add(CycleInterval(start, end, payDate, true))
                     }
                 }
                 intervals
@@ -164,15 +216,111 @@ object BillingCycleCalculator {
                 val c0Start = refDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 val c0End = c0Start.plusDays(6)
                 val c0Pay = c0End.plusDays(payDelay)
-                listOf(CycleInterval(c0Start, c0End, c0Pay))
+                listOf(CycleInterval(c0Start, c0End, c0Pay, true))
             }
         }
     }
 
     /**
-     * Verifica sobreposição temporal inclusiva entre dois intervalos de datas.
+     * Verifica sobreposição temporal considerando se a data final é inclusiva ou semi-aberta.
+     */
+    fun checkOverlap(
+        start1: LocalDate,
+        end1: LocalDate,
+        includeEnd1: Boolean = true,
+        start2: LocalDate,
+        end2: LocalDate,
+        includeEnd2: Boolean = true
+    ): Boolean {
+        val effEnd1 = if (includeEnd1) end1 else end1.minusDays(1)
+        val effEnd2 = if (includeEnd2) end2 else end2.minusDays(1)
+        if (effEnd1.isBefore(start1) || effEnd2.isBefore(start2)) return false
+        return !start1.isAfter(effEnd2) && !effEnd1.isBefore(start2)
+    }
+
+    /**
+     * Sobrecarga de compatibilidade para verificação com datas inclusivas.
      */
     fun checkOverlap(start1: LocalDate, end1: LocalDate, start2: LocalDate, end2: LocalDate): Boolean {
-        return !start1.isAfter(end2) && !end1.isBefore(start2)
+        return checkOverlap(start1, end1, true, start2, end2, true)
+    }
+
+    /**
+     * Verifica se uma data específica pertence a um ciclo de faturamento.
+     */
+    fun isDateInCycle(
+        date: LocalDate,
+        periodStart: LocalDate,
+        periodEnd: LocalDate,
+        includeEndDate: Boolean = true
+    ): Boolean {
+        val effEnd = if (includeEndDate) periodEnd else periodEnd.minusDays(1)
+        return !date.isBefore(periodStart) && !date.isAfter(effEnd)
+    }
+
+    /**
+     * Calcula o valor da rota baseado na quantidade de pacotes e valor unitário com precisão BigDecimal.
+     */
+    fun calculateRouteAmount(packageCount: Int, unitPrice: BigDecimal): BigDecimal {
+        if (packageCount <= 0 || unitPrice <= BigDecimal.ZERO) return BigDecimal.ZERO
+        return BigDecimal(packageCount).multiply(unitPrice)
+    }
+
+    /**
+     * Recalcula os totais de uma fatura / ciclo com precisão monetária (BigDecimal)
+     * considerando rotas, pacotes, gorjetas, bônus, diárias e os 9 subtipos de ajustes financeiros.
+     */
+    fun calculateCycleTotals(
+        routes: List<Route>,
+        dailyTotals: List<DailyTotal>,
+        adjustments: List<FinancialAdjustment>
+    ): BillingCycleTotals {
+        val grossRoutes = routes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.amount) }
+        val tips = routes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.tip) }
+        val bonus = routes.fold(BigDecimal.ZERO) { acc, r -> acc.add(r.bonus) }
+        val packages = routes.sumOf { it.packageCount }
+
+        val grossDaily = dailyTotals.fold(BigDecimal.ZERO) { acc, dt -> acc.add(dt.amount) }
+
+        val adjustmentsCredit = adjustments.filter { adj ->
+            val sub = FinancialAdjustmentSubtype.fromKey(adj.subtype)
+            if (sub != null) {
+                sub.isCredit
+            } else {
+                adj.type.lowercase().trim() in listOf("credito", "bonus", "acrescimo")
+            }
+        }.fold(BigDecimal.ZERO) { acc, adj -> acc.add(adj.amount) }
+
+        val adjustmentsDebit = adjustments.filter { adj ->
+            val sub = FinancialAdjustmentSubtype.fromKey(adj.subtype)
+            if (sub != null) {
+                !sub.isCredit
+            } else {
+                adj.type.lowercase().trim() in listOf("debito", "desconto", "avaria", "extravio")
+            }
+        }.fold(BigDecimal.ZERO) { acc, adj -> acc.add(adj.amount) }
+
+        val adjustmentsTotal = adjustmentsCredit.subtract(adjustmentsDebit)
+
+        val netTotal = grossRoutes
+            .add(tips)
+            .add(bonus)
+            .add(grossDaily)
+            .add(adjustmentsTotal)
+
+        return BillingCycleTotals(
+            grossRoutesAmount = grossRoutes,
+            totalTipsAmount = tips,
+            totalBonusAmount = bonus,
+            grossDailyAmount = grossDaily,
+            adjustmentsCredit = adjustmentsCredit,
+            adjustmentsDebit = adjustmentsDebit,
+            adjustmentsTotal = adjustmentsTotal,
+            netTotalAmount = netTotal,
+            routesCount = routes.size,
+            packagesCount = packages,
+            dailyTotalsCount = dailyTotals.size,
+            adjustmentsCount = adjustments.size
+        )
     }
 }

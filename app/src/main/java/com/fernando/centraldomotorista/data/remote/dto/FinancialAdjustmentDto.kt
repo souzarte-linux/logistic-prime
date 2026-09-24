@@ -16,10 +16,14 @@ data class FinancialAdjustmentDto(
     val billingCycleId: String? = null,
     @SerializedName("type")
     val type: String,
+    @SerializedName("subtype")
+    val subtype: String? = null,
     @SerializedName("amount")
     val amount: BigDecimal,
     @SerializedName("description")
     val description: String? = null,
+    @SerializedName("notes")
+    val notes: String? = null,
     @SerializedName("occurred_at")
     val occurredAt: String? = null,
     @SerializedName("created_at")
@@ -43,8 +47,10 @@ fun FinancialAdjustmentDto.toDomain(): FinancialAdjustment {
         platformId = platformId,
         billingCycleId = billingCycleId,
         type = type,
+        subtype = subtype,
         amount = amount,
         description = description,
+        notes = notes,
         occurredAt = parsedOccurredAt
     )
 }
@@ -56,8 +62,10 @@ fun FinancialAdjustment.toDto(): FinancialAdjustmentDto {
         platformId = platformId,
         billingCycleId = billingCycleId,
         type = type,
+        subtype = subtype,
         amount = amount,
         description = description,
+        notes = notes,
         occurredAt = occurredAt.toString()
     )
 }

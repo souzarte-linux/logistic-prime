@@ -32,8 +32,13 @@ data class Profile(
 )
 
 data class CycleEntry(
-    val cut: Int,       // Dia do corte no mês (1 a 28)
-    val payDelay: Int   // Dias após o corte até o recebimento
+    val cut: Int = 1,       // Dia do corte no mês (1 a 28)
+    val payDelay: Int = 7,  // Dias após o corte até o recebimento
+    val startDate: LocalDate? = null,
+    val endDate: LocalDate? = null,
+    val includeEndDate: Boolean = true,
+    val payDelayDays: Int = 7,
+    val paymentDate: LocalDate? = null
 )
 
 data class PlatformRules(
@@ -46,7 +51,7 @@ data class Platform(
     val userId: String,
     val partnerId: String? = null,
     val name: String,
-    val cycle: String,           // "semanal" | "quinzenal" | "mensal" | "misto"
+    val cycle: String,           // "semanal" | "quinzenal" | "mensal" | "misto" | "variavel"
     val paymentDay: String?,
     val active: Boolean = true,
     val segment: String = "logistica",   // "logistica" | "delivery"
@@ -195,17 +200,76 @@ data class BillingCycle(
     val periodStart: LocalDate,
     val periodEnd: LocalDate,
     val expectedPaymentDate: LocalDate,
-    val status: String = "pending",   // "pending" | "paid"
+    val status: String = "em_aberto",   // "em_aberto" | "a_vencer" | "pago" | "cancelado"
+    val includeEndDate: Boolean = true,
+    val paymentReceivedDate: LocalDate? = null,
+    val grossRoutesAmount: BigDecimal = BigDecimal.ZERO,
+    val totalTipsAmount: BigDecimal = BigDecimal.ZERO,
+    val totalBonusAmount: BigDecimal = BigDecimal.ZERO,
+    val grossDailyAmount: BigDecimal = BigDecimal.ZERO,
+    val totalAdjustmentsCredit: BigDecimal = BigDecimal.ZERO,
+    val totalAdjustmentsDebit: BigDecimal = BigDecimal.ZERO,
+    val netTotalAmount: BigDecimal = BigDecimal.ZERO,
+    val routesCount: Int = 0,
+    val packagesCount: Int = 0,
+    val dailyTotalsCount: Int = 0,
 )
+
+enum class FinancialAdjustmentSubtype(
+    val key: String,
+    val label: String,
+    val isCredit: Boolean,
+    val defaultType: String,
+    val requiresTrackingCode: Boolean = false
+) {
+    // Descontos (-)
+    PRODUTO_EXTRAVIADO("produto_extraviado", "Produto Extraviado", false, "debito", true),
+    DESCONTO_PREVIDENCIARIO("desconto_previdenciario", "Desconto Previdenciário (INSS)", false, "debito"),
+    DESCONTO_MULTA("desconto_multa", "Desconto de Multa", false, "debito"),
+    OUTROS_DESCONTOS("outros_descontos", "Outros Descontos", false, "debito"),
+
+    // Ganhos (+)
+    BONUS("bonus", "Bônus", true, "credito"),
+    GRATIFICACAO("gratificacao", "Gratificação", true, "credito"),
+    INCENTIVO("incentivo", "Incentivo", true, "credito"),
+    METAS("metas", "Metas", true, "credito"),
+    OUTROS_GANHOS("outros_ganhos", "Outros Ganhos", true, "credito");
+
+    companion object {
+        fun fromKey(key: String?): FinancialAdjustmentSubtype? {
+            return entries.firstOrNull { it.key.equals(key, ignoreCase = true) }
+        }
+    }
+}
+
+fun normalizeBillingCycleStatus(
+    rawStatus: String?,
+    periodEnd: LocalDate? = null,
+    refDate: LocalDate = LocalDate.now()
+): String {
+    val s = rawStatus?.lowercase()?.trim() ?: "em_aberto"
+    return when (s) {
+        "pago", "paid" -> "pago"
+        "cancelado" -> "cancelado"
+        "atrasado" -> "atrasado"
+        "a_vencer" -> "a_vencer"
+        "open", "pending", "em_aberto" -> {
+            if (periodEnd != null && refDate.isAfter(periodEnd)) "a_vencer" else "em_aberto"
+        }
+        else -> s
+    }
+}
 
 data class FinancialAdjustment(
     val id: String,
     val userId: String,
     val platformId: String,
     val billingCycleId: String?,
-    val type: String,
+    val type: String, // "credito" | "debito" | "bonus" | "desconto"
+    val subtype: String? = null,
     val amount: BigDecimal,
     val description: String?,
+    val notes: String? = null,
     val occurredAt: LocalDate,
 )
 

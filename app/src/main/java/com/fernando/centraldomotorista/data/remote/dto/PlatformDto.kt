@@ -5,11 +5,23 @@ import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.model.PlatformRules
 import com.google.gson.annotations.SerializedName
 
+import java.time.LocalDate
+
 data class CycleEntryDto(
     @SerializedName("cut")
     val cut: Int = 1,
     @SerializedName("payDelay")
-    val payDelay: Int = 7
+    val payDelay: Int = 7,
+    @SerializedName("start_date")
+    val startDate: String? = null,
+    @SerializedName("end_date")
+    val endDate: String? = null,
+    @SerializedName("include_end_date")
+    val includeEndDate: Boolean? = true,
+    @SerializedName("pay_delay_days")
+    val payDelayDays: Int? = null,
+    @SerializedName("payment_date")
+    val paymentDate: String? = null
 )
 
 data class PlatformRulesDto(
@@ -59,8 +71,30 @@ data class PlatformDto(
 fun PlatformRulesDto?.toDomain(): PlatformRules {
     if (this == null) return PlatformRules()
     val entries = when {
-        !cycleEntries.isNullOrEmpty() -> cycleEntries.map { CycleEntry(cut = it.cut, payDelay = it.payDelay) }
-        !cycleDays.isNullOrEmpty() -> cycleDays.map { CycleEntry(cut = it, payDelay = fixedPayDelay ?: 7) }
+        !cycleEntries.isNullOrEmpty() -> cycleEntries.map {
+            val sDate = it.startDate?.take(10)?.let { str -> try { LocalDate.parse(str) } catch (e: Exception) { null } }
+            val eDate = it.endDate?.take(10)?.let { str -> try { LocalDate.parse(str) } catch (e: Exception) { null } }
+            val pDate = it.paymentDate?.take(10)?.let { str -> try { LocalDate.parse(str) } catch (e: Exception) { null } }
+            val delay = it.payDelayDays ?: it.payDelay
+            val calcPayDate = pDate ?: (if (eDate != null) eDate.plusDays(delay.toLong()) else null)
+
+            CycleEntry(
+                cut = it.cut,
+                payDelay = delay,
+                startDate = sDate,
+                endDate = eDate,
+                includeEndDate = it.includeEndDate ?: true,
+                payDelayDays = delay,
+                paymentDate = calcPayDate
+            )
+        }
+        !cycleDays.isNullOrEmpty() -> cycleDays.map {
+            CycleEntry(
+                cut = it,
+                payDelay = fixedPayDelay ?: 7,
+                payDelayDays = fixedPayDelay ?: 7
+            )
+        }
         else -> emptyList()
     }
     return PlatformRules(
@@ -72,7 +106,17 @@ fun PlatformRulesDto?.toDomain(): PlatformRules {
 fun PlatformRules.toDto(): PlatformRulesDto {
     return PlatformRulesDto(
         fixedPayDelay = fixedPayDelay,
-        cycleEntries = cycleEntries.map { CycleEntryDto(cut = it.cut, payDelay = it.payDelay) }
+        cycleEntries = cycleEntries.map {
+            CycleEntryDto(
+                cut = it.cut,
+                payDelay = it.payDelayDays,
+                startDate = it.startDate?.toString(),
+                endDate = it.endDate?.toString(),
+                includeEndDate = it.includeEndDate,
+                payDelayDays = it.payDelayDays,
+                paymentDate = (it.paymentDate ?: it.endDate?.plusDays(it.payDelayDays.toLong()))?.toString()
+            )
+        }
     )
 }
 

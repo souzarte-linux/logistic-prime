@@ -15,6 +15,41 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
+
+fun defaultVariableCycleEntries(delay: Int = 7): List<CycleEntry> {
+    val now = LocalDate.now()
+    val start1 = now.withDayOfMonth(1)
+    val end1 = now.withDayOfMonth(15)
+    val safeDelay = delay.coerceAtLeast(0)
+    val pay1 = end1.plusDays(safeDelay.toLong())
+
+    val start2 = now.withDayOfMonth(16)
+    val end2 = now.with(TemporalAdjusters.lastDayOfMonth())
+    val pay2 = end2.plusDays(safeDelay.toLong())
+
+    return listOf(
+        CycleEntry(
+            cut = 1,
+            payDelay = safeDelay,
+            startDate = start1,
+            endDate = end1,
+            includeEndDate = true,
+            payDelayDays = safeDelay,
+            paymentDate = pay1
+        ),
+        CycleEntry(
+            cut = 16,
+            payDelay = safeDelay,
+            startDate = start2,
+            endDate = end2,
+            includeEndDate = true,
+            payDelayDays = safeDelay,
+            paymentDate = pay2
+        )
+    )
+}
 
 enum class PlatformStatusFilter(val label: String) {
     ALL("Todas"),
@@ -70,7 +105,7 @@ data class PlatformsUiState(
     val cycle: String = "semanal",
     val paymentDay: String = "QUA",
     val fixedPayDelay: Int = 7,
-    val cycleEntries: List<CycleEntry> = listOf(CycleEntry(1, 7), CycleEntry(16, 7)),
+    val cycleEntries: List<CycleEntry> = defaultVariableCycleEntries(),
     val bankName: String = "",
     val bankAgency: String = "",
     val bankAccount: String = "",
@@ -216,7 +251,7 @@ class PlatformsViewModel(
                 cycle = prefillCycle ?: "semanal",
                 paymentDay = "QUA",
                 fixedPayDelay = 7,
-                cycleEntries = listOf(CycleEntry(1, 7), CycleEntry(16, 7)),
+                cycleEntries = defaultVariableCycleEntries(7),
                 bankName = "",
                 bankAgency = "",
                 bankAccount = "",
@@ -231,9 +266,22 @@ class PlatformsViewModel(
     fun startEditing(platform: Platform) {
         val rules = platform.rules
         val entries = if (rules.cycleEntries.isNotEmpty()) {
-            rules.cycleEntries
+            rules.cycleEntries.map { entry ->
+                val now = LocalDate.now()
+                val sDate = entry.startDate ?: now.withDayOfMonth(entry.cut.coerceIn(1, now.lengthOfMonth()))
+                val eDate = entry.endDate ?: sDate.plusDays(14)
+                val delay = entry.payDelayDays
+                val pDate = entry.paymentDate ?: eDate.plusDays(delay.toLong())
+                entry.copy(
+                    startDate = sDate,
+                    endDate = eDate,
+                    includeEndDate = entry.includeEndDate,
+                    payDelayDays = delay,
+                    paymentDate = pDate
+                )
+            }
         } else {
-            listOf(CycleEntry(1, rules.fixedPayDelay), CycleEntry(16, rules.fixedPayDelay))
+            defaultVariableCycleEntries(rules.fixedPayDelay)
         }
 
         _uiState.update {
@@ -310,8 +358,22 @@ class PlatformsViewModel(
     // Manipulação dos ciclos dinâmicos (ciclo misto / variável)
     fun addCycleEntry() {
         _uiState.update { state ->
-            val updated = (state.cycleEntries + CycleEntry(cut = 1, payDelay = 7)).sortedBy { it.cut }
-            state.copy(cycleEntries = updated)
+            val last = state.cycleEntries.lastOrNull()
+            val newStart = last?.endDate?.plusDays(1) ?: LocalDate.now()
+            val newEnd = newStart.plusDays(14)
+            val delay = last?.payDelayDays ?: 7
+            val pay = newEnd.plusDays(delay.toLong())
+
+            val entry = CycleEntry(
+                cut = newStart.dayOfMonth,
+                payDelay = delay,
+                startDate = newStart,
+                endDate = newEnd,
+                includeEndDate = true,
+                payDelayDays = delay,
+                paymentDate = pay
+            )
+            state.copy(cycleEntries = state.cycleEntries + entry)
         }
     }
 
@@ -327,12 +389,49 @@ class PlatformsViewModel(
         _uiState.update { state ->
             val updated = state.cycleEntries.mapIndexed { i, entry ->
                 if (i == index) {
-                    CycleEntry(
-                        cut = cut?.coerceIn(1, 28) ?: entry.cut,
-                        payDelay = payDelay?.coerceAtLeast(1) ?: entry.payDelay
+                    val safeCut = cut?.coerceIn(1, 28) ?: entry.cut
+                    val safeDelay = payDelay?.coerceAtLeast(0) ?: entry.payDelay
+                    val sDate = entry.startDate ?: LocalDate.now().withDayOfMonth(safeCut)
+                    val eDate = entry.endDate ?: sDate.plusDays(14)
+                    entry.copy(
+                        cut = safeCut,
+                        payDelay = safeDelay,
+                        payDelayDays = safeDelay,
+                        paymentDate = eDate.plusDays(safeDelay.toLong())
                     )
                 } else entry
-            }.sortedBy { it.cut }
+            }
+            state.copy(cycleEntries = updated)
+        }
+    }
+
+    fun updateCycleEntryVariable(
+        index: Int,
+        startDate: LocalDate? = null,
+        endDate: LocalDate? = null,
+        includeEndDate: Boolean? = null,
+        payDelayDays: Int? = null
+    ) {
+        _uiState.update { state ->
+            val updated = state.cycleEntries.mapIndexed { i, entry ->
+                if (i == index) {
+                    val sDate = startDate ?: entry.startDate ?: LocalDate.now()
+                    val eDate = endDate ?: entry.endDate ?: sDate.plusDays(14)
+                    val inc = includeEndDate ?: entry.includeEndDate
+                    val delay = (payDelayDays ?: entry.payDelayDays).coerceAtLeast(0)
+                    val payDate = eDate.plusDays(delay.toLong())
+
+                    entry.copy(
+                        cut = sDate.dayOfMonth,
+                        payDelay = delay,
+                        startDate = sDate,
+                        endDate = eDate,
+                        includeEndDate = inc,
+                        payDelayDays = delay,
+                        paymentDate = payDate
+                    )
+                } else entry
+            }
             state.copy(cycleEntries = updated)
         }
     }
