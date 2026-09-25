@@ -188,7 +188,7 @@ fun LancarManutencaoScreen(
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                             .fillMaxWidth()
                     )
                     ExposedDropdownMenu(
@@ -437,7 +437,7 @@ fun LancarManutencaoScreen(
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                             .fillMaxWidth()
                     )
                     ExposedDropdownMenu(
@@ -833,7 +833,7 @@ fun LancarManutencaoScreen(
                                 ),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier
-                                    .menuAnchor()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                                     .fillMaxWidth()
                             )
                             ExposedDropdownMenu(

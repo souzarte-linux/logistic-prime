@@ -500,7 +500,7 @@ fun AddCreditCardDialog(
                                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
-                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                             )
                             ExposedDropdownMenu(
                                 expanded = brandMenuExpanded,
@@ -554,7 +554,7 @@ fun AddCreditCardDialog(
                                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
-                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                             )
                             ExposedDropdownMenu(
                                 expanded = issuerMenuExpanded,
@@ -602,7 +602,7 @@ fun AddCreditCardDialog(
                                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                         )
                         ExposedDropdownMenu(
                             expanded = typeMenuExpanded,

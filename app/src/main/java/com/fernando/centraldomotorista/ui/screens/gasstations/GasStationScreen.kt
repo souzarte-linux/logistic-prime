@@ -253,7 +253,7 @@ fun GasStationScreen(
                                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                     ),
                                     modifier = Modifier
-                                        .menuAnchor()
+                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                                         .fillMaxWidth()
                                 )
                                 ExposedDropdownMenu(

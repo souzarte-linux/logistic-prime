@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -521,7 +521,7 @@ fun PartnerRoutesScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            Icon(Icons.Default.Send, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(12.dp))
+                                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(12.dp))
                                             Text("Abrir Conversa", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = GreenNeon)
                                         }
                                     }
@@ -778,7 +778,7 @@ fun PartnerRoutesScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(32.dp))
+                                Icon(Icons.AutoMirrored.Filled.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(32.dp))
                                 Text(
                                     text = if (uiState.sessions.isEmpty()) "Nenhuma sessão registrada" else "Nenhuma sessão encontrada no período selecionado",
                                     fontWeight = FontWeight.Bold,
@@ -1065,7 +1065,7 @@ fun PartnerRoutesScreen(
                                 hint = "${metrics.totalSessions} sessões executadas até o momento",
                                 rightContent = {
                                     Icon(
-                                        imageVector = Icons.Default.AltRoute,
+                                        imageVector = Icons.AutoMirrored.Filled.AltRoute,
                                         contentDescription = null,
                                         tint = OrangeNeon,
                                         modifier = Modifier.size(22.dp)
@@ -1744,7 +1744,7 @@ private fun PartnerSessionCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(15.dp))
+                    Icon(Icons.AutoMirrored.Filled.AltRoute, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(15.dp))
                     Text(
                         text = if (!platformName.isNullOrBlank()) "$routeName • $platformName" else routeName,
                         fontSize = 13.sp,
@@ -1862,7 +1862,7 @@ private fun SessionDetailDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = OrangeNeon)
+                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = OrangeNeon)
                     Text(
                         text = "Detalhes da Sessão",
                         fontWeight = FontWeight.Bold,

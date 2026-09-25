@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -783,7 +784,7 @@ fun SaldoDeHojeCard(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Default.TrendingUp,
+                                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                     contentDescription = null,
                                     tint = GreenNeon,
                                     modifier = Modifier.size(14.dp)
@@ -824,7 +825,7 @@ fun SaldoDeHojeCard(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Default.TrendingDown,
+                                    imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                     contentDescription = null,
                                     tint = RedAlert,
                                     modifier = Modifier.size(14.dp)

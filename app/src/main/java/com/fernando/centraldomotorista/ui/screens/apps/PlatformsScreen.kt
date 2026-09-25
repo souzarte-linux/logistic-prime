@@ -1,6 +1,7 @@
 package com.fernando.centraldomotorista.ui.screens.apps
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -49,12 +50,16 @@ private fun BigDecimal.formatCurrency(): String {
 @Composable
 fun PlatformsScreen(
     viewModel: PlatformsViewModel = viewModel(),
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
     onNavigateToEditPlatform: (String) -> Unit = {},
     onNavigateToCreatePlatform: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    if (onNavigateBack != null) {
+        BackHandler(onBack = onNavigateBack)
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadPlatforms()
@@ -87,12 +92,14 @@ fun PlatformsScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Voltar",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Voltar",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 },
                 actions = {

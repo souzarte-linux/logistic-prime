@@ -14,7 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -389,7 +389,7 @@ fun FaturasScreen(
                             ) {
                                 Icon(
                                     imageVector = when (uiState.activeTab) {
-                                        FaturasTab.PAGO -> Icons.Default.ReceiptLong
+                                        FaturasTab.PAGO -> Icons.AutoMirrored.Filled.ReceiptLong
                                         FaturasTab.A_VENCER -> Icons.Default.PendingActions
                                         FaturasTab.EM_ABERTO -> Icons.Default.CheckCircle
                                     },

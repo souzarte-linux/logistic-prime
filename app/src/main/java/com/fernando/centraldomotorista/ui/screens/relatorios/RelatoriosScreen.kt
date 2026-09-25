@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -313,7 +314,7 @@ fun RelatoriosScreen(
                     RelatoriosKpiCard(
                         label = "Lucro Líquido",
                         value = s.profit.formatCurrency(),
-                        icon = if (s.profit >= BigDecimal.ZERO) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                        icon = if (s.profit >= BigDecimal.ZERO) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                         tone = if (s.profit >= BigDecimal.ZERO) KpiTone.SUCCESS else KpiTone.DESTRUCTIVE,
                         modifier = Modifier.weight(1f)
                     )
@@ -327,14 +328,14 @@ fun RelatoriosScreen(
                     RelatoriosKpiCard(
                         label = "Lucro / KM",
                         value = s.profitPerKm.formatCurrency(),
-                        icon = Icons.Default.TrendingUp,
+                        icon = Icons.AutoMirrored.Filled.TrendingUp,
                         tone = KpiTone.SUCCESS,
                         modifier = Modifier.weight(1f)
                     )
                     RelatoriosKpiCard(
                         label = "Lucro / Hora",
                         value = s.profitPerHour.formatCurrency(),
-                        icon = Icons.Default.TrendingUp,
+                        icon = Icons.AutoMirrored.Filled.TrendingUp,
                         tone = KpiTone.SUCCESS,
                         modifier = Modifier.weight(1f)
                     )
@@ -367,7 +368,7 @@ fun RelatoriosScreen(
                     RelatoriosKpiCard(
                         label = "KM rodados",
                         value = "${s.totalKm.toInt()} km",
-                        icon = Icons.Default.AltRoute,
+                        icon = Icons.AutoMirrored.Filled.AltRoute,
                         modifier = Modifier.weight(1f)
                     )
                     RelatoriosKpiCard(
@@ -393,7 +394,7 @@ fun RelatoriosScreen(
                     RelatoriosKpiCard(
                         label = "Custo Op. / KM",
                         value = s.costPerKm.formatCurrency(),
-                        icon = Icons.Default.TrendingDown,
+                        icon = Icons.AutoMirrored.Filled.TrendingDown,
                         tone = KpiTone.DESTRUCTIVE,
                         hint = "Custo operacional total (todas as despesas do período) dividido pela quilometragem total percorrida no mesmo período.",
                         modifier = Modifier.weight(1f)

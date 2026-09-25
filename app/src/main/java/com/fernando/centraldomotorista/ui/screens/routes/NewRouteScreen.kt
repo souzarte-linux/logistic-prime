@@ -12,7 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -177,7 +177,7 @@ fun NewRouteScreen(
                                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
                                 ),
                                 modifier = Modifier
-                                    .menuAnchor()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                                     .fillMaxWidth()
                             )
                             ExposedDropdownMenu(
@@ -280,7 +280,7 @@ fun NewRouteScreen(
                                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier
-                                    .menuAnchor()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                                     .fillMaxWidth()
                             )
                             ExposedDropdownMenu(
@@ -620,7 +620,7 @@ fun NewRouteScreen(
                             placeholder = { Text("Ex: Atraso no carregamento, pedágio, etc.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Default.Notes,
+                                    imageVector = Icons.AutoMirrored.Filled.Notes,
                                     contentDescription = null,
                                     tint = OrangeNeon,
                                     modifier = Modifier.size(18.dp)

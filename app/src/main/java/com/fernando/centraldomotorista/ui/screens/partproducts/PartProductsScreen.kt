@@ -514,7 +514,7 @@ fun PartProductsScreen(
                             ),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
-                                .menuAnchor()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                                 .fillMaxWidth()
                         )
                         ExposedDropdownMenu(

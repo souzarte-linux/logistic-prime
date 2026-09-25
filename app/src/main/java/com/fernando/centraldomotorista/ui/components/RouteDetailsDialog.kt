@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -247,7 +248,7 @@ fun RouteDetailsDialog(
 
                 // 6. Observações (se houver)
                 if (!route.notes.isNullOrBlank()) {
-                    DetailSection(title = "OBSERVAÇÕES", icon = Icons.Default.Notes) {
+                    DetailSection(title = "OBSERVAÇÕES", icon = Icons.AutoMirrored.Filled.Notes) {
                         Text(
                             text = route.notes,
                             fontSize = 12.sp,

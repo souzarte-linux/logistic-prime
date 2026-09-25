@@ -163,7 +163,7 @@ fun FuelExpenseScreen(
                                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                                         unfocusedBorderColor = MaterialTheme.colorScheme.outline
                                     ),
-                                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                                 )
                                 ExposedDropdownMenu(
                                     expanded = stationMenuExpanded,
@@ -222,7 +222,7 @@ fun FuelExpenseScreen(
                                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                                 ),
-                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                             )
                             ExposedDropdownMenu(
                                 expanded = fuelMenuExpanded,

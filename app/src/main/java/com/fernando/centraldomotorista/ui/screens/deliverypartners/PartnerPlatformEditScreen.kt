@@ -14,7 +14,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -599,7 +599,7 @@ fun PartnerPlatformEditScreen(
                 CollapsibleSectionCard(
                     title = "Parâmetros Operacionais",
                     subtitle = "Rota de preferência, taxa por pacote e bônus",
-                    icon = Icons.Default.AltRoute,
+                    icon = Icons.AutoMirrored.Filled.AltRoute,
                     initiallyExpanded = true,
                     isExpandedControlled = expandOperationalParams,
                     onExpandedChange = { expandOperationalParams = it }
@@ -628,7 +628,7 @@ fun PartnerPlatformEditScreen(
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     Icon(
-                                        Icons.Default.AltRoute,
+                                        Icons.AutoMirrored.Filled.AltRoute,
                                         contentDescription = null,
                                         tint = OrangeNeon,
                                         modifier = Modifier.size(20.dp)

@@ -15,3 +15,16 @@ app/build/
 *.aab
 .vscode/
 
+# Signing & Keystores (Security)
+*.jks
+*.keystore
+*.p12
+*.pepk
+
+# Environment & Secrets (Security)
+.env
+.env.*
+secrets.properties
+credentials.json
+google-services.json
+

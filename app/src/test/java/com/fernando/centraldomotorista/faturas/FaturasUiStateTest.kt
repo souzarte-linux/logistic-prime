@@ -4,6 +4,7 @@ import com.fernando.centraldomotorista.data.model.BillingCycle
 import com.fernando.centraldomotorista.data.repository.BillingCycleWithTotals
 import com.fernando.centraldomotorista.ui.screens.faturas.FaturasUiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -153,5 +154,77 @@ class FaturasUiStateTest {
         assertEquals(2, week1Items.size)
         assertEquals("Mercado Livre", week1Items[0].platformName)
         assertEquals("Shopee", week1Items[1].platformName)
+    }
+
+    @Test
+    fun `test BigDecimal precision and floating point drift protection`() {
+        // Valores que causariam imprecisão com Double (ex: 0.1 + 0.2 = 0.30000000000000004)
+        val c1 = createDummyCycle("1", "plat_1", "em_aberto", BigDecimal("0.10"))
+        val c2 = createDummyCycle("2", "plat_1", "em_aberto", BigDecimal("0.20"))
+        val c3 = createDummyCycle("3", "plat_1", "em_aberto", BigDecimal("1000000.99"))
+
+        val state = FaturasUiState(cycles = listOf(c1, c2, c3))
+
+        // Total exato sem deriva de ponto flutuante
+        val expected = BigDecimal("0.10").add(BigDecimal("0.20")).add(BigDecimal("1000000.99"))
+        assertEquals(expected, state.totalEmAberto)
+        assertEquals(BigDecimal("1000001.29"), state.totalEmAberto)
+    }
+
+    @Test
+    fun `test empty cycle list and canceled status handling`() {
+        // Lista vazia
+        val emptyState = FaturasUiState(cycles = emptyList())
+        assertEquals(BigDecimal.ZERO, emptyState.totalEmAberto)
+        assertEquals(BigDecimal.ZERO, emptyState.totalAVencer)
+        assertEquals(BigDecimal.ZERO, emptyState.totalPago)
+        assertTrue(emptyState.emAbertoCycles.isEmpty())
+        assertTrue(emptyState.aVencerCycles.isEmpty())
+        assertTrue(emptyState.pagoCycles.isEmpty())
+        assertTrue(emptyState.pagoMonthGroups.isEmpty())
+
+        // Ciclos com status cancelado ou desconhecido não devem entrar nos totais ativos
+        val nonActiveCycles = listOf(
+            createDummyCycle("1", "plat_1", "cancelado", BigDecimal("500.00")),
+            createDummyCycle("2", "plat_1", "desconhecido", BigDecimal("250.00"))
+        )
+        val nonActiveState = FaturasUiState(cycles = nonActiveCycles)
+        assertEquals(BigDecimal.ZERO, nonActiveState.totalEmAberto)
+        assertEquals(BigDecimal.ZERO, nonActiveState.totalAVencer)
+        assertEquals(BigDecimal.ZERO, nonActiveState.totalPago)
+    }
+
+    @Test
+    fun `test cross year and multi month grouping for paid cycles`() {
+        val cDec2025 = BillingCycleWithTotals(
+            cycle = BillingCycle(
+                id = "c_dec", userId = "u1", platformId = "p1",
+                periodStart = LocalDate.of(2025, 12, 1), periodEnd = LocalDate.of(2025, 12, 15),
+                expectedPaymentDate = LocalDate.of(2025, 12, 20), paymentReceivedDate = LocalDate.of(2025, 12, 20),
+                status = "pago"
+            ),
+            platformName = "iFood",
+            totalAmount = BigDecimal("1200.00")
+        )
+        val cJan2026 = BillingCycleWithTotals(
+            cycle = BillingCycle(
+                id = "c_jan", userId = "u1", platformId = "p1",
+                periodStart = LocalDate.of(2026, 1, 1), periodEnd = LocalDate.of(2026, 1, 15),
+                expectedPaymentDate = LocalDate.of(2026, 1, 20), paymentReceivedDate = LocalDate.of(2026, 1, 20),
+                status = "pago"
+            ),
+            platformName = "iFood",
+            totalAmount = BigDecimal("1500.00")
+        )
+
+        val state = FaturasUiState(cycles = listOf(cDec2025, cJan2026))
+        val monthGroups = state.pagoMonthGroups
+
+        assertEquals(2, monthGroups.size)
+        // Mais recente primeiro: Janeiro de 2026 antes de Dezembro de 2025
+        assertEquals("Janeiro de 2026", monthGroups[0].monthLabel)
+        assertEquals(BigDecimal("1500.00"), monthGroups[0].totalAmount)
+        assertEquals("Dezembro de 2025", monthGroups[1].monthLabel)
+        assertEquals(BigDecimal("1200.00"), monthGroups[1].totalAmount)
     }
 }

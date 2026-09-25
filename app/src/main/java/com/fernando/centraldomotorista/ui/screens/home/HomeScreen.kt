@@ -31,8 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.*
@@ -321,20 +320,20 @@ fun HomeScreen(
 
                             // 📱 App & Plataforma
                             DrawerCadastroItem(
-                                icon = Icons.Default.Smartphone,
+                                icon = Icons.Default.Apps,
                                 title = "App & Plataforma",
                                 subtitle = "Plataformas de entrega e repasse",
                                 onClick = {
                                     coroutineScope.launch {
                                         drawerState.close()
-                                        onNavigateToRoute("plataformas")
+                                        onNavigateToRoute("plataformas?fromDrawer=true")
                                     }
                                 }
                             )
 
                             // 🛣️ Rotas
                             DrawerCadastroItem(
-                                icon = Icons.Default.AltRoute,
+                                icon = Icons.AutoMirrored.Filled.AltRoute,
                                 title = "Rotas",
                                 subtitle = "Rotas de entrega cadastradas",
                                 onClick = {
@@ -452,7 +451,7 @@ fun HomeScreen(
 
                             // 💰 Contas a Receber / Faturas
                             DrawerCadastroItem(
-                                icon = Icons.Default.ReceiptLong,
+                                icon = Icons.AutoMirrored.Filled.ReceiptLong,
                                 title = "Contas a Receber",
                                 subtitle = "Faturas e ciclos de pagamento",
                                 onClick = {
@@ -799,7 +798,7 @@ fun HomeScreen(
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Default.TrendingUp,
+                                                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                                         contentDescription = "Entradas",
                                                         tint = GreenNeon,
                                                         modifier = Modifier.size(16.dp)
@@ -838,7 +837,7 @@ fun HomeScreen(
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Default.TrendingDown,
+                                                        imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                                         contentDescription = "Saídas",
                                                         tint = RedAlert,
                                                         modifier = Modifier.size(16.dp)
@@ -1092,7 +1091,7 @@ fun HomeScreen(
                                                 )
                                             }
                                             Icon(
-                                                imageVector = Icons.Default.KeyboardArrowRight,
+                                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                                 contentDescription = "Editar",
                                                 tint = alertColor,
                                                 modifier = Modifier.size(22.dp)
@@ -2027,7 +2026,7 @@ fun DrawerCadastroItem(
             }
 
             Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp)

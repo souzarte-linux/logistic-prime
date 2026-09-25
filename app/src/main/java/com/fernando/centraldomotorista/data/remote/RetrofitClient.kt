@@ -1,5 +1,6 @@
 package com.fernando.centraldomotorista.data.remote
 
+import com.fernando.centraldomotorista.BuildConfig
 import com.fernando.centraldomotorista.data.remote.api.*
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -10,7 +11,11 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
     private val loggingInterceptor by lazy {
         HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
     }
 

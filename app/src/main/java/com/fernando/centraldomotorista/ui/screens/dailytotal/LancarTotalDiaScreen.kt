@@ -233,7 +233,7 @@ fun LancarTotalDiaScreen(
                         colors = OutlinedTextFieldDefaults.colors(),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                     )
                     ExposedDropdownMenu(
                         expanded = isPlatformMenuOpen,

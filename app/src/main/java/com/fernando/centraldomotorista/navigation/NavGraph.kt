@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,6 +30,8 @@ import com.fernando.centraldomotorista.ui.screens.home.HomeScreen
 import com.fernando.centraldomotorista.ui.screens.home.HomeViewModel
 import com.fernando.centraldomotorista.ui.screens.login.LoginScreen
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
+import com.fernando.centraldomotorista.ui.theme.BottomNavDark
+import com.fernando.centraldomotorista.ui.theme.BottomNavLight
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
@@ -54,26 +56,30 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     // Menu Lateral - Cadastro & Operacional
     object Empresas : Screen("empresas", "Empresas", Icons.Default.Business)
     object GasStations : Screen("postos", "Postos de Gasolina", Icons.Default.LocalGasStation)
-    object Emissores : Screen("emissores", "Emissores", Icons.Default.ReceiptLong)
-    object Plataformas : Screen("plataformas", "App & Plataforma", Icons.Default.Smartphone)
+    object Emissores : Screen("emissores", "Emissores", Icons.AutoMirrored.Filled.ReceiptLong)
+    object Plataformas : Screen("plataformas", "Apps", Icons.Default.Apps)
+    companion object {
+        val Apps = Plataformas
+    }
     object EditPlatform : Screen("edit_platform/{platformId}", "Editar Plataforma", Icons.Default.Edit)
     object CreatePlatform : Screen("create_platform", "Nova Plataforma", Icons.Default.Add)
     object Bandeiras : Screen("bandeiras", "Bandeiras", Icons.Default.CreditCard)
     object MonitoramentoPecas : Screen("monitoramento-pecas", "Monitoramento Peças", Icons.Default.Build)
-    object DeliveryRoutes : Screen("delivery_routes", "Rotas", Icons.Default.AltRoute)
+    object DeliveryRoutes : Screen("delivery_routes", "Rotas", Icons.AutoMirrored.Filled.AltRoute)
     object DeliveryPartners : Screen("delivery_partners", "Entregadores Parceiros", Icons.Default.TwoWheeler)
     object CreateDeliveryPartner : Screen("create_delivery_partner", "Novo Entregador", Icons.Default.PersonAdd)
     
     // Suporte a telas auxiliares existentes
     object CreditCards : Screen("credit_cards", "Gerenciamento de Cartões", Icons.Default.CreditCard)
     object PartProducts : Screen("part_products", "Produtos & Marcas", Icons.Default.Category)
-    object Faturas : Screen("faturas", "Contas a Receber", Icons.Default.ReceiptLong)
+    object Faturas : Screen("faturas", "Contas a Receber", Icons.AutoMirrored.Filled.ReceiptLong)
 }
 
 val bottomNavItems = listOf(
     Screen.Inicio,
     Screen.Painel,
     Screen.Relatorios,
+    Screen.Plataformas,
     Screen.Historico,
 )
 
@@ -128,17 +134,21 @@ fun CentralDoMotoristaApp(
         }
     }
 
-    val showBottomBar = bottomNavItems.any { it.route == currentRoute }
+    val isCurrentDestination: (String) -> Boolean = { route ->
+        currentRoute == route || currentRoute?.startsWith("$route?") == true
+    }
+    val showBottomBar = bottomNavItems.any { isCurrentDestination(it.route) }
 
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
+                val bottomNavContainerColor = if (isDarkMode) BottomNavDark else BottomNavLight
                 NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = bottomNavContainerColor,
                     contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     bottomNavItems.forEach { screen ->
-                        val selected = currentRoute == screen.route
+                        val selected = isCurrentDestination(screen.route)
                         NavigationBarItem(
                             icon = {
                                 Icon(
@@ -155,7 +165,7 @@ fun CentralDoMotoristaApp(
                             },
                             selected = selected,
                             onClick = {
-                                if (currentRoute != screen.route) {
+                                if (!isCurrentDestination(screen.route)) {
                                     navController.navigate(screen.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
                                             saveState = true
@@ -321,11 +331,45 @@ fun CentralDoMotoristaApp(
             }
 
             // Cadastro - Apps & Plataformas
+            composable(
+                route = "${Screen.Plataformas.route}?fromDrawer={fromDrawer}",
+                arguments = listOf(
+                    navArgument("fromDrawer") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { backStackEntry ->
+                val fromDrawer = backStackEntry.arguments?.getBoolean("fromDrawer") ?: false
+                val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
+                    viewModel = platformsViewModel,
+                    onNavigateBack = if (fromDrawer) {
+                        {
+                            if (!navController.popBackStack()) {
+                                navController.navigate(Screen.Inicio.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        }
+                    } else null,
+                    onNavigateToEditPlatform = { platformId ->
+                        navController.navigate("edit_platform/$platformId")
+                    },
+                    onNavigateToCreatePlatform = {
+                        navController.navigate("create_platform")
+                    }
+                )
+            }
             composable(Screen.Plataformas.route) {
                 val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
                     viewModel = platformsViewModel,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = null,
                     onNavigateToEditPlatform = { platformId ->
                         navController.navigate("edit_platform/$platformId")
                     },
@@ -338,7 +382,7 @@ fun CentralDoMotoristaApp(
                 val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
                     viewModel = platformsViewModel,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = null,
                     onNavigateToEditPlatform = { platformId ->
                         navController.navigate("edit_platform/$platformId")
                     },

@@ -16,15 +16,51 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Injeção de variáveis de ambiente com fallback para desenvolvimento local
+        val supabaseUrl = project.findProperty("SUPABASE_URL")?.toString()
+            ?: System.getenv("SUPABASE_URL")
+            ?: "https://koocvhlprwtdympjwbco.supabase.co"
+        val supabaseAnonKey = project.findProperty("SUPABASE_ANON_KEY")?.toString()
+            ?: System.getenv("SUPABASE_ANON_KEY")
+            ?: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtvb2N2aGxwcnd0ZHltcGp3YmNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3MDA1OTYsImV4cCI6MjEwMzI3NjU5Nn0.celeh6fUU4jgEC7C1FDm4z2nqnsgagblg9VwcStaQE0"
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            val storeFilePath = project.findProperty("RELEASE_STORE_FILE")?.toString()
+                ?: System.getenv("RELEASE_STORE_FILE")
+            if (!storeFilePath.isNullOrBlank() && file(storeFilePath).exists()) {
+                storeFile = file(storeFilePath)
+                storePassword = project.findProperty("RELEASE_STORE_PASSWORD")?.toString()
+                    ?: System.getenv("RELEASE_STORE_PASSWORD")
+                keyAlias = project.findProperty("RELEASE_KEY_ALIAS")?.toString()
+                    ?: System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = project.findProperty("RELEASE_KEY_PASSWORD")?.toString()
+                    ?: System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
+                signingConfig = releaseSigning
+            }
+        }
+        debug {
+            isMinifyEnabled = false
+            isDebuggable = true
         }
     }
     compileOptions {
@@ -33,6 +69,17 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+    packaging {
+        resources {
+            excludes += setOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/INDEX.LIST",
+                "/META-INF/io.netty.versions.properties",
+                "/META-INF/DEPENDENCIES"
+            )
+        }
     }
 }
 

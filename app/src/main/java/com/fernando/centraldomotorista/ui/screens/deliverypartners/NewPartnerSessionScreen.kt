@@ -16,7 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -303,7 +303,7 @@ fun NewPartnerSessionScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon)
+                                        Icon(Icons.AutoMirrored.Filled.AltRoute, contentDescription = null, tint = OrangeNeon)
                                         Text(
                                             text = selectedRouteName,
                                             fontWeight = FontWeight.SemiBold,
@@ -324,7 +324,7 @@ fun NewPartnerSessionScreen(
                                 uiState.routes.forEach { route ->
                                     DropdownMenuItem(
                                         text = { Text(route.name, fontWeight = FontWeight.Medium) },
-                                        leadingIcon = { Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon) },
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.AltRoute, contentDescription = null, tint = OrangeNeon) },
                                         onClick = {
                                             viewModel.onRouteSelected(route.id)
                                             routeDropdownExpanded = false

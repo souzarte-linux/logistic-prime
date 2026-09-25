@@ -11,7 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -218,7 +218,7 @@ fun DeliveryRoutesScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.AltRoute,
+                                    imageVector = Icons.AutoMirrored.Filled.AltRoute,
                                     contentDescription = null,
                                     tint = OrangeNeon,
                                     modifier = Modifier.size(30.dp)
@@ -439,7 +439,7 @@ private fun DeliveryRouteCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.AltRoute,
+                    imageVector = Icons.AutoMirrored.Filled.AltRoute,
                     contentDescription = null,
                     tint = OrangeNeon,
                     modifier = Modifier.size(22.dp)
@@ -466,7 +466,7 @@ private fun DeliveryRouteCard(
             }
 
             Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Editar",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)

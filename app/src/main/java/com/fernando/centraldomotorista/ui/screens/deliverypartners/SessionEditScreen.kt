@@ -14,8 +14,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -551,7 +550,7 @@ fun SessionEditScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Icon(Icons.Default.AltRoute, contentDescription = null, tint = OrangeNeon)
+                                        Icon(Icons.AutoMirrored.Filled.AltRoute, contentDescription = null, tint = OrangeNeon)
                                         Text(
                                             text = selectedRouteName,
                                             fontWeight = FontWeight.SemiBold,
