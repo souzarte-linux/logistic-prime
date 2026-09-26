@@ -2,6 +2,7 @@ package com.fernando.centraldomotorista.ui.screens.faturas
 
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -789,79 +790,154 @@ fun FaturaCardItem(
                 }
             }
 
-            // Linha 4: Botões de Ação Estruturados (Sem espremer)
+            // Linha 4: Botões de Ação Estruturados e Padronizados (Design System)
             if (isAVencer) {
                 // Aba "A Vencer": Botão primário full-width [ Liquidar / Baixar Repasse ] em GreenNeon
                 Button(
                     onClick = onPay,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(46.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = GreenNeon,
                         contentColor = Color.Black
                     )
                 ) {
-                    Icon(Icons.Default.PriceCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(
+                        imageVector = Icons.Default.PriceCheck,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.Black
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Liquidar / Baixar Repasse", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        text = "Liquidar / Baixar Repasse",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color.Black
+                    )
                 }
 
-                // Linha secundária de ações bem espaçada
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Linha secundária de ações com altura fixa de 38.dp e padding compacto
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // 1. Detalhes
                     OutlinedButton(
                         onClick = onViewDetails,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Detalhes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Detalhes",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
+                    // 2. Editar
                     OutlinedButton(
                         onClick = onEditItems,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = OrangeNeon)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Editar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = OrangeNeon
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Editar",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
+                    // 3. Ajustes
                     OutlinedButton(
                         onClick = onAdjustments,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = BlueInfo)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Ajustes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = BlueInfo
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Ajustes",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
-                    IconButton(
-                        onClick = { showDeleteConfirm = true },
-                        modifier = Modifier.size(38.dp)
+                    // 4. Excluir (OutlinedIconButton Harmonizado)
+                    Surface(
+                        modifier = Modifier.size(38.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = RedAlert.copy(alpha = 0.08f),
+                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.35f))
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = RedAlert.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                        IconButton(
+                            onClick = { showDeleteConfirm = true },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Excluir fatura",
+                                tint = RedAlert,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             } else if (isEmAberto) {
-                // Aba "Em Aberto": Botão primário full-width + Linha secundária
+                // Aba "Em Aberto": Botão primário full-width [ Liquidar / Baixar Ciclo ] em OrangeNeon
                 Button(
                     onClick = onPay,
                     modifier = Modifier
@@ -873,113 +949,252 @@ fun FaturaCardItem(
                         contentColor = Color.Black
                     )
                 ) {
-                    Icon(Icons.Default.PriceCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(
+                        imageVector = Icons.Default.PriceCheck,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.Black
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Liquidar / Baixar Ciclo", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        text = "Liquidar / Baixar Ciclo",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color.Black
+                    )
                 }
 
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Linha secundária de ações com altura fixa de 38.dp e padding compacto
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // 1. Detalhes
                     OutlinedButton(
                         onClick = onViewDetails,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Detalhes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Detalhes",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
+                    // 2. Editar
                     OutlinedButton(
                         onClick = onEditItems,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = OrangeNeon)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Editar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = OrangeNeon
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Editar",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
+                    // 3. Ajustes
                     OutlinedButton(
                         onClick = onAdjustments,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = BlueInfo)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Ajustes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = BlueInfo
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Ajustes",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
-                    IconButton(
-                        onClick = { showDeleteConfirm = true },
-                        modifier = Modifier.size(38.dp)
+                    // 4. Excluir (OutlinedIconButton Harmonizado)
+                    Surface(
+                        modifier = Modifier.size(38.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = RedAlert.copy(alpha = 0.08f),
+                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.35f))
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = RedAlert.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                        IconButton(
+                            onClick = { showDeleteConfirm = true },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Excluir fatura",
+                                tint = RedAlert,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             } else {
-                // Aba "Pago" (ou outros status): Linha secundária de ações
+                // Aba "Pago" (ou outros status): Linha secundária de ações com altura fixa de 38.dp e padding compacto
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // 1. Detalhes
                     OutlinedButton(
                         onClick = onViewDetails,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Detalhes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Detalhes",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
+                    // 2. Editar
                     OutlinedButton(
                         onClick = onEditItems,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = OrangeNeon)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Editar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = OrangeNeon
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Editar",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
+                    // 3. Ajustes
                     OutlinedButton(
                         onClick = onAdjustments,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
                         shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
                     ) {
-                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = BlueInfo)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Ajustes", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = BlueInfo
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Ajustes",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
-                    IconButton(
-                        onClick = { showDeleteConfirm = true },
-                        modifier = Modifier.size(38.dp)
+                    // 4. Excluir (OutlinedIconButton Harmonizado)
+                    Surface(
+                        modifier = Modifier.size(38.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = RedAlert.copy(alpha = 0.08f),
+                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.35f))
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = RedAlert.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                        IconButton(
+                            onClick = { showDeleteConfirm = true },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Excluir fatura",
+                                tint = RedAlert,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
