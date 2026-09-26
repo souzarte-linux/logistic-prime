@@ -239,6 +239,9 @@ fun CentralDoMotoristaApp(
                     onNavigateToFaturas = {
                         navController.navigate(Screen.Faturas.route)
                     },
+                    onNavigateToHistorico = {
+                        navController.navigate(Screen.Historico.route)
+                    },
                     onNavigateToRoute = { route ->
                         navController.navigate(route)
                     },

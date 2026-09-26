@@ -95,4 +95,27 @@ open class DeliveryPartnerSessionRepository(
             false
         }
     }
+
+    open suspend fun getSessionsByBillingCycle(userId: String, cycleId: String): List<DeliveryPartnerSession> = withContext(Dispatchers.IO) {
+        try {
+            val userFilter = "eq.$userId"
+            val cycleFilter = "eq.$cycleId"
+            sessionApi.getSessions(userFilter, cycleFilter).map { it.toDomain() }
+        } catch (e: Exception) {
+            Log.e("PartnerSessionRepo", "Erro ao buscar sessões por ciclo $cycleId: ${e.message}", e)
+            getSessions(userId).filter { it.billingCycleId == cycleId }
+        }
+    }
+
+    open suspend fun updateSessionBillingCycle(sessionId: String, billingCycleId: String?): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val session = getSessionById(sessionId) ?: return@withContext false
+            val updated = session.copy(billingCycleId = billingCycleId)
+            saveSession(updated)
+            true
+        } catch (e: Exception) {
+            Log.e("PartnerSessionRepo", "Erro ao atualizar ciclo da sessão $sessionId: ${e.message}", e)
+            false
+        }
+    }
 }

@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -90,6 +91,7 @@ fun HomeScreen(
     onNavigateToMaintenanceExpense: () -> Unit,
     onNavigateToEditMaintenance: (PartMaintenance) -> Unit = {},
     onNavigateToRoute: (String) -> Unit,
+    onNavigateToHistorico: () -> Unit = { onNavigateToRoute(Screen.Historico.route) },
     onNavigateToDeliveryPartners: () -> Unit = { onNavigateToRoute(Screen.DeliveryPartners.route) },
     onNavigateToFaturas: () -> Unit = { onNavigateToRoute("faturas") },
     onSignOut: () -> Unit
@@ -1111,12 +1113,13 @@ fun HomeScreen(
                                             .height(IntrinsicSize.Min),
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        // 1. Lançar Ganhos por Rota
+                                        // 1. Lançar Ganhos por Rota (Hero Primary Action)
                                         HomeActionCard(
                                             title = "LANÇAR GANHOS POR ROTA",
-                                            subtitle = "Registre corrida por km, tempo e valor",
+                                            subtitle = "DISTÂNCIA • VALOR • TIPO",
                                             icon = Icons.Default.Navigation,
-                                            iconTint = OrangeNeon,
+                                            iconTint = Color.White,
+                                            isHero = true,
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .fillMaxHeight(),
@@ -1224,18 +1227,33 @@ fun HomeScreen(
                                 ) {
                                     Text(
                                         text = "ROTAS RECENTES",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.Black,
                                         letterSpacing = 1.sp
                                     )
-                                    Text(
-                                        text = "Recarregar",
-                                        color = OrangeNeon,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable { viewModel.refresh() }
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .clickable { onNavigateToHistorico() }
+                                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "VER TUDO",
+                                            color = OrangeNeon,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Black,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = "Ver todas as rotas no Histórico",
+                                            tint = OrangeNeon,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
                             }
 
@@ -1764,71 +1782,92 @@ fun HomeActionCard(
     icon: ImageVector,
     iconTint: Color,
     modifier: Modifier = Modifier,
+    isHero: Boolean = false,
     subtitleColor: Color? = null,
     subtitleFontWeight: FontWeight? = null,
     onClick: () -> Unit
 ) {
+    val cardBackground = if (isHero) {
+        Brush.horizontalGradient(listOf(OrangeNeon, OrangeNeonAlt))
+    } else {
+        SolidColor(MaterialTheme.colorScheme.surface)
+    }
+
+    val titleColor = if (isHero) Color.White else MaterialTheme.colorScheme.onSurface
+    val subColor = if (isHero) Color.White.copy(alpha = 0.92f) else (subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
+    val badgeBg = if (isHero) Color.White.copy(alpha = 0.22f) else iconTint.copy(alpha = 0.14f)
+    val iconActualTint = if (isHero) Color.White else iconTint
+    val arrowTint = if (isHero) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+
     Card(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick() },
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+        colors = CardDefaults.cardColors(
+            containerColor = if (isHero) Color.Transparent else MaterialTheme.colorScheme.surface
+        ),
+        border = if (isHero) null else BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHero) 4.dp else 1.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .background(cardBackground)
+                .padding(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(iconTint.copy(alpha = 0.14f), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(badgeBg, RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = iconActualTint,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     Icon(
-                        imageVector = icon,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(20.dp)
+                        tint = arrowTint,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.5.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    lineHeight = 16.sp,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = subtitle,
-                    fontSize = 11.sp,
-                    color = subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = subtitleFontWeight ?: FontWeight.Normal,
-                    maxLines = 2,
-                    lineHeight = 14.sp,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = title,
+                        fontWeight = if (isHero) FontWeight.Black else FontWeight.Bold,
+                        fontSize = 12.5.sp,
+                        color = titleColor,
+                        maxLines = 2,
+                        lineHeight = 16.sp,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = subtitle,
+                        fontSize = 11.sp,
+                        color = subColor,
+                        fontWeight = if (isHero) FontWeight.SemiBold else (subtitleFontWeight ?: FontWeight.Normal),
+                        maxLines = 2,
+                        lineHeight = 14.sp,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
@@ -28,6 +29,7 @@ fun PainelStatCard(
     progress: Float? = null, // 0.0f..1.0f
     highlight: Boolean = false,
     hint: String? = null,
+    isCompact: Boolean = false,
     rightContent: (@Composable () -> Unit)? = null
 ) {
     Card(
@@ -44,7 +46,8 @@ fun PainelStatCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(if (isCompact) 12.dp else 16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Header: Rótulo + Right icon opcional
             Row(
@@ -54,27 +57,31 @@ fun PainelStatCard(
             ) {
                 Text(
                     text = label.uppercase(),
-                    fontSize = 11.5.sp,
+                    fontSize = if (isCompact) 10.5.sp else 11.5.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    letterSpacing = if (isCompact) 0.6.sp else 0.8.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 rightContent?.invoke()
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(if (isCompact) 4.dp else 6.dp))
 
             // Linha principal: Valor + Trend badge
             Row(
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(if (isCompact) 6.dp else 8.dp)
             ) {
                 Text(
                     text = value,
-                    fontSize = 24.sp,
+                    fontSize = if (isCompact) 19.sp else 24.sp,
                     fontWeight = FontWeight.Black,
                     color = if (highlight) MaterialTheme.colorScheme.onSurface else OrangeNeon,
-                    letterSpacing = (-0.5).sp
+                    letterSpacing = (-0.5).sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 if (trend != null) {
@@ -87,10 +94,13 @@ fun PainelStatCard(
                     ) {
                         Text(
                             text = "$arrow $trend",
-                            fontSize = 11.sp,
+                            fontSize = if (isCompact) 9.5.sp else 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = trendColor,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(
+                                horizontal = if (isCompact) 4.dp else 6.dp,
+                                vertical = 2.dp
+                            )
                         )
                     }
                 }
@@ -98,7 +108,7 @@ fun PainelStatCard(
 
             // Barra de Progresso
             if (progress != null) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(if (isCompact) 8.dp else 10.dp))
                 val animatedProgress by animateFloatAsState(
                     targetValue = progress.coerceIn(0f, 1f),
                     label = "stat_card_progress"
@@ -126,12 +136,14 @@ fun PainelStatCard(
 
             // Hint / Descrição complementar
             if (!hint.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(if (isCompact) 4.dp else 8.dp))
                 Text(
                     text = hint,
-                    fontSize = 11.5.sp,
+                    fontSize = if (isCompact) 10.sp else 11.5.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 15.sp
+                    lineHeight = if (isCompact) 13.sp else 15.sp,
+                    maxLines = if (isCompact) 1 else 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

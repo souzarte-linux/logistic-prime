@@ -7,6 +7,7 @@ interface DeliveryPartnerSessionApi {
     @GET("delivery_partner_sessions")
     suspend fun getSessions(
         @Query("user_id") userIdFilter: String,
+        @Query("billing_cycle_id") cycleIdFilter: String? = null,
         @Query("order") order: String = "start_time.desc,created_at.desc"
     ): List<DeliveryPartnerSessionDto>
 

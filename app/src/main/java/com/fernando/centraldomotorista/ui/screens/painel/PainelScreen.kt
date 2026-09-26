@@ -163,31 +163,41 @@ fun PainelScreen(
                         }
                     }
 
-                    // 4. StatCard: Lucro Diário
+                    // 4 & 5. Linha com Lucro Diário e Lucro Semanal lado a lado
                     item {
-                        PainelStatCard(
-                            label = "Lucro Diário",
-                            value = uiState.dailyEarnings.formatBrlCurrency(),
-                            trend = uiState.dailyProgressPct?.let { "${it.toPlainString()}%" },
-                            trendPositive = true,
-                            progress = uiState.dailyProgressPct?.let { (it.toFloat() / 100f).coerceIn(0f, 1f) },
-                            hint = "${uiState.dailyPackages} pacotes hoje"
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            PainelStatCard(
+                                label = "Lucro Diário",
+                                value = uiState.dailyEarnings.formatBrlCurrency(),
+                                trend = uiState.dailyProgressPct?.let { "${it.toPlainString()}%" },
+                                trendPositive = true,
+                                hint = "${uiState.dailyPackages} pacotes hoje",
+                                isCompact = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            )
+
+                            PainelStatCard(
+                                label = "Lucro Semanal",
+                                value = uiState.weeklyEarnings.formatBrlCurrency(),
+                                trend = uiState.weeklyProgressPct?.let { "${it.toPlainString()}%" },
+                                trendPositive = true,
+                                hint = "${uiState.weeklyPackages} esta semana",
+                                isCompact = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            )
+                        }
                     }
 
-                    // 5. StatCard: Lucro Semanal
-                    item {
-                        PainelStatCard(
-                            label = "Lucro Semanal",
-                            value = uiState.weeklyEarnings.formatBrlCurrency(),
-                            trend = uiState.weeklyProgressPct?.let { "${it.toPlainString()}%" },
-                            trendPositive = true,
-                            progress = uiState.weeklyProgressPct?.let { (it.toFloat() / 100f).coerceIn(0f, 1f) },
-                            hint = "${uiState.weeklyPackages} pacotes esta semana"
-                        )
-                    }
-
-                    // 6. StatCard: Meta Mensal (Destaque visual)
+                    // 6. StatCard: Meta Mensal em Largura Total (Banner Hero com borda OrangeNeon)
                     item {
                         val hasMonthlyGoal = uiState.monthlyGoal > BigDecimal.ZERO
                         val monthlyValueText = if (hasMonthlyGoal) {

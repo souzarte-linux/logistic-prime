@@ -264,14 +264,42 @@ class BillingCycleRepository(
         }
     }
 
-    suspend fun deleteBillingCycle(cycleId: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun deleteBillingCycle(cycleId: String, userId: String? = null): Boolean = withContext(Dispatchers.IO) {
         try {
-            unlinkCycleTransactions(cycleId)
+            unlinkCycleTransactions(cycleId, userId)
             api.deleteBillingCycle("eq.$cycleId")
             true
         } catch (e: Exception) {
             Log.e("BillingCycleRepository", "Erro ao excluir fatura: ${e.message}", e)
             false
+        }
+    }
+
+    suspend fun unlinkCycleTransactions(cycleId: String, userId: String? = null): Unit = withContext(Dispatchers.IO) {
+        try {
+            if (!userId.isNullOrBlank()) {
+                val sessions = sessionRepository.getSessions(userId).filter { it.billingCycleId == cycleId }
+                sessions.forEach { s ->
+                    sessionRepository.saveSession(s.copy(billingCycleId = null))
+                }
+
+                val adjustments = adjustmentApi.getFinancialAdjustments("eq.$userId").map { it.toDomain() }.filter { it.billingCycleId == cycleId }
+                adjustments.forEach { adj ->
+                    adjustmentApi.updateFinancialAdjustment("eq.${adj.id}", adj.copy(billingCycleId = null).toDto())
+                }
+
+                val routes = routeRepository.getRoutes(userId).filter { it.billingCycleId == cycleId }
+                routes.forEach { r ->
+                    routeRepository.updateRoute(r.copy(billingCycleId = null))
+                }
+
+                val dailies = dailyTotalRepository.getDailyTotals(userId).filter { it.billingCycleId == cycleId }
+                dailies.forEach { dt ->
+                    dailyTotalRepository.updateDailyTotal(dt.copy(billingCycleId = null))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("BillingCycleRepository", "Erro ao desvincular transações da fatura: ${e.message}", e)
         }
     }
 
@@ -345,14 +373,6 @@ class BillingCycleRepository(
             }
         } catch (e: Exception) {
             Log.e("BillingCycleRepository", "Erro ao vincular transações à fatura: ${e.message}", e)
-        }
-    }
-
-    suspend fun unlinkCycleTransactions(cycleId: String): Unit = withContext(Dispatchers.IO) {
-        try {
-            // Em rotas e diárias vinculadas
-        } catch (e: Exception) {
-            Log.e("BillingCycleRepository", "Erro ao desvincular corridas: ${e.message}", e)
         }
     }
 
