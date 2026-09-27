@@ -22,10 +22,10 @@ import org.junit.Test
 class BottomNavigationTest {
 
     @Test
-    fun testBottomNavItemsHasExactlyFiveTabs() {
+    fun testBottomNavItemsHasExactlyFourTabs() {
         assertEquals(
-            "A barra de navegação inferior deve conter exatamente 5 abas fixas",
-            5,
+            "A barra de navegação inferior deve conter exatamente 4 abas fixas",
+            4,
             bottomNavItems.size
         )
     }
@@ -53,19 +53,12 @@ class BottomNavigationTest {
         assertEquals(Icons.Default.Assessment, tab2.icon)
         assertSame(Screen.Relatorios, tab2)
 
-        // 4ª Aba: Apps (Plataformas)
+        // 4ª Aba: Histórico
         val tab3 = bottomNavItems[3]
-        assertEquals("plataformas", tab3.route)
-        assertEquals("Apps", tab3.title)
-        assertEquals(Icons.Default.Apps, tab3.icon)
-        assertSame(Screen.Plataformas, tab3)
-
-        // 5ª Aba: Histórico
-        val tab4 = bottomNavItems[4]
-        assertEquals("historico", tab4.route)
-        assertEquals("Histórico", tab4.title)
-        assertEquals(Icons.Default.History, tab4.icon)
-        assertSame(Screen.Historico, tab4)
+        assertEquals("historico", tab3.route)
+        assertEquals("Histórico", tab3.title)
+        assertEquals(Icons.Default.History, tab3.icon)
+        assertSame(Screen.Historico, tab3)
     }
 
     @Test
@@ -109,6 +102,7 @@ class BottomNavigationTest {
             Screen.Empresas,
             Screen.GasStations,
             Screen.Emissores,
+            Screen.Plataformas,
             Screen.EditPlatform,
             Screen.CreatePlatform,
             Screen.Bandeiras,
@@ -139,16 +133,16 @@ class BottomNavigationTest {
             bottomNavItems.any { isCurrentDestination(it.route, currentRoute) }
         }
 
-        // Deve exibir BottomBar para as 5 abas principais
+        // Deve exibir BottomBar para as 4 abas principais
         assertTrue(showBottomBar("inicio"))
         assertTrue(showBottomBar("painel"))
         assertTrue(showBottomBar("relatorios"))
-        assertTrue(showBottomBar("plataformas"))
         assertTrue(showBottomBar("historico"))
 
-        // Deve exibir BottomBar quando acessado com query params (ex: drawer navigation para plataformas)
-        assertTrue(showBottomBar("plataformas?fromDrawer=true"))
-        assertTrue(showBottomBar("plataformas?fromDrawer=false"))
+        // NÃO deve exibir BottomBar para Plataformas (acesso via Drawer com tela limpa)
+        assertFalse(showBottomBar("plataformas"))
+        assertFalse(showBottomBar("plataformas?fromDrawer=true"))
+        assertFalse(showBottomBar("plataformas?fromDrawer=false"))
 
         // NÃO deve exibir BottomBar para telas secundárias ou modais
         assertFalse(showBottomBar("login"))

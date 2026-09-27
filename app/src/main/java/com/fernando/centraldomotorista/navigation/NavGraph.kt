@@ -79,7 +79,6 @@ val bottomNavItems = listOf(
     Screen.Inicio,
     Screen.Painel,
     Screen.Relatorios,
-    Screen.Plataformas,
     Screen.Historico,
 )
 
@@ -333,33 +332,32 @@ fun CentralDoMotoristaApp(
                 )
             }
 
-            // Cadastro - Apps & Plataformas
+            // Cadastro - Apps & Plataformas (Acesso exclusivo via Drawer)
+            val navigateBackFromPlatforms: () -> Unit = {
+                if (!navController.popBackStack()) {
+                    navController.navigate(Screen.Inicio.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            }
+
             composable(
                 route = "${Screen.Plataformas.route}?fromDrawer={fromDrawer}",
                 arguments = listOf(
                     navArgument("fromDrawer") {
                         type = NavType.BoolType
-                        defaultValue = false
+                        defaultValue = true
                     }
                 )
-            ) { backStackEntry ->
-                val fromDrawer = backStackEntry.arguments?.getBoolean("fromDrawer") ?: false
+            ) {
                 val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
                     viewModel = platformsViewModel,
-                    onNavigateBack = if (fromDrawer) {
-                        {
-                            if (!navController.popBackStack()) {
-                                navController.navigate(Screen.Inicio.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        }
-                    } else null,
+                    onNavigateBack = navigateBackFromPlatforms,
                     onNavigateToEditPlatform = { platformId ->
                         navController.navigate("edit_platform/$platformId")
                     },
@@ -372,7 +370,7 @@ fun CentralDoMotoristaApp(
                 val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
                     viewModel = platformsViewModel,
-                    onNavigateBack = null,
+                    onNavigateBack = navigateBackFromPlatforms,
                     onNavigateToEditPlatform = { platformId ->
                         navController.navigate("edit_platform/$platformId")
                     },
@@ -385,7 +383,7 @@ fun CentralDoMotoristaApp(
                 val platformsViewModel: com.fernando.centraldomotorista.ui.screens.apps.PlatformsViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.apps.PlatformsScreen(
                     viewModel = platformsViewModel,
-                    onNavigateBack = null,
+                    onNavigateBack = navigateBackFromPlatforms,
                     onNavigateToEditPlatform = { platformId ->
                         navController.navigate("edit_platform/$platformId")
                     },
