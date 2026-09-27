@@ -37,10 +37,12 @@ import com.fernando.centraldomotorista.data.model.FinancialAdjustmentSubtype
 import com.fernando.centraldomotorista.data.model.Route
 import com.fernando.centraldomotorista.data.repository.BillingCycleWithTotals
 import com.fernando.centraldomotorista.ui.theme.*
+import com.fernando.centraldomotorista.util.ShareUtils
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 private fun BigDecimal.formatCurrency(): String {
@@ -285,8 +287,9 @@ fun FaturasScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             item {
+                                val isAllSelected = uiState.selectedPlatformIds.contains("all")
                                 FilterChip(
-                                    selected = uiState.selectedPlatformFilter == "all",
+                                    selected = isAllSelected,
                                     onClick = { viewModel.onPlatformFilterChanged("all") },
                                     label = { Text("Todas (${uiState.cycles.size})") },
                                     colors = FilterChipDefaults.filterChipColors(
@@ -299,9 +302,11 @@ fun FaturasScreen(
                             }
 
                             items(uiState.platforms) { platform ->
+                                val isSelected = !uiState.selectedPlatformIds.contains("all") &&
+                                    uiState.selectedPlatformIds.contains(platform.id)
                                 val count = uiState.cycles.count { it.cycle.platformId == platform.id }
                                 FilterChip(
-                                    selected = uiState.selectedPlatformFilter == platform.id,
+                                    selected = isSelected,
                                     onClick = { viewModel.onPlatformFilterChanged(platform.id) },
                                     label = { Text("${platform.name} ($count)") },
                                     colors = FilterChipDefaults.filterChipColors(
@@ -1672,6 +1677,12 @@ fun DetalhesFaturaModal(
     cycle: BillingCycleWithTotals,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val shortDateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yy") }
+    val periodStartStr = cycle.cycle.periodStart.format(shortDateFormatter)
+    val periodEndStr = cycle.cycle.periodEnd.format(shortDateFormatter)
+    val quantDias = ChronoUnit.DAYS.between(cycle.cycle.periodStart, cycle.cycle.periodEnd) + (if (cycle.cycle.includeEndDate) 1 else 0)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -1689,7 +1700,7 @@ fun DetalhesFaturaModal(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "DETALHES DA FATURA",
                         fontWeight = FontWeight.Black,
@@ -1703,8 +1714,34 @@ fun DetalhesFaturaModal(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Fechar")
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = GreenNeon,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        IconButton(
+                            onClick = {
+                                ShareUtils.shareFatura(context, cycle)
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Compartilhar Fatura",
+                                tint = Color.Black,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fechar")
+                    }
                 }
             }
 
@@ -1714,16 +1751,48 @@ fun DetalhesFaturaModal(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Campo 1: Período Início
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Período de Apuração", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Período Início:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            "${cycle.cycle.periodStart.format(dateFormatter)} ➔ ${cycle.cycle.periodEnd.format(dateFormatter)}",
+                            periodStartStr,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Campo 2: Período Final
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Período Final:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            periodEndStr,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Campo 3: Quant. Dias Apurados
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Quant. Dias Apurados:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "$quantDias dias de Apuração",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OrangeNeon
                         )
                     }
 

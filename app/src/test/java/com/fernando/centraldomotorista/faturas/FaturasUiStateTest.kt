@@ -61,13 +61,13 @@ class FaturasUiStateTest {
         )
 
         // When all platforms selected
-        val allState = FaturasUiState(cycles = cycles, selectedPlatformFilter = "all")
+        val allState = FaturasUiState(cycles = cycles, selectedPlatformIds = setOf("all"))
         assertEquals(2, allState.emAbertoCycles.size)
         assertEquals(1, allState.aVencerCycles.size)
         assertEquals(2, allState.pagoCycles.size)
 
         // When plat_1 is selected
-        val plat1State = FaturasUiState(cycles = cycles, selectedPlatformFilter = "plat_1")
+        val plat1State = FaturasUiState(cycles = cycles, selectedPlatformIds = setOf("plat_1"))
         assertEquals(1, plat1State.emAbertoCycles.size)
         assertEquals("1", plat1State.emAbertoCycles.first().cycle.id)
         assertEquals(1, plat1State.aVencerCycles.size)
@@ -76,12 +76,18 @@ class FaturasUiStateTest {
         assertEquals("3", plat1State.pagoCycles.first().cycle.id)
 
         // When plat_2 is selected
-        val plat2State = FaturasUiState(cycles = cycles, selectedPlatformFilter = "plat_2")
+        val plat2State = FaturasUiState(cycles = cycles, selectedPlatformIds = setOf("plat_2"))
         assertEquals(1, plat2State.emAbertoCycles.size)
         assertEquals("2", plat2State.emAbertoCycles.first().cycle.id)
         assertEquals(0, plat2State.aVencerCycles.size)
         assertEquals(1, plat2State.pagoCycles.size)
         assertEquals("4", plat2State.pagoCycles.first().cycle.id)
+
+        // When multiple platforms are selected (plat_1 and plat_2)
+        val multiState = FaturasUiState(cycles = cycles, selectedPlatformIds = setOf("plat_1", "plat_2"))
+        assertEquals(2, multiState.emAbertoCycles.size)
+        assertEquals(1, multiState.aVencerCycles.size)
+        assertEquals(2, multiState.pagoCycles.size)
     }
 
     @Test

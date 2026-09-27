@@ -77,7 +77,7 @@ class BillingCycleRepository(
                     }
                 }
 
-                val cycles = cyclesDeferred.await()
+                val savedCycles = cyclesDeferred.await()
                 val platforms = platformsDeferred.await()
                 val platformsMap = platforms.associateBy { it.id }
                 val routes = routesDeferred.await()
@@ -85,15 +85,51 @@ class BillingCycleRepository(
                 val sessions = sessionsDeferred.await()
                 val adjustments = adjustmentsDeferred.await()
 
-                val activeCycleIds = cycles.filter { it.status != "cancelado" }.map { it.id }.toSet()
+                val savedActiveCycles = savedCycles.filter { it.status != "cancelado" }
+                val savedActiveCycleIds = savedActiveCycles.map { it.id }.toSet()
                 val systemZone = ZoneId.systemDefault()
+                val today = LocalDate.now()
+
+                val activePlatforms = platforms.filter { it.active }
+                val dynamicCycles = mutableListOf<BillingCycle>()
+
+                for (platform in activePlatforms) {
+                    val intervals = BillingCycleCalculator.getPlatformCycleIntervals(platform, today)
+                    val c0 = intervals.firstOrNull() ?: continue
+
+                    val hasSavedCycleInC0 = savedActiveCycles.any { c ->
+                        val platPartnerId = platform.partnerId
+                        val isMatchingPlatform = (c.platformId == platform.id) ||
+                            (platPartnerId != null && platPartnerId == c.platformId)
+                        isMatchingPlatform && BillingCycleCalculator.checkOverlap(
+                            c0.periodStart, c0.periodEnd, c0.includeEndDate,
+                            c.periodStart, c.periodEnd, c.includeEndDate
+                        )
+                    }
+
+                    if (!hasSavedCycleInC0) {
+                        val dynamicCycle = BillingCycle(
+                            id = "dynamic_${platform.id}_${c0.periodStart}_${c0.periodEnd}",
+                            userId = userId,
+                            platformId = platform.id,
+                            periodStart = c0.periodStart,
+                            periodEnd = c0.periodEnd,
+                            expectedPaymentDate = c0.expectedPaymentDate,
+                            status = "em_aberto",
+                            includeEndDate = c0.includeEndDate
+                        )
+                        dynamicCycles.add(dynamicCycle)
+                    }
+                }
+
+                val allCycles = savedCycles + dynamicCycles
 
                 fun isEffectivelyUnlinked(bcId: String?): Boolean {
                     if (bcId.isNullOrBlank()) return true
-                    return bcId !in activeCycleIds
+                    return bcId !in savedActiveCycleIds && !bcId.startsWith("dynamic_")
                 }
 
-                cycles.map { cycle ->
+                allCycles.map { cycle ->
                     val platform = platformsMap[cycle.platformId]
                     val platName = platform?.name ?: "Plataforma"
                     val platPartnerId = platform?.partnerId
@@ -266,6 +302,7 @@ class BillingCycleRepository(
 
     suspend fun deleteBillingCycle(cycleId: String, userId: String? = null): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (cycleId.startsWith("dynamic_")) return@withContext true
             unlinkCycleTransactions(cycleId, userId)
             api.deleteBillingCycle("eq.$cycleId")
             true

@@ -27,7 +27,7 @@ enum class FaturasTab(val label: String) {
 data class FaturasUiState(
     val cycles: List<BillingCycleWithTotals> = emptyList(),
     val platforms: List<Platform> = emptyList(),
-    val selectedPlatformFilter: String = "all",
+    val selectedPlatformIds: Set<String> = setOf("all"),
     val activeTab: FaturasTab = FaturasTab.EM_ABERTO,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -67,19 +67,19 @@ data class FaturasUiState(
     val emAbertoCycles: List<BillingCycleWithTotals>
         get() = cycles.filter {
             it.cycle.status == "em_aberto" &&
-            (selectedPlatformFilter == "all" || it.cycle.platformId == selectedPlatformFilter)
+            (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId))
         }
 
     val aVencerCycles: List<BillingCycleWithTotals>
         get() = cycles.filter {
             it.cycle.status == "a_vencer" &&
-            (selectedPlatformFilter == "all" || it.cycle.platformId == selectedPlatformFilter)
+            (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId))
         }
 
     val pagoCycles: List<BillingCycleWithTotals>
         get() = cycles.filter {
             it.cycle.status == "pago" &&
-            (selectedPlatformFilter == "all" || it.cycle.platformId == selectedPlatformFilter)
+            (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId))
         }
 
     val totalEmAberto: BigDecimal
@@ -276,7 +276,20 @@ class FaturasViewModel(
     }
 
     fun onPlatformFilterChanged(platformId: String) {
-        _uiState.update { it.copy(selectedPlatformFilter = platformId) }
+        _uiState.update { current ->
+            val newSelected = if (platformId == "all") {
+                setOf("all")
+            } else {
+                val currentWithoutAll = current.selectedPlatformIds - "all"
+                if (currentWithoutAll.contains(platformId)) {
+                    val updated = currentWithoutAll - platformId
+                    if (updated.isEmpty()) setOf("all") else updated
+                } else {
+                    currentWithoutAll + platformId
+                }
+            }
+            current.copy(selectedPlatformIds = newSelected)
+        }
     }
 
     fun onTabChanged(tab: FaturasTab) {
@@ -407,7 +420,24 @@ class FaturasViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            val success = billingCycleRepository.updateStatus(cycle.cycle.id, "pago", date)
+            val success = if (cycle.cycle.id.startsWith("dynamic_")) {
+                val created = billingCycleRepository.createBillingCycle(
+                    cycle.cycle.copy(id = "", status = "pago", paymentReceivedDate = date)
+                )
+                if (created != null) {
+                    billingCycleRepository.linkCycleTransactions(
+                        cycleId = created.id,
+                        platformId = cycle.cycle.platformId,
+                        periodStart = cycle.cycle.periodStart,
+                        periodEnd = cycle.cycle.periodEnd,
+                        includeEndDate = cycle.cycle.includeEndDate,
+                        userId = currentUserId
+                    )
+                    true
+                } else false
+            } else {
+                billingCycleRepository.updateStatus(cycle.cycle.id, "pago", date)
+            }
             if (success) {
                 _uiState.update {
                     it.copy(
@@ -554,11 +584,33 @@ class FaturasViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
 
+            val targetCycleId: String? = if (cycle.cycle.id.startsWith("dynamic_")) {
+                val created = billingCycleRepository.createBillingCycle(cycle.cycle.copy(id = ""))
+                if (created != null) {
+                    billingCycleRepository.linkCycleTransactions(
+                        cycleId = created.id,
+                        platformId = cycle.cycle.platformId,
+                        periodStart = cycle.cycle.periodStart,
+                        periodEnd = cycle.cycle.periodEnd,
+                        includeEndDate = cycle.cycle.includeEndDate,
+                        userId = currentUserId
+                    )
+                    created.id
+                } else null
+            } else {
+                cycle.cycle.id
+            }
+
+            if (targetCycleId == null) {
+                _uiState.update { it.copy(isSaving = false, errorMessage = "Erro ao vincular fatura.") }
+                return@launch
+            }
+
             val adj = FinancialAdjustment(
                 id = "",
                 userId = currentUserId,
                 platformId = cycle.cycle.platformId,
-                billingCycleId = cycle.cycle.id,
+                billingCycleId = targetCycleId,
                 type = subtype.defaultType,
                 subtype = subtype.key,
                 amount = parsedAmount,
@@ -611,7 +663,11 @@ class FaturasViewModel(
     fun deleteCycle(cycle: BillingCycleWithTotals) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val success = billingCycleRepository.deleteBillingCycle(cycle.cycle.id)
+            val success = if (cycle.cycle.id.startsWith("dynamic_")) {
+                true
+            } else {
+                billingCycleRepository.deleteBillingCycle(cycle.cycle.id, currentUserId)
+            }
             if (success) {
                 _uiState.update {
                     it.copy(
