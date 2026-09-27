@@ -639,14 +639,14 @@ fun HomeScreen(
                     contentColor = Color.Black,
                     icon = {
                         Icon(
-                            imageVector = Icons.Default.Navigation,
+                            imageVector = Icons.Default.Add,
                             contentDescription = null,
                             modifier = Modifier.size(22.dp)
                         )
                     },
                     text = {
                         Text(
-                            text = "Lançar Rota",
+                            text = "Ganhos",
                             fontWeight = FontWeight.Black,
                             fontSize = 14.sp
                         )
