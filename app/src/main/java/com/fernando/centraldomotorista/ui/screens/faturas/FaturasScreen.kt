@@ -51,6 +51,7 @@ private fun BigDecimal.formatCurrency(): String {
 }
 
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private val shortDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yy")
 
 private fun showDatePicker(
     context: Context,
@@ -2406,27 +2407,30 @@ fun AjustesFaturaModal(
             // Campos Valor e Data
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = uiState.newAdjustmentAmount,
                     onValueChange = { onAmountChanged(it) },
                     label = { Text("Valor (R$) *") },
                     placeholder = { Text("0,00") },
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         focusedLabelColor = OrangeNeon,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                     ),
-                    modifier = Modifier.weight(1.2f),
+                    modifier = Modifier.weight(1.1f),
                     shape = RoundedCornerShape(10.dp)
                 )
 
                 OutlinedTextField(
-                    value = uiState.newAdjustmentDate.format(dateFormatter),
+                    value = uiState.newAdjustmentDate.format(shortDateFormatter),
                     onValueChange = {},
                     readOnly = true,
+                    singleLine = true,
                     label = { Text("Data") },
                     trailingIcon = {
                         IconButton(onClick = {

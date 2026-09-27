@@ -65,9 +65,14 @@ data class FaturasUiState(
     val expandedWeeks: Set<String> = emptySet()
 ) {
     val emAbertoCycles: List<BillingCycleWithTotals>
-        get() = cycles.filter {
-            it.cycle.status == "em_aberto" &&
-            (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId))
+        get() {
+            val activePlatformIds = platforms.filter { it.active }.flatMap { listOfNotNull(it.id, it.partnerId) }.toSet()
+            return cycles.filter {
+                it.cycle.status == "em_aberto" &&
+                (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId)) &&
+                (activePlatformIds.isEmpty() || activePlatformIds.contains(it.cycle.platformId)) &&
+                it.totalAmount > BigDecimal.ZERO
+            }
         }
 
     val aVencerCycles: List<BillingCycleWithTotals>
