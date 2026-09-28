@@ -28,3 +28,5 @@ secrets.properties
 credentials.json
 google-services.json
 
+.kotlin/
+

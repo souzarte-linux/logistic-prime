@@ -22,10 +22,10 @@ import org.junit.Test
 class BottomNavigationTest {
 
     @Test
-    fun testBottomNavItemsHasExactlyFourTabs() {
+    fun testBottomNavItemsHasExactlyFiveTabs() {
         assertEquals(
-            "A barra de navegação inferior deve conter exatamente 4 abas fixas",
-            4,
+            "A barra de navegação inferior deve conter exatamente 5 abas consolidadas",
+            5,
             bottomNavItems.size
         )
     }
@@ -46,19 +46,26 @@ class BottomNavigationTest {
         assertEquals(Icons.Default.BarChart, tab1.icon)
         assertSame(Screen.Painel, tab1)
 
-        // 3ª Aba: Relatórios
+        // 3ª Aba: Rota (Nova Aba Master)
         val tab2 = bottomNavItems[2]
-        assertEquals("relatorios", tab2.route)
-        assertEquals("Relatórios", tab2.title)
-        assertEquals(Icons.Default.Assessment, tab2.icon)
-        assertSame(Screen.Relatorios, tab2)
+        assertEquals("rota_hub", tab2.route)
+        assertEquals("Rota", tab2.title)
+        assertEquals(Icons.AutoMirrored.Filled.AltRoute, tab2.icon)
+        assertSame(Screen.Rota, tab2)
 
-        // 4ª Aba: Histórico
+        // 4ª Aba: Relatórios
         val tab3 = bottomNavItems[3]
-        assertEquals("historico", tab3.route)
-        assertEquals("Histórico", tab3.title)
-        assertEquals(Icons.Default.History, tab3.icon)
-        assertSame(Screen.Historico, tab3)
+        assertEquals("relatorios", tab3.route)
+        assertEquals("Relatórios", tab3.title)
+        assertEquals(Icons.Default.Assessment, tab3.icon)
+        assertSame(Screen.Relatorios, tab3)
+
+        // 5ª Aba: Histórico
+        val tab4 = bottomNavItems[4]
+        assertEquals("historico", tab4.route)
+        assertEquals("Histórico", tab4.title)
+        assertEquals(Icons.Default.History, tab4.icon)
+        assertSame(Screen.Historico, tab4)
     }
 
     @Test
@@ -133,9 +140,10 @@ class BottomNavigationTest {
             bottomNavItems.any { isCurrentDestination(it.route, currentRoute) }
         }
 
-        // Deve exibir BottomBar para as 4 abas principais
+        // Deve exibir BottomBar para as 5 abas principais
         assertTrue(showBottomBar("inicio"))
         assertTrue(showBottomBar("painel"))
+        assertTrue(showBottomBar("rota_hub"))
         assertTrue(showBottomBar("relatorios"))
         assertTrue(showBottomBar("historico"))
 

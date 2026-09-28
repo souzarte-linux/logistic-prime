@@ -43,6 +43,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Login : Screen("login", "Login", Icons.Default.Lock)
     object Inicio : Screen("inicio", "Início", Icons.Default.Home)
     object Painel : Screen("painel", "Painel", Icons.Default.BarChart)
+    object Rota : Screen("rota_hub", "Rota", Icons.AutoMirrored.Filled.AltRoute)
     object Relatorios : Screen("relatorios", "Relatórios", Icons.Default.Assessment)
     object Historico : Screen("historico", "Histórico", Icons.Default.History)
     
@@ -78,6 +79,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 val bottomNavItems = listOf(
     Screen.Inicio,
     Screen.Painel,
+    Screen.Rota,
     Screen.Relatorios,
     Screen.Historico,
 )
@@ -159,7 +161,9 @@ fun CentralDoMotoristaApp(
                                 Text(
                                     text = screen.title,
                                     fontSize = 10.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                    letterSpacing = (-0.2).sp,
+                                    maxLines = 1,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                                 )
                             },
                             selected = selected,
@@ -714,15 +718,60 @@ fun CentralDoMotoristaApp(
             }
 
             composable(
-                route = "${Screen.LancarRota.route}?itemId={itemId}",
-                arguments = listOf(navArgument("itemId") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                })
+                route = "${Screen.LancarRota.route}?itemId={itemId}&platformId={platformId}&deliveredPackages={deliveredPackages}&origin={origin}&destination={destination}&masterRouteId={masterRouteId}",
+                arguments = listOf(
+                    navArgument("itemId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("platformId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("deliveredPackages") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                    navArgument("origin") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("destination") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("masterRouteId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
+                val platformId = backStackEntry.arguments?.getString("platformId")
+                val deliveredPackages = backStackEntry.arguments?.getInt("deliveredPackages") ?: 0
+                val origin = backStackEntry.arguments?.getString("origin")
+                val destination = backStackEntry.arguments?.getString("destination")
+                val masterRouteId = backStackEntry.arguments?.getString("masterRouteId")
+
                 val routeViewModel: com.fernando.centraldomotorista.ui.screens.routes.NewRouteViewModel = viewModel()
+
+                LaunchedEffect(backStackEntry) {
+                    if (itemId == null && deliveredPackages > 0) {
+                        routeViewModel.applyMasterRouteHandOff(
+                            platformId = platformId,
+                            packagesCount = deliveredPackages,
+                            origin = origin,
+                            destination = destination,
+                            masterRouteId = masterRouteId
+                        )
+                    }
+                }
+
                 com.fernando.centraldomotorista.ui.screens.routes.NewRouteScreen(
                     itemId = itemId,
                     viewModel = routeViewModel,
@@ -782,6 +831,60 @@ fun CentralDoMotoristaApp(
                     },
                     onNavigateToPartners = {
                         navController.navigate(Screen.DeliveryPartners.route)
+                    }
+                )
+            }
+
+            // 5ª Aba: Aba "Rota" do Usuário Master (Hub, Scanner e Cockpit)
+            composable(Screen.Rota.route) {
+                val routeHomeViewModel: com.fernando.centraldomotorista.ui.screens.routes.master.RouteHomeViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.routes.master.RouteHomeScreen(
+                    viewModel = routeHomeViewModel,
+                    onNavigateToScanner = { routeId ->
+                        navController.navigate("route_scanner/$routeId")
+                    },
+                    onNavigateToCockpit = { routeId ->
+                        navController.navigate("route_cockpit/$routeId")
+                    }
+                )
+            }
+
+            composable(
+                route = "route_scanner/{routeId}",
+                arguments = listOf(navArgument("routeId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val routeId = backStackEntry.arguments?.getString("routeId") ?: ""
+                val routeScannerViewModel: com.fernando.centraldomotorista.ui.screens.routes.master.RouteScannerViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.routes.master.RouteScannerScreen(
+                    routeId = routeId,
+                    viewModel = routeScannerViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToCockpit = { rId ->
+                        navController.navigate("route_cockpit/$rId") {
+                            popUpTo(Screen.Rota.route)
+                        }
+                    }
+                )
+            }
+
+            composable(
+                route = "route_cockpit/{routeId}",
+                arguments = listOf(navArgument("routeId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val routeId = backStackEntry.arguments?.getString("routeId") ?: ""
+                val routeCockpitViewModel: com.fernando.centraldomotorista.ui.screens.routes.master.RouteCockpitViewModel = viewModel()
+                com.fernando.centraldomotorista.ui.screens.routes.master.RouteCockpitScreen(
+                    routeId = routeId,
+                    viewModel = routeCockpitViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToScanner = { rId ->
+                        navController.navigate("route_scanner/$rId")
+                    },
+                    onNavigateToNewRouteWithHandOff = { platformId, deliveredPackages, origin, masterRouteId ->
+                        val encodedOrigin = java.net.URLEncoder.encode(origin ?: "", "UTF-8")
+                        navController.navigate(
+                            "${Screen.LancarRota.route}?platformId=${platformId ?: ""}&deliveredPackages=$deliveredPackages&origin=$encodedOrigin&masterRouteId=$masterRouteId"
+                        )
                     }
                 )
             }

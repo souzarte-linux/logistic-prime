@@ -58,5 +58,7 @@ object RetrofitClient {
     val deliveryPartnerSessionApi: DeliveryPartnerSessionApi by lazy { retrofit.create(DeliveryPartnerSessionApi::class.java) }
     val financialAdjustmentApi: FinancialAdjustmentApi by lazy { retrofit.create(FinancialAdjustmentApi::class.java) }
     val oilChangeApi: OilChangeApi by lazy { retrofit.create(OilChangeApi::class.java) }
+    val masterRouteApi: MasterRouteApi by lazy { retrofit.create(MasterRouteApi::class.java) }
 }
+
 

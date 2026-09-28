@@ -114,14 +114,17 @@ data class NewRouteUiState(
 
 class NewRouteViewModel(
     private val platformRepository: PlatformRepository = PlatformRepository(),
-    private val routeRepository: RouteRepository = RouteRepository()
+    private val routeRepository: RouteRepository = RouteRepository(),
+    loadOnInit: Boolean = true
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(NewRouteUiState(isLoading = true))
+    private val _uiState = MutableStateFlow(NewRouteUiState(isLoading = loadOnInit))
     val uiState: StateFlow<NewRouteUiState> = _uiState.asStateFlow()
 
     init {
-        loadPlatforms()
+        if (loadOnInit) {
+            loadPlatforms()
+        }
     }
 
     fun initOrLoad(itemId: String?) {
@@ -524,5 +527,32 @@ class NewRouteViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * Aplica os dados consolidados do hand-off de encerramento da Rota Master.
+     * Pré-preenche plataforma, pacotinhos entregues, origem, destino e notas.
+     */
+    fun applyMasterRouteHandOff(
+        platformId: String?,
+        packagesCount: Int,
+        origin: String?,
+        destination: String?,
+        masterRouteId: String?
+    ) {
+        val current = _uiState.value
+        val countText = if (packagesCount > 0) packagesCount.toString() else current.smallPackagesCountText
+        val count = countText.toIntOrNull() ?: 0
+        val unitPrice = current.smallPackagesUnitPriceText.replace(',', '.').trim().toBigDecimalOrNull() ?: BigDecimal.ZERO
+        val total = BigDecimal(count).multiply(unitPrice).setScale(2, RoundingMode.HALF_UP)
+
+        _uiState.value = current.copy(
+            selectedPlatformId = platformId?.ifBlank { null } ?: current.selectedPlatformId,
+            smallPackagesCountText = countText,
+            smallPackagesTotal = total,
+            origin = origin?.takeIf { it.isNotBlank() } ?: current.origin,
+            destination = destination?.takeIf { it.isNotBlank() } ?: current.destination,
+            notesText = if (!masterRouteId.isNullOrBlank()) "Encerrada via Central do Motorista (Rota Master #$masterRouteId)" else current.notesText
+        )
     }
 }
