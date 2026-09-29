@@ -1,12 +1,14 @@
 package com.fernando.centraldomotorista.ui.screens.routes.master
 
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.MasterDeliveryRoute
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
+import com.fernando.centraldomotorista.data.preferences.RoutePreferences
 import com.fernando.centraldomotorista.data.model.RouteStatus
 import com.fernando.centraldomotorista.data.model.StopStatus
 import com.fernando.centraldomotorista.data.model.TransferStatus
@@ -18,8 +20,10 @@ import com.fernando.centraldomotorista.data.repository.RouteRepository
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
@@ -96,18 +100,30 @@ data class RouteCockpitUiState(
     val filteredAwaitingConfirmationStops: List<MasterRouteStop> get() = filterList(awaitingConfirmationStops)
 }
 
-class RouteCockpitViewModel(
+class RouteCockpitViewModel @JvmOverloads constructor(
+    application: Application,
     private val masterRouteRepository: MasterRouteRepository = MasterRouteRepository(),
     private val platformRepository: PlatformRepository = PlatformRepository(),
     private val deliveryPartnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
     private val routeRepository: RouteRepository = RouteRepository(),
-    private val geocodingRepository: GeocodingRepository = GeocodingRepository()
-) : ViewModel() {
+    private val geocodingRepository: GeocodingRepository = GeocodingRepository(),
+    private val routePreferences: RoutePreferences = RoutePreferences(application)
+) : AndroidViewModel(application) {
 
     private val tag = "RouteCockpitVM"
 
     private val _uiState = MutableStateFlow(RouteCockpitUiState())
     val uiState: StateFlow<RouteCockpitUiState> = _uiState.asStateFlow()
+
+    /**
+     * Flow com o prazo de retenção das fotos de backup de etiquetas (padrão 3 dias).
+     */
+    val photoRetentionDays: StateFlow<Int> = routePreferences.photoRetentionDaysFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = RoutePreferences.DEFAULT_PHOTO_RETENTION_DAYS
+        )
 
     private var cachedLastOdometerKm: BigDecimal? = null
 
@@ -421,6 +437,7 @@ class RouteCockpitViewModel(
         val routeId = _uiState.value.route?.id ?: return
         val delivered = _uiState.value.deliveredCount
         val returned = _uiState.value.returnedCount
+        val retentionDays = photoRetentionDays.value
 
         val handoffItems = calculateMultiPlatformHandoffs(endKmInput)
 
@@ -430,7 +447,8 @@ class RouteCockpitViewModel(
             val success = masterRouteRepository.finishRoute(
                 routeId = routeId,
                 deliveredCount = delivered,
-                returnedCount = returned
+                returnedCount = returned,
+                photoRetentionDays = retentionDays
             )
             withContext(Dispatchers.Main) {
                 _uiState.value = _uiState.value.copy(isFinishing = false)

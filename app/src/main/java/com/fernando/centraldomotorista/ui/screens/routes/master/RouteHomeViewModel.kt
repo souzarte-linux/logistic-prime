@@ -1,18 +1,22 @@
 package com.fernando.centraldomotorista.ui.screens.routes.master
 
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.MasterDeliveryRoute
 import com.fernando.centraldomotorista.data.model.Platform
+import com.fernando.centraldomotorista.data.preferences.RoutePreferences
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.MasterRouteRepository
 import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -25,15 +29,36 @@ data class RouteHomeUiState(
     val error: String? = null
 )
 
-class RouteHomeViewModel(
+class RouteHomeViewModel @JvmOverloads constructor(
+    application: Application,
     private val masterRouteRepository: MasterRouteRepository = MasterRouteRepository(),
-    private val platformRepository: PlatformRepository = PlatformRepository()
-) : ViewModel() {
+    private val platformRepository: PlatformRepository = PlatformRepository(),
+    private val routePreferences: RoutePreferences = RoutePreferences(application)
+) : AndroidViewModel(application) {
 
     private val tag = "RouteHomeVM"
 
     private val _uiState = MutableStateFlow(RouteHomeUiState(isLoading = true))
     val uiState: StateFlow<RouteHomeUiState> = _uiState.asStateFlow()
+
+    /**
+     * Flow com o prazo configurado de retenção das fotos de backup de etiquetas (padrão 3 dias).
+     */
+    val photoRetentionDays: StateFlow<Int> = routePreferences.photoRetentionDaysFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = RoutePreferences.DEFAULT_PHOTO_RETENTION_DAYS
+        )
+
+    /**
+     * Atualiza a preferência do usuário com relação ao prazo de retenção das fotos de etiquetas.
+     */
+    fun updatePhotoRetentionDays(days: Int) {
+        viewModelScope.launch {
+            routePreferences.setPhotoRetentionDays(days)
+        }
+    }
 
     init {
         loadData()

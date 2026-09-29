@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -59,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.data.model.MasterDeliveryRoute
 import com.fernando.centraldomotorista.data.model.RouteStatus
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteSettingsDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.StartRouteDestination
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.StartRouteDialog
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
@@ -84,8 +86,10 @@ fun RouteHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val photoRetentionDays by viewModel.photoRetentionDays.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showStartDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadData()
@@ -95,6 +99,17 @@ fun RouteHomeScreen(
         uiState.error?.let { err ->
             snackbarHostState.showSnackbar(message = err)
         }
+    }
+
+    if (showSettingsDialog) {
+        RouteSettingsDialog(
+            currentRetentionDays = photoRetentionDays,
+            onDismiss = { showSettingsDialog = false },
+            onSave = { days ->
+                viewModel.updatePhotoRetentionDays(days)
+                showSettingsDialog = false
+            }
+        )
     }
 
     if (showStartDialog) {
@@ -145,6 +160,13 @@ fun RouteHomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showSettingsDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Configurações da Rota",
+                            tint = TextSecondaryDark
+                        )
+                    }
                     IconButton(onClick = { viewModel.loadData() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,

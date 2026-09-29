@@ -514,12 +514,13 @@ open class MasterRouteRepository(
 
     /**
      * Finaliza a rota master, registrando contagens de entregues e devolvidos,
-     * e aplicando a política de retenção de fotos (finished_at + 15 dias).
+     * e aplicando a política de retenção de fotos (finished_at + photoRetentionDays dias).
      */
     suspend fun finishRoute(
         routeId: String,
         deliveredCount: Int,
-        returnedCount: Int
+        returnedCount: Int,
+        photoRetentionDays: Int = 3
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val total = deliveredCount + returnedCount
@@ -535,10 +536,10 @@ open class MasterRouteRepository(
             val updated = masterRouteApi.finishRoute("eq.$routeId", body)
             val success = updated.isNotEmpty()
             if (success) {
-                // Aplica política de expiração das fotos (finished_at + 15 dias)
+                // Aplica política de expiração das fotos (finished_at + photoRetentionDays dias)
                 try {
                     val stops = masterRouteApi.getStopsByRoute("eq.$routeId")
-                    val expiresAt = finishedAt.plusDays(15).toString()
+                    val expiresAt = finishedAt.plusDays(photoRetentionDays.toLong()).toString()
                     for (stop in stops) {
                         if (!stop.photoUrl.isNullOrBlank() && stop.photoExpiresAt.isNullOrBlank() && !stop.id.isNullOrBlank()) {
                             masterRouteApi.updateStopPhoto(

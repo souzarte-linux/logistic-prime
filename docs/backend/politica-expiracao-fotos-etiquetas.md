@@ -21,18 +21,26 @@ Na rotina operacional da Rota Master:
 
 ---
 
-## 2. A Regra de Retenção de 15 Dias
+## 2. A Regra de Retenção Configurável (Padrão: 3 Dias)
 
-Para garantir sustentabilidade operacional sem custos adicionais:
+Para garantir sustentabilidade operacional sem custos adicionais de armazenamento:
 
-1. **Momento do Cálculo da Expiração:**
+1. **Prazo Padrão e Customização pelo Usuário:**
+   - O prazo padrão de retenção de fotos de etiquetas foi reduzido para **3 dias** (substituindo a retenção fixa anterior de 15 dias).
+   - O prazo é **totalmente configurável pelo usuário** através das preferências do app (`RoutePreferences` via Jetpack DataStore e modal `RouteSettingsDialog` acessível na barra de ações da aba Rota).
+   - Opções disponíveis para o motorista: **1 dia**, **3 dias (Padrão)**, **7 dias**, **15 dias** e **30 dias**.
+
+2. **Momento do Cálculo da Expiração:**
    - Durante a rota em andamento, as fotos ficam ativas e protegidas.
    - No momento em que o motorista conclui a rota física via tela do Cockpit (`finishRoute` no `MasterRouteRepository.kt`), o sistema calcula e grava automaticamente:
-     $$\text{photo\_expires\_at} = \text{finished\_at} + 15\text{ dias}$$
-2. **Salvaguarda Absoluta de Rotas Ativas:**
+     $$\text{photo\_expires\_at} = \text{finished\_at} + \text{photoRetentionDays}\text{ dias}$$
+     (onde `photoRetentionDays` é obtido das preferências ativas do motorista, assumindo 3 dias por padrão).
+
+3. **Salvaguarda Absoluta de Rotas Ativas:**
    - Rotas com status `'em_andamento'` **NUNCA têm suas fotos apagadas**, independentemente de qualquer valor em carimbos temporais. A função SQL e a Edge Function filtram expressamente `mdr.status <> 'em_andamento'`.
-3. **Pós-Expiração:**
-   - Transcorridos 15 dias do encerramento da rota, a foto de backup cumpriu seu objetivo operacional (conferência de entrega, resolução de divergências no galpão e fechamento de ganhos).
+
+4. **Pós-Expiração:**
+   - Transcorrido o prazo configurado desde o encerramento da rota, a foto de backup cumpriu seu objetivo operacional (conferência de entrega, resolução de divergências no galpão e fechamento de ganhos).
    - O arquivo físico é deletado do bucket do Storage e as colunas `photo_url` e `photo_expires_at` são atualizadas para `NULL` no registro `master_route_stops`. Os dados textuais da parada (código de rastreio, endereço, destinatário, status) permanecem permanentemente salvos no banco.
 
 ---

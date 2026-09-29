@@ -655,6 +655,75 @@ class MasterRouteRepositoryTest {
     }
 
     @Test
+    fun testFinishRouteAppliesDefaultThreeDaysPhotoRetention() = runBlocking {
+        val route = repository.createRoute(
+            platformId = "plat-shopee",
+            startLocation = "CD Cajamar"
+        )
+        val stop = repository.addStop(
+            routeId = route.id,
+            barcode = "BR111111",
+            recipientName = "Consumidor Teste",
+            fullAddress = "Av Paulista, 1000",
+            cep = "01310-100",
+            stopOrder = 1,
+            photoUrl = "https://supabase.co/storage/v1/object/public/photos/etiqueta_1.jpg"
+        )
+
+        // Finaliza rota sem especificar photoRetentionDays (deve aplicar o padrão de 3 dias)
+        val finished = repository.finishRoute(
+            routeId = route.id,
+            deliveredCount = 1,
+            returnedCount = 0
+        )
+        assertTrue(finished)
+
+        val stopsAfter = repository.getRouteStops(route.id)
+        val stopAfter = stopsAfter.first { it.id == stop.id }
+        assertNotNull("photoExpiresAt deve ser calculado para paradas com foto", stopAfter.photoExpiresAt)
+
+        val expiresAt = stopAfter.photoExpiresAt!!
+        val now = OffsetDateTime.now()
+        val daysDiff = java.time.temporal.ChronoUnit.DAYS.between(now.toLocalDate(), expiresAt.toLocalDate())
+        assertEquals("Prazo padrão de expiração das fotos deve ser 3 dias", 3L, daysDiff)
+    }
+
+    @Test
+    fun testFinishRouteAppliesCustomPhotoRetentionDays() = runBlocking {
+        val route = repository.createRoute(
+            platformId = "plat-ml",
+            startLocation = "CD Louveira"
+        )
+        val stop = repository.addStop(
+            routeId = route.id,
+            barcode = "BR222222",
+            recipientName = "Consumidor 2",
+            fullAddress = "Av Brigadeiro Faria Lima, 2000",
+            cep = "01452-000",
+            stopOrder = 1,
+            photoUrl = "https://supabase.co/storage/v1/object/public/photos/etiqueta_2.jpg"
+        )
+
+        // Finaliza rota com prazo customizado de 7 dias
+        val finished = repository.finishRoute(
+            routeId = route.id,
+            deliveredCount = 1,
+            returnedCount = 0,
+            photoRetentionDays = 7
+        )
+        assertTrue(finished)
+
+        val stopsAfter = repository.getRouteStops(route.id)
+        val stopAfter = stopsAfter.first { it.id == stop.id }
+        assertNotNull(stopAfter.photoExpiresAt)
+
+        val expiresAt = stopAfter.photoExpiresAt!!
+        val now = OffsetDateTime.now()
+        val daysDiff = java.time.temporal.ChronoUnit.DAYS.between(now.toLocalDate(), expiresAt.toLocalDate())
+        assertEquals("Prazo customizado de expiração deve ser 7 dias", 7L, daysDiff)
+    }
+
+    @Test
     fun testCancelRoute() = runBlocking {
         val route = repository.createRoute(
             platformId = null,
