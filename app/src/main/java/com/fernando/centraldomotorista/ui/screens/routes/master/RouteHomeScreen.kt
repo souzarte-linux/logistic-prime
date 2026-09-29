@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.data.model.MasterDeliveryRoute
 import com.fernando.centraldomotorista.data.model.RouteStatus
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.StartRouteDestination
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.StartRouteDialog
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
@@ -105,7 +106,7 @@ fun RouteHomeScreen(
                 viewModel.clearError()
                 showStartDialog = false
             },
-            onConfirmStart = { platformId, startLocation, lat, lng ->
+            onConfirmStart = { platformId, startLocation, lat, lng, destination ->
                 viewModel.createNewRoute(
                     platformId = platformId,
                     startLocation = startLocation,
@@ -113,7 +114,10 @@ fun RouteHomeScreen(
                     startLng = lng,
                     onSuccess = { newRouteId ->
                         showStartDialog = false
-                        onNavigateToScanner(newRouteId)
+                        when (destination) {
+                            StartRouteDestination.SCANNER -> onNavigateToScanner(newRouteId)
+                            StartRouteDestination.COCKPIT -> onNavigateToCockpit(newRouteId)
+                        }
                     }
                 )
             }

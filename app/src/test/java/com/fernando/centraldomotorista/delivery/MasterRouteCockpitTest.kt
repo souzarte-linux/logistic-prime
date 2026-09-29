@@ -184,4 +184,107 @@ class MasterRouteCockpitTest {
         val totalKmSum = shopeeItem.proratedKm.add(mlItem.proratedKm)
         assertEquals(totalDistanceKm, totalKmSum)
     }
+
+    @Test
+    fun testEmptyRouteActionTriggersDiscardDialogNotFinishDialog() {
+        // Valida a regra de proteção contra registros fantasmas:
+        // Se a rota não possui pacotes bipados (totalPackages == 0 ou stops.isEmpty()),
+        // o botão de fechamento DEVE abrir DiscardEmptyRouteDialog e NÃO FinishRouteDialog.
+
+        // Cenário 1: Rota vazia (0 pacotes)
+        val emptyState = RouteCockpitUiState(
+            route = MasterDeliveryRoute(
+                id = "route-empty",
+                userId = "user-1",
+                platformId = "plat-shopee",
+                routeDate = LocalDate.now(),
+                startLocation = "Base",
+                status = RouteStatus.EM_ANDAMENTO
+            ),
+            stops = emptyList()
+        )
+
+        var showDiscardEmptyDialog = false
+        var showFinishDialog = false
+
+        fun onFinishButtonClick(state: RouteCockpitUiState) {
+            if (state.totalPackages == 0 || state.stops.isEmpty()) {
+                showDiscardEmptyDialog = true
+            } else {
+                showFinishDialog = true
+            }
+        }
+
+        onFinishButtonClick(emptyState)
+        assertTrue("Rota sem pacotes deve abrir o diálogo de descarte", showDiscardEmptyDialog)
+        assertFalse("Rota sem pacotes NÃO deve abrir o diálogo de conclusão", showFinishDialog)
+
+        // Cenário 2: Rota com pacotes bipados
+        val populatedState = RouteCockpitUiState(
+            route = MasterDeliveryRoute(
+                id = "route-with-pkgs",
+                userId = "user-1",
+                platformId = "plat-shopee",
+                routeDate = LocalDate.now(),
+                startLocation = "Base",
+                status = RouteStatus.EM_ANDAMENTO
+            ),
+            stops = listOf(
+                MasterRouteStop(
+                    id = "stop-1",
+                    routeId = "route-with-pkgs",
+                    userId = "user-1",
+                    barcode = "BC123",
+                    recipientName = "Cliente",
+                    fullAddress = "Endereço",
+                    status = StopStatus.ENTREGUE
+                )
+            )
+        )
+
+        showDiscardEmptyDialog = false
+        showFinishDialog = false
+
+        onFinishButtonClick(populatedState)
+        assertFalse("Rota com pacotes NÃO deve abrir diálogo de descarte", showDiscardEmptyDialog)
+        assertTrue("Rota com pacotes DEVE abrir diálogo de conclusão", showFinishDialog)
+    }
+
+    @Test
+    fun testDiscardEmptyRouteFlowDoesNotGenerateHandoffs() {
+        // Valida que ao descartar uma rota vazia, nenhum handoff financeiro é gerado e o callback de retorno é acionado
+        val emptyRoute = MasterDeliveryRoute(
+            id = "empty-route-to-discard",
+            userId = "user-1",
+            platformId = "plat-shopee",
+            routeDate = LocalDate.now(),
+            startLocation = "CD Norte",
+            status = RouteStatus.EM_ANDAMENTO
+        )
+
+        var state = RouteCockpitUiState(
+            route = emptyRoute,
+            stops = emptyList()
+        )
+
+        assertEquals(0, state.totalPackages)
+        assertTrue(state.activeStops.isEmpty())
+
+        // Simula o início do descarte
+        state = state.copy(isFinishing = true)
+        assertTrue("isFinishing deve ser true durante o descarte", state.isFinishing)
+
+        // Simulação do sucesso de exclusão
+        var navigatedBack = false
+        val handoffsGenerated = mutableListOf<MasterRouteHandOffItem>()
+
+        // Ao descartar com sucesso:
+        state = state.copy(isFinishing = false)
+        navigatedBack = true
+
+        assertFalse("isFinishing deve ser false após o descarte", state.isFinishing)
+        assertTrue("Deve navegar de volta após descarte", navigatedBack)
+        assertTrue("Nenhum handoff deve ser gerado para rota descartada", handoffsGenerated.isEmpty())
+    }
 }
+

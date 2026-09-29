@@ -669,6 +669,30 @@ class MasterRouteRepositoryTest {
     }
 
     @Test
+    fun testDeleteRoute() = runBlocking {
+        val route = repository.createRoute(
+            platformId = "plat-shopee",
+            startLocation = "Centro Cajamar"
+        )
+        val stop = repository.addStop(
+            routeId = route.id,
+            barcode = "BR123456789",
+            recipientName = "Joao Silva",
+            fullAddress = "Rua Teste, 100",
+            cep = "01234-567",
+            stopOrder = 1
+        )
+
+        val deleted = repository.deleteRoute(route.id)
+        assertTrue(deleted)
+
+        val routeAfter = repository.getRouteById(route.id)
+        assertNull(routeAfter)
+        val stopsAfter = repository.getRouteStops(route.id)
+        assertTrue(stopsAfter.isEmpty())
+    }
+
+    @Test
     fun testEnumsAndDtoRoundTrip() {
         assertEquals(RouteStatus.EM_ANDAMENTO, RouteStatus.fromValue("em_andamento"))
         assertEquals(RouteStatus.CONCLUIDA, RouteStatus.fromValue("concluida"))

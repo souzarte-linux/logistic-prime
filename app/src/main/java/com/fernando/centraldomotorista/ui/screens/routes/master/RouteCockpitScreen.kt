@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.data.model.RouteStatus
 import com.fernando.centraldomotorista.data.model.StopStatus
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.DiscardEmptyRouteDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.FinishRouteDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteProgressHero
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteMapView
@@ -87,9 +88,23 @@ fun RouteCockpitScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showFinishDialog by remember { mutableStateOf(false) }
+    var showDiscardEmptyDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(routeId) {
         viewModel.loadCockpit(routeId)
+    }
+
+    if (showDiscardEmptyDialog) {
+        DiscardEmptyRouteDialog(
+            isDiscarding = uiState.isFinishing,
+            onDismiss = { showDiscardEmptyDialog = false },
+            onConfirmDiscard = {
+                viewModel.discardEmptyRoute {
+                    showDiscardEmptyDialog = false
+                    onNavigateBack()
+                }
+            }
+        )
     }
 
     if (showFinishDialog) {
@@ -184,7 +199,13 @@ fun RouteCockpitScreen(
                 ) {
                     Box(modifier = Modifier.padding(16.dp)) {
                         Button(
-                            onClick = { showFinishDialog = true },
+                            onClick = {
+                                if (uiState.totalPackages == 0 || uiState.stops.isEmpty()) {
+                                    showDiscardEmptyDialog = true
+                                } else {
+                                    showFinishDialog = true
+                                }
+                            },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = OrangeNeon,
                                 contentColor = Color.White

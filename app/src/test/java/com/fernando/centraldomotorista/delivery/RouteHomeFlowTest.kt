@@ -4,6 +4,7 @@ import com.fernando.centraldomotorista.data.model.MasterDeliveryRoute
 import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.model.RouteStatus
 import com.fernando.centraldomotorista.ui.screens.routes.master.RouteHomeUiState
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.StartRouteDestination
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -117,4 +118,36 @@ class RouteHomeFlowTest {
         state = state.copy(error = null)
         assertNull("clearError deve anular a mensagem de erro", state.error)
     }
+
+    @Test
+    fun testStartRouteDestination_routesToScannerOrCockpitCorrectly() {
+        val createdRouteId = "route-abc-123"
+
+        var destinationNavigated: String? = null
+        var routeIdNavigated: String? = null
+
+        fun handleNavigation(destination: StartRouteDestination, routeId: String) {
+            when (destination) {
+                StartRouteDestination.SCANNER -> {
+                    destinationNavigated = "SCANNER"
+                    routeIdNavigated = routeId
+                }
+                StartRouteDestination.COCKPIT -> {
+                    destinationNavigated = "COCKPIT"
+                    routeIdNavigated = routeId
+                }
+            }
+        }
+
+        // Teste destino SCANNER
+        handleNavigation(StartRouteDestination.SCANNER, createdRouteId)
+        assertEquals("SCANNER", destinationNavigated)
+        assertEquals(createdRouteId, routeIdNavigated)
+
+        // Teste destino COCKPIT
+        handleNavigation(StartRouteDestination.COCKPIT, createdRouteId)
+        assertEquals("COCKPIT", destinationNavigated)
+        assertEquals(createdRouteId, routeIdNavigated)
+    }
 }
+

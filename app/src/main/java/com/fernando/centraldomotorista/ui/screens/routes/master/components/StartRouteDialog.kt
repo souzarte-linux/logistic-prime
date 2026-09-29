@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AltRoute
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EditLocation
@@ -61,6 +62,14 @@ import com.fernando.centraldomotorista.util.LocationHelper
 import kotlinx.coroutines.launch
 
 /**
+ * Destino inicial após a criação da Rota Master.
+ */
+enum class StartRouteDestination {
+    SCANNER,
+    COCKPIT
+}
+
+/**
  * Diálogo modal para criação da Rota do Dia do Usuário Master.
  * Permite capturar ponto de partida via GPS ou digitação manual e vincular a uma plataforma.
  */
@@ -71,7 +80,7 @@ fun StartRouteDialog(
     isCreating: Boolean = false,
     errorMessage: String? = null,
     onDismiss: () -> Unit,
-    onConfirmStart: (platformId: String?, startLocation: String, lat: Double?, lng: Double?) -> Unit
+    onConfirmStart: (platformId: String?, startLocation: String, lat: Double?, lng: Double?, destination: StartRouteDestination) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -316,43 +325,92 @@ fun StartRouteDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    if (!isCreating) {
-                        val finalLocation = startLocationText.trim().ifBlank { "Galpão Base" }
-                        onConfirmStart(selectedPlatformId, finalLocation, startLatitude, startLongitude)
-                    }
-                },
-                enabled = !isCreating,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = OrangeNeon,
-                    contentColor = Color.White,
-                    disabledContainerColor = OrangeNeon.copy(alpha = 0.5f),
-                    disabledContentColor = Color.White.copy(alpha = 0.8f)
-                ),
-                shape = RoundedCornerShape(10.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (isCreating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "CRIANDO ROTA...",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                } else {
+                // Opção 1: Abrir Scanner de Pacotes (Ação Primária)
+                Button(
+                    onClick = {
+                        if (!isCreating) {
+                            val finalLocation = startLocationText.trim().ifBlank { "Galpão Base" }
+                            onConfirmStart(
+                                selectedPlatformId,
+                                finalLocation,
+                                startLatitude,
+                                startLongitude,
+                                StartRouteDestination.SCANNER
+                            )
+                        }
+                    },
+                    enabled = !isCreating,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeNeon,
+                        contentColor = Color.White,
+                        disabledContainerColor = OrangeNeon.copy(alpha = 0.5f),
+                        disabledContentColor = Color.White.copy(alpha = 0.8f)
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isCreating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "CRIANDO ROTA...",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.QrCodeScanner,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "ABRIR SCANNER DE PACOTES",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                // Opção 2: Ir direto para o Cockpit de Bordo (Ação Secundária)
+                OutlinedButton(
+                    onClick = {
+                        if (!isCreating) {
+                            val finalLocation = startLocationText.trim().ifBlank { "Galpão Base" }
+                            onConfirmStart(
+                                selectedPlatformId,
+                                finalLocation,
+                                startLatitude,
+                                startLongitude,
+                                StartRouteDestination.COCKPIT
+                            )
+                        }
+                    },
+                    enabled = !isCreating,
+                    border = BorderStroke(1.dp, OrangeNeon),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = OrangeNeon,
+                        disabledContentColor = OrangeNeon.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Icon(
-                        imageVector = Icons.Default.QrCodeScanner,
+                        imageVector = Icons.AutoMirrored.Filled.AltRoute,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "ABRIR SCANNER DE PACOTES",
+                        text = "IR PARA O COCKPIT DE BORDO",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )

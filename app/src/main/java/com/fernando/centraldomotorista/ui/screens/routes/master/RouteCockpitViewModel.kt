@@ -442,4 +442,25 @@ class RouteCockpitViewModel(
             }
         }
     }
+
+    /**
+     * Descarta e exclui do banco de dados uma rota que foi criada mas não teve nenhum pacote bipado.
+     * Evita manter rotas "fantasmas" com 0 pacotes no histórico.
+     */
+    fun discardEmptyRoute(onSuccess: () -> Unit) {
+        val routeId = _uiState.value.route?.id ?: return
+        _uiState.value = _uiState.value.copy(isFinishing = true)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = masterRouteRepository.deleteRoute(routeId)
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(isFinishing = false)
+                if (success) {
+                    onSuccess()
+                } else {
+                    _uiState.value = _uiState.value.copy(error = "Falha ao descartar rota vazia no banco de dados.")
+                }
+            }
+        }
+    }
 }
