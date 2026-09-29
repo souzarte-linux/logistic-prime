@@ -37,6 +37,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -81,24 +83,36 @@ fun RouteHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showStartDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadData()
     }
 
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { err ->
+            snackbarHostState.showSnackbar(message = err)
+        }
+    }
+
     if (showStartDialog) {
         StartRouteDialog(
             platforms = uiState.platforms,
-            onDismiss = { showStartDialog = false },
-            onConfirmStart = { platformId, startLocation, lat, lng ->
+            isCreating = uiState.isCreatingRoute,
+            errorMessage = uiState.error,
+            onDismiss = {
+                viewModel.clearError()
                 showStartDialog = false
+            },
+            onConfirmStart = { platformId, startLocation, lat, lng ->
                 viewModel.createNewRoute(
                     platformId = platformId,
                     startLocation = startLocation,
                     startLat = lat,
                     startLng = lng,
                     onSuccess = { newRouteId ->
+                        showStartDialog = false
                         onNavigateToScanner(newRouteId)
                     }
                 )
@@ -107,6 +121,7 @@ fun RouteHomeScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -175,7 +190,10 @@ fun RouteHomeScreen(
                         item {
                             EmptyRouteHeroCard(
                                 isCreating = uiState.isCreatingRoute,
-                                onStartNewRoute = { showStartDialog = true }
+                                onStartNewRoute = {
+                                    viewModel.clearError()
+                                    showStartDialog = true
+                                }
                             )
                         }
                     }

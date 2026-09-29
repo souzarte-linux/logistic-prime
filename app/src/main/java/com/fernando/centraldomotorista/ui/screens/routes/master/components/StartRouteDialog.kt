@@ -68,6 +68,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun StartRouteDialog(
     platforms: List<Platform>,
+    isCreating: Boolean = false,
+    errorMessage: String? = null,
     onDismiss: () -> Unit,
     onConfirmStart: (platformId: String?, startLocation: String, lat: Double?, lng: Double?) -> Unit
 ) {
@@ -112,7 +114,7 @@ fun StartRouteDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isCreating) onDismiss() },
         containerColor = SurfaceDark,
         title = {
             Text(
@@ -294,35 +296,74 @@ fun StartRouteDialog(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Feedback de erro caso ocorra falha na criação
+                if (!errorMessage.isNullOrBlank()) {
+                    Surface(
+                        color = Color(0xFF3E1A1A),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE53935)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = Color(0xFFFF8A80),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val finalLocation = startLocationText.trim().ifBlank { "Galpão Base" }
-                    onConfirmStart(selectedPlatformId, finalLocation, startLatitude, startLongitude)
+                    if (!isCreating) {
+                        val finalLocation = startLocationText.trim().ifBlank { "Galpão Base" }
+                        onConfirmStart(selectedPlatformId, finalLocation, startLatitude, startLongitude)
+                    }
                 },
+                enabled = !isCreating,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = OrangeNeon,
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    disabledContainerColor = OrangeNeon.copy(alpha = 0.5f),
+                    disabledContentColor = Color.White.copy(alpha = 0.8f)
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.QrCodeScanner,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "ABRIR SCANNER DE PACOTES",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
-                )
+                if (isCreating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "CRIANDO ROTA...",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "ABRIR SCANNER DE PACOTES",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isCreating
+            ) {
                 Text(text = "Cancelar", color = TextSecondaryDark)
             }
         }
