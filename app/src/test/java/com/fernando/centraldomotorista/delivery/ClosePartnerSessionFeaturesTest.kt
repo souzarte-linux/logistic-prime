@@ -106,4 +106,44 @@ class ClosePartnerSessionFeaturesTest {
         assertEquals("PKG001", sortedList[0])
         assertEquals("PKG002", sortedList[1])
     }
+
+    @Test
+    fun testClosePartnerSessionCompositionPropriosVsImportados() {
+        val sessionPackages = listOf(
+            com.fernando.centraldomotorista.data.model.PartnerSessionPackage(
+                id = "p-1",
+                sessionId = "sess-1",
+                barcode = "BR123456789",
+                origin = com.fernando.centraldomotorista.data.model.PackageOrigin.IMPORTADO_MASTER
+            ),
+            com.fernando.centraldomotorista.data.model.PartnerSessionPackage(
+                id = "p-2",
+                sessionId = "sess-1",
+                barcode = "BR987654321",
+                origin = com.fernando.centraldomotorista.data.model.PackageOrigin.NOVO
+            )
+        )
+
+        val session = com.fernando.centraldomotorista.data.model.DeliveryPartnerSession(
+            id = "sess-1",
+            userId = "usr-1",
+            partnerId = "partner-1",
+            expectedPackageCount = 10,
+            scannedCount = 10,
+            packageRate = java.math.BigDecimal("4.50")
+        )
+
+        val uiState = com.fernando.centraldomotorista.ui.screens.deliverypartners.ClosePartnerSessionUiState(
+            session = session,
+            sessionPackages = sessionPackages
+        )
+
+        // 1 importado e 9 próprios (de 10 totais)
+        assertEquals(1, uiState.importedMasterCount)
+        assertEquals(9, uiState.ownPackagesCount)
+
+        assertTrue(uiState.isImportedFromMaster("BR123456789"))
+        assertFalse(uiState.isImportedFromMaster("BR987654321"))
+        assertFalse(uiState.isImportedFromMaster("NON_EXISTING"))
+    }
 }

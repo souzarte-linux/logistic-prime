@@ -84,6 +84,19 @@ val bottomNavItems = listOf(
     Screen.Historico,
 )
 
+object MasterRouteHandoffQueue {
+    private val queue = ArrayDeque<com.fernando.centraldomotorista.ui.screens.routes.master.MasterRouteHandOffItem>()
+
+    fun setQueue(items: List<com.fernando.centraldomotorista.ui.screens.routes.master.MasterRouteHandOffItem>) {
+        queue.clear()
+        queue.addAll(items)
+    }
+
+    fun poll(): com.fernando.centraldomotorista.ui.screens.routes.master.MasterRouteHandOffItem? = queue.removeFirstOrNull()
+    fun hasNext(): Boolean = queue.isNotEmpty()
+    fun clear() = queue.clear()
+}
+
 @Composable
 fun CentralDoMotoristaApp(
     authViewModel: AuthViewModel = viewModel(),
@@ -718,7 +731,7 @@ fun CentralDoMotoristaApp(
             }
 
             composable(
-                route = "${Screen.LancarRota.route}?itemId={itemId}&platformId={platformId}&deliveredPackages={deliveredPackages}&origin={origin}&destination={destination}&masterRouteId={masterRouteId}",
+                route = "${Screen.LancarRota.route}?itemId={itemId}&platformId={platformId}&deliveredPackages={deliveredPackages}&origin={origin}&destination={destination}&masterRouteId={masterRouteId}&smallPackagesCount={smallPackagesCount}&largePackagesCount={largePackagesCount}&distanceKm={distanceKm}&startKm={startKm}&endKm={endKm}&routeDate={routeDate}&startTime={startTime}&endTime={endTime}&notes={notes}",
                 arguments = listOf(
                     navArgument("itemId") {
                         type = NavType.StringType
@@ -748,26 +761,93 @@ fun CentralDoMotoristaApp(
                         type = NavType.StringType
                         nullable = true
                         defaultValue = null
+                    },
+                    navArgument("smallPackagesCount") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                    navArgument("largePackagesCount") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                    navArgument("distanceKm") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("startKm") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("endKm") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("routeDate") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("startTime") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("endTime") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("notes") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
                 val platformId = backStackEntry.arguments?.getString("platformId")
                 val deliveredPackages = backStackEntry.arguments?.getInt("deliveredPackages") ?: 0
-                val origin = backStackEntry.arguments?.getString("origin")
+                val rawOrigin = backStackEntry.arguments?.getString("origin")
+                val origin = if (!rawOrigin.isNullOrBlank()) java.net.URLDecoder.decode(rawOrigin, "UTF-8") else null
                 val destination = backStackEntry.arguments?.getString("destination")
                 val masterRouteId = backStackEntry.arguments?.getString("masterRouteId")
+
+                val smallPackagesCount = backStackEntry.arguments?.getInt("smallPackagesCount") ?: 0
+                val largePackagesCount = backStackEntry.arguments?.getInt("largePackagesCount") ?: 0
+                val distanceKm = backStackEntry.arguments?.getString("distanceKm")?.toBigDecimalOrNull()
+                val startKm = backStackEntry.arguments?.getString("startKm")?.toBigDecimalOrNull()
+                val endKm = backStackEntry.arguments?.getString("endKm")?.toBigDecimalOrNull()
+                val routeDateStr = backStackEntry.arguments?.getString("routeDate")
+                val routeDate = routeDateStr?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                val startTimeStr = backStackEntry.arguments?.getString("startTime")
+                val startTime = startTimeStr?.let { runCatching { java.time.LocalTime.parse(it) }.getOrNull() }
+                val endTimeStr = backStackEntry.arguments?.getString("endTime")
+                val endTime = endTimeStr?.let { runCatching { java.time.LocalTime.parse(it) }.getOrNull() }
+                val rawNotes = backStackEntry.arguments?.getString("notes")
+                val notes = if (!rawNotes.isNullOrBlank()) java.net.URLDecoder.decode(rawNotes, "UTF-8") else null
 
                 val routeViewModel: com.fernando.centraldomotorista.ui.screens.routes.NewRouteViewModel = viewModel()
 
                 LaunchedEffect(backStackEntry) {
-                    if (itemId == null && deliveredPackages > 0) {
+                    if (itemId == null && (deliveredPackages > 0 || smallPackagesCount > 0 || largePackagesCount > 0)) {
                         routeViewModel.applyMasterRouteHandOff(
                             platformId = platformId,
                             packagesCount = deliveredPackages,
                             origin = origin,
                             destination = destination,
-                            masterRouteId = masterRouteId
+                            masterRouteId = masterRouteId,
+                            smallPackagesCount = smallPackagesCount,
+                            largePackagesCount = largePackagesCount,
+                            routeDate = routeDate,
+                            startTime = startTime,
+                            endTime = endTime,
+                            startKm = startKm,
+                            endKm = endKm,
+                            distanceKm = distanceKm,
+                            notes = notes
                         )
                     }
                 }
@@ -775,10 +855,23 @@ fun CentralDoMotoristaApp(
                 com.fernando.centraldomotorista.ui.screens.routes.NewRouteScreen(
                     itemId = itemId,
                     viewModel = routeViewModel,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = {
+                        MasterRouteHandoffQueue.clear()
+                        navController.popBackStack()
+                    },
                     onRouteSaved = {
                         homeViewModel.refresh()
-                        navController.popBackStack()
+                        if (MasterRouteHandoffQueue.hasNext()) {
+                            val nextItem = MasterRouteHandoffQueue.poll()!!
+                            val encodedOrigin = java.net.URLEncoder.encode(nextItem.origin ?: "", "UTF-8")
+                            val encodedNotes = java.net.URLEncoder.encode(nextItem.notes, "UTF-8")
+                            navController.popBackStack()
+                            navController.navigate(
+                                "${Screen.LancarRota.route}?platformId=${nextItem.platformId ?: ""}&deliveredPackages=${nextItem.totalPackages}&origin=$encodedOrigin&masterRouteId=${nextItem.masterRouteId}&smallPackagesCount=${nextItem.smallPackagesCount}&largePackagesCount=${nextItem.largePackagesCount}&distanceKm=${nextItem.proratedKm}&startKm=${nextItem.startKm}&endKm=${nextItem.endKm}&routeDate=${nextItem.routeDate}&startTime=${nextItem.startTime}&endTime=${nextItem.endTime}&notes=$encodedNotes"
+                            )
+                        } else {
+                            navController.popBackStack()
+                        }
                     }
                 )
             }
@@ -880,11 +973,18 @@ fun CentralDoMotoristaApp(
                     onNavigateToScanner = { rId ->
                         navController.navigate("route_scanner/$rId")
                     },
-                    onNavigateToNewRouteWithHandOff = { platformId, deliveredPackages, origin, masterRouteId ->
-                        val encodedOrigin = java.net.URLEncoder.encode(origin ?: "", "UTF-8")
-                        navController.navigate(
-                            "${Screen.LancarRota.route}?platformId=${platformId ?: ""}&deliveredPackages=$deliveredPackages&origin=$encodedOrigin&masterRouteId=$masterRouteId"
-                        )
+                    onNavigateToNewRouteWithHandOff = { handoffs ->
+                        if (handoffs.isEmpty()) {
+                            navController.popBackStack()
+                        } else {
+                            MasterRouteHandoffQueue.setQueue(handoffs)
+                            val firstItem = MasterRouteHandoffQueue.poll()!!
+                            val encodedOrigin = java.net.URLEncoder.encode(firstItem.origin ?: "", "UTF-8")
+                            val encodedNotes = java.net.URLEncoder.encode(firstItem.notes, "UTF-8")
+                            navController.navigate(
+                                "${Screen.LancarRota.route}?platformId=${firstItem.platformId ?: ""}&deliveredPackages=${firstItem.totalPackages}&origin=$encodedOrigin&masterRouteId=${firstItem.masterRouteId}&smallPackagesCount=${firstItem.smallPackagesCount}&largePackagesCount=${firstItem.largePackagesCount}&distanceKm=${firstItem.proratedKm}&startKm=${firstItem.startKm}&endKm=${firstItem.endKm}&routeDate=${firstItem.routeDate}&startTime=${firstItem.startTime}&endTime=${firstItem.endTime}&notes=$encodedNotes"
+                            )
+                        }
                     }
                 )
             }

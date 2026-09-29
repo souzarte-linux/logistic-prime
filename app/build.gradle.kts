@@ -142,6 +142,9 @@ dependencies {
     implementation(libs.mlkit.barcode.scanning)
     implementation(libs.mlkit.text.recognition)
 
+    // OpenStreetMap (osmdroid)
+    implementation(libs.osmdroid.android)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

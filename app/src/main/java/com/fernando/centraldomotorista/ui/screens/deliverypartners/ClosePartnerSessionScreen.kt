@@ -289,6 +289,54 @@ fun ClosePartnerSessionScreen(
                                     )
                                 }
                             }
+
+                            if (uiState.importedMasterCount > 0) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Origem dos Pacotes", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "${uiState.ownPackagesCount} Próprios",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                        Surface(
+                                            color = OrangeNeon.copy(alpha = 0.18f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MoveToInbox,
+                                                    contentDescription = null,
+                                                    tint = OrangeNeon,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "${uiState.importedMasterCount} Importados Master",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = OrangeNeon
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -784,6 +832,20 @@ fun ClosePartnerSessionScreen(
                                             )
                                         }
                                     }
+                                    if (uiState.importedMasterCount > 0) {
+                                        Surface(
+                                            color = OrangeNeon.copy(alpha = 0.15f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "${uiState.importedMasterCount} Master",
+                                                color = OrangeNeon,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
@@ -927,6 +989,33 @@ fun ClosePartnerSessionScreen(
                                                     verticalAlignment = Alignment.CenterVertically,
                                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
+                                                    // Badge de Origem (Prompt 7: IMPORTADO_MASTER)
+                                                    if (uiState.isImportedFromMaster(code)) {
+                                                        Surface(
+                                                            color = OrangeNeon.copy(alpha = 0.18f),
+                                                            shape = RoundedCornerShape(4.dp)
+                                                        ) {
+                                                            Row(
+                                                                verticalAlignment = Alignment.CenterVertically,
+                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.MoveToInbox,
+                                                                    contentDescription = "Importado do Master",
+                                                                    tint = OrangeNeon,
+                                                                    modifier = Modifier.size(11.dp)
+                                                                )
+                                                                Spacer(modifier = Modifier.width(3.dp))
+                                                                Text(
+                                                                    text = "MASTER",
+                                                                    fontSize = 9.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = OrangeNeon
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
                                                     // Badge de Status
                                                     Surface(
                                                         color = if (isReturned) RedAlert.copy(alpha = 0.18f) else GreenNeon.copy(alpha = 0.18f),

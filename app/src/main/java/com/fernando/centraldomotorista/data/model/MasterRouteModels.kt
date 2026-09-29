@@ -34,6 +34,45 @@ enum class StopStatus(val value: String) {
 }
 
 /**
+ * Tipo de pacote bipado na rota Master.
+ */
+enum class PackageType(val value: String) {
+    PACOTINHO("pacotinho"),
+    VOLUMOSO("volumoso");
+
+    companion object {
+        fun fromValue(value: String?): PackageType =
+            entries.firstOrNull { it.value.equals(value, ignoreCase = true) } ?: PACOTINHO
+    }
+}
+
+/**
+ * Status de transferência de um pacote do Master para entregador parceiro.
+ */
+enum class TransferStatus(val value: String) {
+    ATRIBUIDO_PENDENTE("atribuido_pendente"),
+    CONFIRMADO("confirmado");
+
+    companion object {
+        fun fromValue(value: String?): TransferStatus? =
+            entries.firstOrNull { it.value.equals(value, ignoreCase = true) }
+    }
+}
+
+/**
+ * Origem do pacote registrado na sessão do parceiro.
+ */
+enum class PackageOrigin(val value: String) {
+    NOVO("novo"),
+    IMPORTADO_MASTER("importado_master");
+
+    companion object {
+        fun fromValue(value: String?): PackageOrigin =
+            entries.firstOrNull { it.value.equals(value, ignoreCase = true) } ?: NOVO
+    }
+}
+
+/**
  * Modelo de domínio para o cabeçalho da rota do Usuário Master.
  */
 data class MasterDeliveryRoute(
@@ -76,5 +115,28 @@ data class MasterRouteStop(
     val notes: String? = null,
     val scannedAt: OffsetDateTime? = null,
     val deliveredAt: OffsetDateTime? = null,
-    val updatedAt: OffsetDateTime? = null
+    val updatedAt: OffsetDateTime? = null,
+    // Extensões ADR-003
+    val platformId: String? = null,
+    val packageType: PackageType = PackageType.PACOTINHO,
+    val photoUrl: String? = null,
+    val photoExpiresAt: OffsetDateTime? = null,
+    val assignedPartnerId: String? = null,
+    val transferStatus: TransferStatus? = null,
+    val transferredVia: String? = null,
+    val transferredAt: OffsetDateTime? = null
+)
+
+/**
+ * Pacote individual registrado na sessão do entregador parceiro.
+ */
+data class PartnerSessionPackage(
+    val id: String = "",
+    val sessionId: String = "",
+    val userId: String = "",
+    val barcode: String = "",
+    val origin: PackageOrigin = PackageOrigin.NOVO,
+    val masterStopId: String? = null,
+    val status: String = "bipado",
+    val scannedAt: OffsetDateTime? = null
 )

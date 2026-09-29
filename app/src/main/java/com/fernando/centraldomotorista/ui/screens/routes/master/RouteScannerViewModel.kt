@@ -11,11 +11,18 @@ import android.util.Log
 import androidx.camera.core.CameraControl
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
+import com.fernando.centraldomotorista.data.model.PackageType
+import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.model.StopStatus
+import com.fernando.centraldomotorista.data.model.TransferStatus
+import com.fernando.centraldomotorista.data.remote.supabase
+import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.MasterRouteRepository
-import com.fernando.centraldomotorista.util.BrazilianLabelParser
+import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import com.fernando.centraldomotorista.util.ParsedAddress
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.OffsetDateTime
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class RouteScannerUiState(
@@ -34,11 +42,26 @@ data class RouteScannerUiState(
     val isSaving: Boolean = false,
     val duplicateAlertBarcode: String? = null,
     val autoAdvanceCountdown: Int? = null,
-    val error: String? = null
-)
+    val error: String? = null,
+    // Extensões Prompt 2 (Sticky Platform + PackageType)
+    val platforms: List<Platform> = emptyList(),
+    val currentPlatformId: String? = null,
+    val currentPackageType: PackageType = PackageType.PACOTINHO,
+    // Extensões Prompt 3 (Gate de Confiança + Foto)
+    val isConfidenceWarning: Boolean = false,
+    val isPhotoUploading: Boolean = false,
+    // Extensões Prompt 6 (Atribuição Cruzada Master ↔ Parceiro)
+    val deliveryPartners: List<DeliveryPartner> = emptyList(),
+    val selectedPartnerIdForNextScan: String? = null
+) {
+    val activePlatform: Platform?
+        get() = platforms.firstOrNull { it.id == currentPlatformId }
+}
 
 class RouteScannerViewModel(
-    private val masterRouteRepository: MasterRouteRepository = MasterRouteRepository()
+    private val masterRouteRepository: MasterRouteRepository = MasterRouteRepository(),
+    private val platformRepository: PlatformRepository = PlatformRepository(),
+    private val deliveryPartnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository()
 ) : ViewModel() {
 
     private val tag = "RouteScannerVM"
@@ -71,22 +94,60 @@ class RouteScannerViewModel(
     }
 
     fun initRoute(routeId: String) {
+        val user = supabase.auth.currentUserOrNull()
         _uiState.value = _uiState.value.copy(routeId = routeId)
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val existingStops = masterRouteRepository.getRouteStops(routeId)
                 scannedBarcodes.clear()
                 existingStops.forEach { scannedBarcodes.add(it.barcode) }
 
+                val currentRoute = masterRouteRepository.getRouteById(routeId)
+                val platformsList = if (user != null) platformRepository.getActivePlatforms(user.id) else emptyList()
+                val partnersList = if (user != null) deliveryPartnerRepository.getDeliveryPartners(user.id) else emptyList()
+
+                // Se ainda não houver currentPlatformId definido, herda a da rota ou a primeira ativa
+                val initialPlatformId = _uiState.value.currentPlatformId
+                    ?: currentRoute?.platformId
+                    ?: platformsList.firstOrNull()?.id
+
                 withContext(Dispatchers.Main) {
                     _uiState.value = _uiState.value.copy(
-                        totalScannedCount = existingStops.size
+                        totalScannedCount = existingStops.size,
+                        platforms = platformsList,
+                        deliveryPartners = partnersList,
+                        currentPlatformId = initialPlatformId
                     )
                 }
             } catch (e: Exception) {
-                Log.e(tag, "Erro ao carregar paradas existentes da rota $routeId: ${e.message}", e)
+                Log.e(tag, "Erro ao carregar dados da rota $routeId: ${e.message}", e)
             }
         }
+    }
+
+    /**
+     * Alterna a plataforma ativa (Prompt 2).
+     * Esta seleção é sticky: persiste entre scans até nova troca manual.
+     */
+    fun onPlatformSelected(platformId: String) {
+        _uiState.value = _uiState.value.copy(currentPlatformId = platformId)
+    }
+
+    /**
+     * Alterna o tipo de pacote a ser bipado (Pacotinho vs Volumoso).
+     * Esta seleção NÃO é sticky: após o salvamento, retorna para PACOTINHO.
+     */
+    fun onPackageTypeSelected(packageType: PackageType) {
+        _uiState.value = _uiState.value.copy(currentPackageType = packageType)
+    }
+
+    /**
+     * Define com quem fica o pacote lido (Prompt 6).
+     * null = Master (padrão); String = ID do Parceiro.
+     */
+    fun onAssignedPartnerSelected(partnerId: String?) {
+        _uiState.value = _uiState.value.copy(selectedPartnerIdForNextScan = partnerId)
     }
 
     fun isBarcodeAlreadyScanned(barcode: String): Boolean {
@@ -96,7 +157,6 @@ class RouteScannerViewModel(
     fun onDuplicateBarcodeDetected(context: Context, barcode: String) {
         val now = System.currentTimeMillis()
         if (now - lastDuplicateBeepTimestamp < 1500L) {
-            // Debounce para evitar sobrecarga sensorial com o mesmo código
             return
         }
         lastDuplicateBeepTimestamp = now
@@ -123,15 +183,21 @@ class RouteScannerViewModel(
             return
         }
 
-        // Adiciona imediatamente ao conjunto para evitar reentrância em frames subsequentes
         scannedBarcodes.add(trimmedBarcode)
-
         emitSensoryFeedback(context, isSuccess = true)
 
         val nextOrder = _uiState.value.totalScannedCount + 1
+        val selectedPlatformId = _uiState.value.currentPlatformId
+        val selectedPackageType = _uiState.value.currentPackageType
+        val assignedPartner = _uiState.value.selectedPartnerIdForNextScan
+
+        // Gate de confiança (Prompt 3): requer CEP e endereço não vazios
+        val isConfident = !parsedAddress.cep.isNullOrBlank() && parsedAddress.fullFormattedAddress.isNotBlank()
+
         _uiState.value = _uiState.value.copy(
             isSaving = true,
-            duplicateAlertBarcode = null
+            duplicateAlertBarcode = null,
+            isConfidenceWarning = !isConfident
         )
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -147,16 +213,34 @@ class RouteScannerViewModel(
                     number = parsedAddress.number,
                     neighborhood = parsedAddress.neighborhood,
                     city = parsedAddress.city,
-                    state = parsedAddress.state
+                    state = parsedAddress.state,
+                    platformId = selectedPlatformId,
+                    packageType = selectedPackageType,
+                    assignedPartnerId = assignedPartner,
+                    transferStatus = if (assignedPartner != null) TransferStatus.ATRIBUIDO_PENDENTE else null,
+                    transferredVia = if (assignedPartner != null) "manual_master" else null
                 )
 
                 withContext(Dispatchers.Main) {
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
                         totalScannedCount = nextOrder,
-                        lastScannedStop = createdStop
+                        lastScannedStop = createdStop,
+                        // PackageType reseta para PACOTINHO (não-sticky)
+                        currentPackageType = PackageType.PACOTINHO,
+                        // Atribuição de parceiro reseta para Master (não-sticky)
+                        selectedPartnerIdForNextScan = null
+                        // currentPlatformId MANTÉM-SE (sticky!)
                     )
-                    startAutoAdvanceTimer()
+
+                    // Só dispara auto-avanço se a leitura for 100% confiável (Prompt 3)
+                    if (isConfident) {
+                        startAutoAdvanceTimer()
+                    } else {
+                        // Sem auto-avanço: card fica aberto aguardando conferência do motorista
+                        autoAdvanceJob?.cancel()
+                        _uiState.value = _uiState.value.copy(autoAdvanceCountdown = null)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(tag, "Erro ao salvar parada bipada $trimmedBarcode: ${e.message}", e)
@@ -185,8 +269,63 @@ class RouteScannerViewModel(
         autoAdvanceJob?.cancel()
         _uiState.value = _uiState.value.copy(
             lastScannedStop = null,
-            autoAdvanceCountdown = null
+            autoAdvanceCountdown = null,
+            isConfidenceWarning = false
         )
+    }
+
+    /**
+     * Atualiza a foto de backup da etiqueta física (Prompt 3).
+     * Define validade de 15 dias para expiração periódica.
+     */
+    fun attachPhotoToLastStop(photoBase64OrUrl: String) {
+        val stop = _uiState.value.lastScannedStop ?: return
+        _uiState.value = _uiState.value.copy(isPhotoUploading = true)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val expiresAt = OffsetDateTime.now().plusDays(15)
+            val success = masterRouteRepository.updateStopPhoto(
+                stopId = stop.id,
+                photoUrl = photoBase64OrUrl,
+                photoExpiresAt = expiresAt
+            )
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(
+                    isPhotoUploading = false,
+                    lastScannedStop = if (success) stop.copy(photoUrl = photoBase64OrUrl, photoExpiresAt = expiresAt) else stop
+                )
+            }
+        }
+    }
+
+    /**
+     * Atualização manual do endereço e destinatário em caso de leitura OCR truncada.
+     */
+    fun updateStopManualData(recipientName: String?, fullAddress: String, cep: String?) {
+        val stop = _uiState.value.lastScannedStop ?: return
+        _uiState.value = _uiState.value.copy(isSaving = true)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val updatedStop = stop.copy(
+                    recipientName = recipientName?.trim(),
+                    fullAddress = fullAddress.trim(),
+                    cep = cep?.trim()
+                )
+                masterRouteRepository.addStopsBatch(listOf(updatedStop))
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        lastScannedStop = updatedStop,
+                        isConfidenceWarning = false
+                    )
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(isSaving = false)
+                }
+            }
+        }
     }
 
     fun toggleTorch(cameraControl: CameraControl?) {
@@ -201,7 +340,6 @@ class RouteScannerViewModel(
 
     private fun emitSensoryFeedback(context: Context, isSuccess: Boolean) {
         viewModelScope.launch(Dispatchers.Main) {
-            // 1. Áudio
             try {
                 if (isSuccess) {
                     toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
@@ -209,10 +347,9 @@ class RouteScannerViewModel(
                     toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 180)
                 }
             } catch (e: Exception) {
-                // Silencioso em caso de erro de áudio
+                // Silencioso
             }
 
-            // 2. Vibração Háptica
             try {
                 val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager

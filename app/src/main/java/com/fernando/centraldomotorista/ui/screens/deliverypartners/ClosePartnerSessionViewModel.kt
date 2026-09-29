@@ -7,10 +7,13 @@ import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.DeliveryPartnerSession
 import com.fernando.centraldomotorista.data.model.DeliveryRoute
 import com.fernando.centraldomotorista.data.model.Expense
+import com.fernando.centraldomotorista.data.model.PackageOrigin
+import com.fernando.centraldomotorista.data.model.PartnerSessionPackage
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryRouteRepository
+import com.fernando.centraldomotorista.data.repository.MasterRouteRepository
 import com.fernando.centraldomotorista.ui.utils.parseCurrency
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +43,7 @@ data class ClosePartnerSessionUiState(
     val amountPaidText: String = "0,00",
     val amountPaid: BigDecimal = BigDecimal.ZERO,
     val returnedBarcodes: Set<String> = emptySet(),
+    val sessionPackages: List<PartnerSessionPackage> = emptyList(),
     val isScannerOpen: Boolean = false,
     val isLoading: Boolean = false,
     val isFinalizing: Boolean = false,
@@ -54,12 +58,23 @@ data class ClosePartnerSessionUiState(
 
     val hasDivergence: Boolean
         get() = session != null && totalAccounted != basePackageCount
+
+    // Prompt 7: contagens separadas e checagem de origem
+    val importedMasterCount: Int
+        get() = sessionPackages.count { it.origin == PackageOrigin.IMPORTADO_MASTER }
+
+    val ownPackagesCount: Int
+        get() = (basePackageCount - importedMasterCount).coerceAtLeast(0)
+
+    fun isImportedFromMaster(barcode: String): Boolean =
+        sessionPackages.any { it.barcode.equals(barcode.trim(), ignoreCase = true) && it.origin == PackageOrigin.IMPORTADO_MASTER }
 }
 
 class ClosePartnerSessionViewModel(
     private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
     private val partnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
-    private val routeRepository: DeliveryRouteRepository = DeliveryRouteRepository()
+    private val routeRepository: DeliveryRouteRepository = DeliveryRouteRepository(),
+    private val masterRouteRepository: MasterRouteRepository = MasterRouteRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ClosePartnerSessionUiState())
@@ -98,6 +113,8 @@ class ClosePartnerSessionViewModel(
                 val nowTime = LocalTime.now().withSecond(0).withNano(0)
                 val initialEndTime = session.endTime ?: LocalDateTime.of(sessionDate, nowTime).atZone(ZoneId.systemDefault()).toOffsetDateTime()
 
+                val sessionPackages = masterRouteRepository.getPartnerSessionPackages(sessionId)
+
                 _uiState.update {
                     it.copy(
                         session = session,
@@ -110,6 +127,7 @@ class ClosePartnerSessionViewModel(
                         returnedCount = initialReturnedCount,
                         returnedCountText = initialReturnedCount.toString(),
                         returnedBarcodes = initialReturnedBarcodes,
+                        sessionPackages = sessionPackages,
                         isScannerOpen = false,
                         suggestedAmount = calculatedSuggested,
                         amountPaid = calculatedSuggested,

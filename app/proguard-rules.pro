@@ -78,3 +78,9 @@
 -keep class com.google.mlkit.** { *; }
 -dontwarn com.google.mlkit.**
 -keep class androidx.camera.** { *; }
+
+# ------------------------------------------------------------------------------
+# 8. osmdroid (OpenStreetMap)
+# ------------------------------------------------------------------------------
+-keep class org.osmdroid.** { *; }
+-dontwarn org.osmdroid.**

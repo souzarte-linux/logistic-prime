@@ -530,29 +530,64 @@ class NewRouteViewModel(
     }
 
     /**
-     * Aplica os dados consolidados do hand-off de encerramento da Rota Master.
-     * Pré-preenche plataforma, pacotinhos entregues, origem, destino e notas.
+     * Aplica os dados consolidados do hand-off de encerramento da Rota Master (Prompt 8).
+     * Pré-preenche plataforma, pacotinhos, volumosos, horários, odômetro proporcional, origem, destino e notas.
      */
     fun applyMasterRouteHandOff(
         platformId: String?,
-        packagesCount: Int,
-        origin: String?,
-        destination: String?,
-        masterRouteId: String?
+        packagesCount: Int = 0,
+        origin: String? = null,
+        destination: String? = null,
+        masterRouteId: String? = null,
+        smallPackagesCount: Int = 0,
+        largePackagesCount: Int = 0,
+        routeDate: LocalDate? = null,
+        startTime: LocalTime? = null,
+        endTime: LocalTime? = null,
+        startKm: BigDecimal? = null,
+        endKm: BigDecimal? = null,
+        distanceKm: BigDecimal? = null,
+        notes: String? = null
     ) {
         val current = _uiState.value
-        val countText = if (packagesCount > 0) packagesCount.toString() else current.smallPackagesCountText
-        val count = countText.toIntOrNull() ?: 0
-        val unitPrice = current.smallPackagesUnitPriceText.replace(',', '.').trim().toBigDecimalOrNull() ?: BigDecimal.ZERO
-        val total = BigDecimal(count).multiply(unitPrice).setScale(2, RoundingMode.HALF_UP)
+
+        val effectiveSmallCount = if (smallPackagesCount > 0) smallPackagesCount else if (packagesCount > 0) packagesCount else current.smallPackagesCountText.toIntOrNull() ?: 0
+        val smallCountText = if (effectiveSmallCount > 0) effectiveSmallCount.toString() else current.smallPackagesCountText
+        val smallUnitPrice = current.smallPackagesUnitPriceText.replace(',', '.').trim().toBigDecimalOrNull() ?: BigDecimal.ZERO
+        val smallTotal = BigDecimal(effectiveSmallCount).multiply(smallUnitPrice).setScale(2, RoundingMode.HALF_UP)
+
+        val largeCountText = if (largePackagesCount > 0) largePackagesCount.toString() else current.largePackagesCountText
+        val largeUnitPrice = current.largePackageSingleUnitPriceText.replace(',', '.').trim().toBigDecimalOrNull() ?: BigDecimal.ZERO
+        val largeTotal = BigDecimal(largePackagesCount).multiply(largeUnitPrice).setScale(2, RoundingMode.HALF_UP)
+
+        val startKmText = if (startKm != null && startKm > BigDecimal.ZERO) {
+            startKm.setScale(1, RoundingMode.HALF_UP).toPlainString().replace('.', ',')
+        } else current.startKmText
+
+        val endKmText = if (endKm != null && endKm > BigDecimal.ZERO) {
+            endKm.setScale(1, RoundingMode.HALF_UP).toPlainString().replace('.', ',')
+        } else current.endKmText
+
+        val distanceKmText = if (distanceKm != null && distanceKm > BigDecimal.ZERO) {
+            distanceKm.setScale(1, RoundingMode.HALF_UP).toPlainString().replace('.', ',')
+        } else current.distanceKmText
 
         _uiState.value = current.copy(
             selectedPlatformId = platformId?.ifBlank { null } ?: current.selectedPlatformId,
-            smallPackagesCountText = countText,
-            smallPackagesTotal = total,
+            smallPackagesCountText = smallCountText,
+            smallPackagesTotal = smallTotal,
+            largePackagesCountText = largeCountText,
+            largePackagesTotal = largeTotal,
+            selectedDate = routeDate ?: current.selectedDate,
+            startTime = startTime ?: current.startTime,
+            endTime = endTime ?: current.endTime,
+            startKmText = startKmText,
+            endKmText = endKmText,
+            distanceKmText = distanceKmText,
             origin = origin?.takeIf { it.isNotBlank() } ?: current.origin,
             destination = destination?.takeIf { it.isNotBlank() } ?: current.destination,
-            notesText = if (!masterRouteId.isNullOrBlank()) "Encerrada via Central do Motorista (Rota Master #$masterRouteId)" else current.notesText
+            notesText = notes?.takeIf { it.isNotBlank() }
+                ?: if (!masterRouteId.isNullOrBlank()) "Encerrada via Central do Motorista (Rota Master #$masterRouteId)" else current.notesText
         )
     }
 }

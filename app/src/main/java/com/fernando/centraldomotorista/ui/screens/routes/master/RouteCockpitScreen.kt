@@ -16,11 +16,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AltRoute
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,6 +35,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -53,6 +57,7 @@ import com.fernando.centraldomotorista.data.model.RouteStatus
 import com.fernando.centraldomotorista.data.model.StopStatus
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.FinishRouteDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteProgressHero
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteMapView
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.StopDeliveryCard
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
@@ -60,12 +65,14 @@ import com.fernando.centraldomotorista.ui.theme.SurfaceDark
 import com.fernando.centraldomotorista.ui.theme.SurfaceDarkAlt
 import com.fernando.centraldomotorista.ui.theme.TextPrimaryDark
 import com.fernando.centraldomotorista.ui.theme.TextSecondaryDark
+import com.fernando.centraldomotorista.ui.theme.YellowGold
 import com.fernando.centraldomotorista.util.NavigationIntentHelper
 
 /**
  * Tela do Cockpit de Bordo veicular para o motorista Master.
- * Exibe painel com métricas de entrega, despacho rápido para Waze/Google Maps
- * e atualização instantânea do status de cada entrega.
+ * Exibe painel com métricas de entrega, despacho rápido para Waze/Google Maps,
+ * cards expansíveis/contraíveis (Prompt 5), atribuição a parceiros (Prompt 6)
+ * e encerramento com rateio proporcional multi-plataforma (Prompt 8).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +81,7 @@ fun RouteCockpitScreen(
     viewModel: RouteCockpitViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToScanner: (String) -> Unit,
-    onNavigateToNewRouteWithHandOff: (platformId: String?, deliveredPackages: Int, origin: String?, masterRouteId: String) -> Unit,
+    onNavigateToNewRouteWithHandOff: (handoffs: List<MasterRouteHandOffItem>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -94,13 +101,8 @@ fun RouteCockpitScreen(
             onDismiss = { showFinishDialog = false },
             onFinishAndLaunchEarnings = { kmEnd ->
                 showFinishDialog = false
-                viewModel.finishRoute {
-                    onNavigateToNewRouteWithHandOff(
-                        uiState.route?.platformId,
-                        uiState.deliveredCount,
-                        uiState.route?.startLocation,
-                        routeId
-                    )
+                viewModel.finishRoute(endKmInput = kmEnd) { handoffs ->
+                    onNavigateToNewRouteWithHandOff(handoffs)
                 }
             },
             onFinishOnly = {
@@ -117,12 +119,21 @@ fun RouteCockpitScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text(
-                            text = "Cockpit de Bordo",
-                            fontSize = 12.sp,
-                            color = OrangeNeon,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Cockpit de Bordo",
+                                fontSize = 12.sp,
+                                color = OrangeNeon,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.size(6.dp))
+                            Text(
+                                text = "• ${uiState.totalPackages} pacotes bipados",
+                                fontSize = 11.sp,
+                                color = TextSecondaryDark,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                         Text(
                             text = uiState.platformName ?: "Rota Operacional",
                             fontSize = 17.sp,
@@ -141,6 +152,13 @@ fun RouteCockpitScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.toggleMapVisibility() }) {
+                        Icon(
+                            imageVector = Icons.Default.Map,
+                            contentDescription = if (uiState.isMapVisible) "Ocultar Mapa" else "Ver Mapa",
+                            tint = if (uiState.isMapVisible) OrangeNeon else TextSecondaryDark
+                        )
+                    }
                     IconButton(onClick = { onNavigateToScanner(routeId) }) {
                         Icon(
                             imageVector = Icons.Default.QrCodeScanner,
@@ -206,7 +224,7 @@ fun RouteCockpitScreen(
                     color = OrangeNeon
                 )
             } else {
-                val nextPendingStopId = uiState.stops.firstOrNull { it.status == StopStatus.PENDENTE }?.id
+                val nextPendingStopId = uiState.activeStops.firstOrNull { it.status == StopStatus.PENDENTE }?.id
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -266,9 +284,128 @@ fun RouteCockpitScreen(
                         )
                     }
 
-                    // --- 3. Lista de Paradas / Pacotes ---
-                    val displayStops = uiState.filteredStops
-                    if (displayStops.isEmpty()) {
+                    // --- 2.1 Mapa osmdroid Embutido (Prompt 9) ---
+                    if (uiState.isMapVisible) {
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(320.dp)
+                            ) {
+                                RouteMapView(
+                                    stops = uiState.stops,
+                                    startLat = uiState.route?.startLatitude?.toDouble(),
+                                    startLng = uiState.route?.startLongitude?.toDouble(),
+                                    onNavigateGps = { address ->
+                                        NavigationIntentHelper.launchNavigation(
+                                            context = context,
+                                            address = address,
+                                            preference = NavigationIntentHelper.NavAppPreference.ALWAYS_ASK
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+
+                    // --- 3. Cabeçalho de Ações da Lista: Contador, Otimização e Expandir/Contrair (Prompts 5 e 9) ---
+                    val activeStops = uiState.filteredActiveStops
+                    val awaitingStops = uiState.filteredAwaitingConfirmationStops
+                    val totalDisplayCount = activeStops.size + awaitingStops.size
+
+                    if (totalDisplayCount > 0) {
+                        item {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                // Status discreto de geocodificação em background
+                                if (uiState.isGeocoding) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = OrangeNeon,
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Text(
+                                            text = "Obtendo coordenadas GPS das paradas...",
+                                            fontSize = 11.sp,
+                                            color = OrangeNeon,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "$totalDisplayCount paradas listadas",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextSecondaryDark
+                                    )
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Botão Otimizar Ordem (GPS) via Nearest Neighbor offline
+                                        TextButton(
+                                            onClick = { viewModel.optimizeStopsOrder() },
+                                            enabled = !uiState.isOptimizing && totalDisplayCount > 1,
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            if (uiState.isOptimizing) {
+                                                CircularProgressIndicator(
+                                                    color = OrangeNeon,
+                                                    strokeWidth = 2.dp,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(modifier = Modifier.size(4.dp))
+                                                Text("Otimizando...", fontSize = 11.sp, color = OrangeNeon)
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.AutoMirrored.Filled.AltRoute,
+                                                    contentDescription = null,
+                                                    tint = OrangeNeon,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.size(4.dp))
+                                                Text("Otimizar Rota", fontSize = 11.sp, color = OrangeNeon, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+
+                                        TextButton(
+                                            onClick = { viewModel.expandAllStops() },
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Expandir", fontSize = 11.sp, color = TextSecondaryDark, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        TextButton(
+                                            onClick = { viewModel.collapseAllStops() },
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Contrair", fontSize = 11.sp, color = TextSecondaryDark, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // --- 4. Lista de Paradas / Pacotes Ativos (Posse direta do Master) ---
+                    if (totalDisplayCount == 0) {
                         item {
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
@@ -310,10 +447,12 @@ fun RouteCockpitScreen(
                             }
                         }
                     } else {
-                        items(displayStops, key = { it.id }) { stop ->
+                        items(activeStops, key = { it.id }) { stop ->
                             StopDeliveryCard(
                                 stop = stop,
                                 isNext = (stop.id == nextPendingStopId),
+                                isExpanded = uiState.expandedStopIds.contains(stop.id),
+                                onToggleExpand = { viewModel.toggleStopExpanded(stop.id) },
                                 onNavigateGps = { address ->
                                     NavigationIntentHelper.launchNavigation(
                                         context = context,
@@ -323,8 +462,68 @@ fun RouteCockpitScreen(
                                 },
                                 onUpdateStatus = { stopId, newStatus ->
                                     viewModel.updateStopStatus(stopId, newStatus)
-                                }
+                                },
+                                onAssignToPartner = { partnerId ->
+                                    viewModel.assignStopToPartner(stop.id, partnerId)
+                                },
+                                partners = uiState.deliveryPartners
                             )
+                        }
+
+                        // --- 5. Seção "Aguardando Confirmação do Parceiro" (Prompt 6) ---
+                        if (awaitingStops.isNotEmpty()) {
+                            item {
+                                Surface(
+                                    color = SurfaceDarkAlt,
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, YellowGold.copy(alpha = 0.3f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.TwoWheeler,
+                                            contentDescription = null,
+                                            tint = YellowGold,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = "Aguardando Confirmação do Parceiro (${awaitingStops.size})",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = YellowGold
+                                        )
+                                    }
+                                }
+                            }
+
+                            items(awaitingStops, key = { it.id }) { stop ->
+                                StopDeliveryCard(
+                                    stop = stop,
+                                    isNext = false,
+                                    isExpanded = uiState.expandedStopIds.contains(stop.id),
+                                    onToggleExpand = { viewModel.toggleStopExpanded(stop.id) },
+                                    onNavigateGps = { address ->
+                                        NavigationIntentHelper.launchNavigation(
+                                            context = context,
+                                            address = address,
+                                            preference = NavigationIntentHelper.NavAppPreference.ALWAYS_ASK
+                                        )
+                                    },
+                                    onUpdateStatus = { stopId, newStatus ->
+                                        viewModel.updateStopStatus(stopId, newStatus)
+                                    },
+                                    onAssignToPartner = { partnerId ->
+                                        viewModel.assignStopToPartner(stop.id, partnerId)
+                                    },
+                                    partners = uiState.deliveryPartners
+                                )
+                            }
                         }
                     }
 

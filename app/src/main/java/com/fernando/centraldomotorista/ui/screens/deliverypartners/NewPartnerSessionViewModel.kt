@@ -11,6 +11,7 @@ import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerSessionRepository
 import com.fernando.centraldomotorista.data.repository.DeliveryRouteRepository
+import com.fernando.centraldomotorista.data.repository.MasterRouteRepository
 import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,7 +58,8 @@ class NewPartnerSessionViewModel(
     private val partnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
     private val routeRepository: DeliveryRouteRepository = DeliveryRouteRepository(),
     private val sessionRepository: DeliveryPartnerSessionRepository = DeliveryPartnerSessionRepository(),
-    private val platformRepository: PlatformRepository = PlatformRepository()
+    private val platformRepository: PlatformRepository = PlatformRepository(),
+    private val masterRouteRepository: MasterRouteRepository = MasterRouteRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NewPartnerSessionUiState())
@@ -222,7 +224,24 @@ class NewPartnerSessionViewModel(
                     defaultBonus = bonus
                 )
 
-                sessionRepository.saveSession(newSession)
+                val savedSession = sessionRepository.saveSession(newSession)
+
+                // Importa/registra cada código bipado na tabela partner_session_packages (Prompt 6)
+                val targetSessionId = savedSession.id.ifBlank { newSession.id }
+                if (targetSessionId.isNotBlank()) {
+                    for (barcode in state.scannedBarcodes) {
+                        try {
+                            masterRouteRepository.importMasterStopToPartnerSession(
+                                sessionId = targetSessionId,
+                                barcode = barcode,
+                                partnerId = partner.id
+                            )
+                        } catch (e: Exception) {
+                            Log.w("NewSessionVM", "Erro ao importar pacote granular $barcode: ${e.message}")
+                        }
+                    }
+                }
+
                 _uiState.update { it.copy(isSaving = false, sessionCreated = true) }
             } catch (e: Exception) {
                 Log.e("NewSessionVM", "Erro ao salvar sessão: ${e.message}", e)
