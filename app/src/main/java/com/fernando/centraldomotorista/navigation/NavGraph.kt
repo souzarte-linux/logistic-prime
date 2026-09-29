@@ -245,6 +245,10 @@ fun CentralDoMotoristaApp(
                         partMaintenanceViewModel.openAddDialog()
                         navController.navigate(Screen.LancarManutencao.route)
                     },
+                    onNavigateToCreateMaintenanceFromAlert = { part ->
+                        partMaintenanceViewModel.openAddFromAlert(part)
+                        navController.navigate(Screen.LancarManutencao.route)
+                    },
                     onNavigateToEditMaintenance = { part ->
                         partMaintenanceViewModel.startEditing(part)
                         navController.navigate(Screen.LancarManutencao.route)

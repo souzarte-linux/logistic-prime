@@ -89,7 +89,8 @@ fun HomeScreen(
     onNavigateToFuelExpense: () -> Unit,
     onNavigateToMealExpense: () -> Unit = {},
     onNavigateToMaintenanceExpense: () -> Unit,
-    onNavigateToEditMaintenance: (PartMaintenance) -> Unit = {},
+    onNavigateToCreateMaintenanceFromAlert: (PartMaintenance) -> Unit = {},
+    onNavigateToEditMaintenance: (PartMaintenance) -> Unit = onNavigateToCreateMaintenanceFromAlert,
     onNavigateToRoute: (String) -> Unit,
     onNavigateToHistorico: () -> Unit = { onNavigateToRoute(Screen.Historico.route) },
     onNavigateToDeliveryPartners: () -> Unit = { onNavigateToRoute(Screen.DeliveryPartners.route) },
@@ -1021,7 +1022,7 @@ fun HomeScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(16.dp))
-                                            .clickable { onNavigateToEditMaintenance(alerta) },
+                                            .clickable { onNavigateToCreateMaintenanceFromAlert(alerta) },
                                         shape = RoundedCornerShape(16.dp),
                                         colors = CardDefaults.cardColors(containerColor = alertBgColor),
                                         border = BorderStroke(1.dp, alertBorderColor)
@@ -1037,7 +1038,7 @@ fun HomeScreen(
                                                 modifier = Modifier
                                                     .size(40.dp)
                                                     .background(alertColor.copy(alpha = 0.2f), CircleShape),
-                                                contentAlignment = Alignment.Center
+                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
                                                     imageVector = if (isCritico) Icons.Default.Warning else Icons.Default.WarningAmber,
@@ -1059,47 +1060,47 @@ fun HomeScreen(
                                                     )
                                                     if (itemAlerta.percentage > 0) {
                                                         Surface(
-                                                            color = alertColor.copy(alpha = 0.2f),
-                                                            shape = RoundedCornerShape(4.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = "${itemAlerta.percentage}%",
-                                                                color = alertColor,
-                                                                fontWeight = FontWeight.Black,
-                                                                fontSize = 11.sp,
-                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                                Text(
-                                                    text = when {
-                                                        itemAlerta.isOverdue ->
-                                                            "Você ultrapassou em ${itemAlerta.kmOverdue.toPlainString()} KM a vida útil de ${alerta.lifeKm.toPlainString()} KM."
-                                                        isCritico ->
-                                                            "Faltam apenas ${itemAlerta.kmRemaining.toPlainString()} KM para a troca (vida útil de ${alerta.lifeKm.toPlainString()} KM)."
-                                                        else ->
-                                                            "Faltam ${itemAlerta.kmRemaining.toPlainString()} KM para a troca preventiva (vida útil de ${alerta.lifeKm.toPlainString()} KM)."
-                                                    },
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    fontSize = 12.sp
-                                                )
-                                                Text(
-                                                    text = "Toque para abrir no modo edição ➔",
-                                                    color = OrangeNeon,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    modifier = Modifier.padding(top = 4.dp)
-                                                )
-                                            }
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                                contentDescription = "Editar",
-                                                tint = alertColor,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
-                                    }
+                                                             color = alertColor.copy(alpha = 0.2f),
+                                                             shape = RoundedCornerShape(4.dp)
+                                                         ) {
+                                                             Text(
+                                                                 text = "${itemAlerta.percentage}%",
+                                                                 color = alertColor,
+                                                                 fontWeight = FontWeight.Black,
+                                                                 fontSize = 11.sp,
+                                                                 modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                             )
+                                                         }
+                                                     }
+                                                 }
+                                                 Text(
+                                                     text = when {
+                                                         itemAlerta.isOverdue ->
+                                                             "Você ultrapassou em ${itemAlerta.kmOverdue.toPlainString()} KM a vida útil de ${alerta.lifeKm.toPlainString()} KM."
+                                                         isCritico ->
+                                                             "Faltam apenas ${itemAlerta.kmRemaining.toPlainString()} KM para a troca (vida útil de ${alerta.lifeKm.toPlainString()} KM)."
+                                                         else ->
+                                                             "Faltam ${itemAlerta.kmRemaining.toPlainString()} KM para a troca preventiva (vida útil de ${alerta.lifeKm.toPlainString()} KM)."
+                                                     },
+                                                     color = MaterialTheme.colorScheme.onSurface,
+                                                     fontSize = 12.sp
+                                                 )
+                                                 Text(
+                                                     text = "Toque para lançar nova troca / manutenção ➔",
+                                                     color = OrangeNeon,
+                                                     fontSize = 11.sp,
+                                                     fontWeight = FontWeight.Bold,
+                                                     modifier = Modifier.padding(top = 4.dp)
+                                                 )
+                                             }
+                                             Icon(
+                                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                                 contentDescription = "Lançar Nova Troca / Manutenção",
+                                                 tint = OrangeNeon,
+                                                 modifier = Modifier.size(24.dp)
+                                             )
+                                         }
+                                     }
                                 }
                             }
 

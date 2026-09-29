@@ -391,8 +391,7 @@ fun PartMaintenanceCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable { onEdit() },
+            .clip(RoundedCornerShape(14.dp)),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
@@ -448,12 +447,19 @@ fun PartMaintenanceCard(
                     )
                 }
 
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Editar",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .padding(2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Editar cadastro da peça ${part.partName}",
+                        tint = OrangeNeon,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             // Métricas de Troca (Última Troca vs Próxima Troca)

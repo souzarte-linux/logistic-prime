@@ -8,6 +8,7 @@ import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.*
 import com.fernando.centraldomotorista.ui.screens.expenses.CardPaymentData
 import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,6 +54,7 @@ data class PartMaintenanceUiState(
 
     // Form fields - Peça & Vida Útil
     val editingPartId: String? = null,
+    val targetPartIdForNewCycle: String? = null,
     val partName: String = "",
     val lifeKm: String = "",
     val lastChangeKm: String = "",
@@ -84,21 +86,53 @@ class PartMaintenanceViewModel(
     private val partProductRepository: PartProductRepository = PartProductRepository(),
     private val routeRepository: RouteRepository = RouteRepository(),
     private val expenseRepository: ExpenseRepository = ExpenseRepository(),
-    private val creditCardRepository: CreditCardRepository = CreditCardRepository()
+    private val creditCardRepository: CreditCardRepository = CreditCardRepository(),
+    private val externalScope: CoroutineScope? = null,
+    loadOnInit: Boolean = true,
+    private val userIdProvider: () -> String = {
+        try {
+            supabase.auth.currentUserOrNull()?.id ?: "anonymous"
+        } catch (e: Throwable) {
+            "anonymous"
+        }
+    }
 ) : ViewModel() {
+
+    private val scope: CoroutineScope get() = externalScope ?: viewModelScope
 
     private val _uiState = MutableStateFlow(PartMaintenanceUiState())
     val uiState: StateFlow<PartMaintenanceUiState> = _uiState.asStateFlow()
 
     private val currentUserId: String
-        get() = supabase.auth.currentUserOrNull()?.id ?: "anonymous"
+        get() = userIdProvider()
 
     init {
-        loadData()
+        if (loadOnInit) {
+            loadData()
+        }
+    }
+
+    fun setTestData(
+        parts: List<PartMaintenance> = emptyList(),
+        companies: List<Company> = emptyList(),
+        partTypes: List<PartType> = emptyList(),
+        partProducts: List<PartProduct> = emptyList(),
+        currentOdometer: BigDecimal = BigDecimal.ZERO
+    ) {
+        _uiState.update {
+            it.copy(
+                parts = parts,
+                companies = companies,
+                partTypes = partTypes,
+                partProducts = partProducts,
+                currentOdometerKm = currentOdometer,
+                isLoading = false
+            )
+        }
     }
 
     fun loadData() {
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val partsList = partRepository.getPartMaintenances(currentUserId)
             val companiesList = companyRepository.getCompanies(currentUserId)
@@ -135,6 +169,7 @@ class PartMaintenanceViewModel(
                 isFormOpen = true,
                 editingPartId = null,
                 editingExpenseId = null,
+                targetPartIdForNewCycle = null,
                 partName = prefillPartName ?: "",
                 lifeKm = "",
                 lastChangeKm = "",
@@ -153,35 +188,100 @@ class PartMaintenanceViewModel(
         }
     }
 
-    fun startEditing(part: PartMaintenance) {
-        viewModelScope.launch {
-            val linkedProduct = _uiState.value.partProducts.firstOrNull { it.id == part.partProductId }
-            val initialDateTime = part.lastChangeAt.toLocalDateTime()
+    /**
+     * Inicializa o formulário no MODO CRIAÇÃO para registrar uma NOVA troca preventiva a partir do alerta,
+     * herdando os dados cadastrais da peça (nome, produto, marca, modelo, oficina habitual) e o odômetro atual,
+     * mas garantindo que editingPartId = null e editingExpenseId = null para criar uma nova despesa e reiniciar o ciclo.
+     */
+    fun openAddFromAlert(part: PartMaintenance) {
+        val linkedProduct = _uiState.value.partProducts.firstOrNull { it.id == part.partProductId }
+        val currentOdo = _uiState.value.currentOdometerKm
+        val brand = linkedProduct?.brand ?: ""
+        val model = linkedProduct?.model ?: ""
+        val lifeKmStr = part.lifeKm.toPlainString().takeIf { it != "0" }
+            ?: linkedProduct?.defaultLifeKm?.toPlainString()
+            ?: ""
+        val lastChangeKmStr = if (currentOdo > BigDecimal.ZERO) currentOdo.toPlainString() else part.lastChangeKm.toPlainString()
 
-            _uiState.update {
-                it.copy(
-                    isFormOpen = true,
-                    editingPartId = part.id,
-                    editingExpenseId = part.expenseId,
-                    partName = part.partName,
-                    lifeKm = part.lifeKm.toPlainString(),
-                    lastChangeKm = part.lastChangeKm.toPlainString(),
-                    selectedCompanyId = part.companyId,
-                    selectedPartProductId = part.partProductId,
-                    partBrand = linkedProduct?.brand ?: "",
-                    partModel = linkedProduct?.model ?: "",
-                    lastChangeDateTime = initialDateTime,
-                    totalAmountText = "",
-                    receiptNumber = "",
-                    notes = "",
-                    paymentMethod = "dinheiro",
-                    cardPaymentData = null,
-                    error = null
-                )
+        _uiState.update {
+            it.copy(
+                isFormOpen = true,
+                editingPartId = null,      // CRIAÇÃO, não é edição
+                editingExpenseId = null,   // CRIAÇÃO, gerará nova despesa
+                targetPartIdForNewCycle = part.id,
+                partName = part.partName,
+                selectedPartProductId = part.partProductId,
+                partBrand = brand,
+                partModel = model,
+                lifeKm = lifeKmStr,
+                selectedCompanyId = part.companyId,
+                lastChangeKm = lastChangeKmStr,
+                lastChangeDateTime = LocalDateTime.now(),
+                totalAmountText = "",
+                receiptNumber = "",
+                notes = "Nova troca preventiva lançada via Alerta da HomeScreen.",
+                paymentMethod = "dinheiro",
+                cardPaymentData = null,
+                error = null
+            )
+        }
+
+        // Se o odômetro não estava em memória, tenta carregar em background
+        if (currentOdo <= BigDecimal.ZERO) {
+            scope.launch {
+                try {
+                    val lastOdo = routeRepository.getLastOdometerKm(currentUserId)
+                    if (lastOdo != null && lastOdo > BigDecimal.ZERO) {
+                        _uiState.update { state ->
+                            state.copy(
+                                currentOdometerKm = lastOdo,
+                                lastChangeKm = if (state.targetPartIdForNewCycle == part.id && state.lastChangeKm == part.lastChangeKm.toPlainString()) {
+                                    lastOdo.toPlainString()
+                                } else state.lastChangeKm
+                            )
+                        }
+                    }
+                } catch (ignored: Exception) {
+                }
             }
+        }
+    }
 
-            // Se tiver expenseId vinculado, busca os dados financeiros para preenchimento
-            if (!part.expenseId.isNullOrBlank()) {
+    /**
+     * Alias de [openAddFromAlert] para conformidade com a especificação de UI/UX.
+     */
+    fun prepareNewMaintenanceFromPart(part: PartMaintenance) = openAddFromAlert(part)
+
+    fun startEditing(part: PartMaintenance) {
+        val linkedProduct = _uiState.value.partProducts.firstOrNull { it.id == part.partProductId }
+        val initialDateTime = part.lastChangeAt.toLocalDateTime()
+
+        _uiState.update {
+            it.copy(
+                isFormOpen = true,
+                editingPartId = part.id,
+                editingExpenseId = part.expenseId,
+                targetPartIdForNewCycle = null,
+                partName = part.partName,
+                lifeKm = part.lifeKm.toPlainString(),
+                lastChangeKm = part.lastChangeKm.toPlainString(),
+                selectedCompanyId = part.companyId,
+                selectedPartProductId = part.partProductId,
+                partBrand = linkedProduct?.brand ?: "",
+                partModel = linkedProduct?.model ?: "",
+                lastChangeDateTime = initialDateTime,
+                totalAmountText = "",
+                receiptNumber = "",
+                notes = "",
+                paymentMethod = "dinheiro",
+                cardPaymentData = null,
+                error = null
+            )
+        }
+
+        // Se tiver expenseId vinculado, busca os dados financeiros para preenchimento em background
+        if (!part.expenseId.isNullOrBlank()) {
+            scope.launch {
                 val linkedExpense = try {
                     expenseRepository.getExpenseById(part.expenseId)
                 } catch (e: Exception) {
@@ -225,6 +325,7 @@ class PartMaintenanceViewModel(
                 isFormOpen = false,
                 editingPartId = null,
                 editingExpenseId = null,
+                targetPartIdForNewCycle = null,
                 partName = "",
                 lifeKm = "",
                 lastChangeKm = "",
@@ -279,7 +380,7 @@ class PartMaintenanceViewModel(
     fun onCardPaymentConfirmed(cardData: CardPaymentData) = _uiState.update { it.copy(cardPaymentData = cardData, paymentMethod = "cartao") }
 
     fun addCardBrand(name: String) {
-        viewModelScope.launch {
+        scope.launch {
             creditCardRepository.createCardBrand(currentUserId, name.trim())
             val updated = creditCardRepository.getCardBrands(currentUserId)
             _uiState.update { it.copy(availableBrands = updated) }
@@ -287,7 +388,7 @@ class PartMaintenanceViewModel(
     }
 
     fun addCardOperator(name: String) {
-        viewModelScope.launch {
+        scope.launch {
             creditCardRepository.createCardOperator(currentUserId, name.trim())
             val updated = creditCardRepository.getCardOperators(currentUserId)
             _uiState.update { it.copy(availableOperators = updated) }
@@ -320,7 +421,7 @@ class PartMaintenanceViewModel(
 
     fun createQuickPartType(name: String) {
         if (name.isBlank()) return
-        viewModelScope.launch {
+        scope.launch {
             try {
                 val newType = PartType(id = "", userId = currentUserId, name = name.trim())
                 val created = partTypeRepository.savePartType(newType)
@@ -356,7 +457,7 @@ class PartMaintenanceViewModel(
             return
         }
 
-        viewModelScope.launch {
+        scope.launch {
             try {
                 val product = PartProduct(
                     id = "",
@@ -386,7 +487,7 @@ class PartMaintenanceViewModel(
 
     fun addQuickCompany(name: String) {
         if (name.isBlank()) return
-        viewModelScope.launch {
+        scope.launch {
             try {
                 val newCompany = Company(
                     id = "",
@@ -428,6 +529,7 @@ class PartMaintenanceViewModel(
 
         // 1. Validar duplicidade com outras peças
         val existingPart = state.parts.firstOrNull {
+            (state.targetPartIdForNewCycle != null && it.id == state.targetPartIdForNewCycle) ||
             it.partName.trim().equals(trimmedPartName, ignoreCase = true)
         }
         if (state.editingPartId != null && existingPart != null && existingPart.id != state.editingPartId) {
@@ -435,10 +537,10 @@ class PartMaintenanceViewModel(
             return
         }
 
-        // Se editingPartId for null mas já existir uma peça com este nome, reutiliza o id existente para atualizar
-        val partIdToUse = state.editingPartId ?: existingPart?.id ?: ""
+        // Se editingPartId for null mas já existir uma peça com este nome (ou targetPartIdForNewCycle), reutiliza o id existente para reiniciar o ciclo
+        val partIdToUse = state.editingPartId ?: state.targetPartIdForNewCycle ?: existingPart?.id ?: ""
 
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
 
             var savedExpenseId: String? = state.editingExpenseId
@@ -505,8 +607,10 @@ class PartMaintenanceViewModel(
                     it.copy(
                         isSaving = false,
                         isFormOpen = false,
-                        editingPartId = savedPart.id,
-                        message = if (state.editingPartId != null || existingPart != null) "Manutenção atualizada com sucesso!" else "Manutenção lançada com sucesso!"
+                        editingPartId = null,
+                        editingExpenseId = null,
+                        targetPartIdForNewCycle = null,
+                        message = if (state.editingPartId != null) "Manutenção atualizada com sucesso!" else "Manutenção lançada com sucesso!"
                     )
                 }
                 loadData()
@@ -518,7 +622,7 @@ class PartMaintenanceViewModel(
     }
 
     fun deletePartMaintenance(partId: String, onSuccess: () -> Unit = {}) {
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val part = _uiState.value.parts.firstOrNull { it.id == partId }
             val expId = part?.expenseId
@@ -550,7 +654,7 @@ class PartMaintenanceViewModel(
     }
 
     fun initOrLoad(itemId: String?) {
-        viewModelScope.launch {
+        scope.launch {
             loadData()
             if (!itemId.isNullOrBlank()) {
                 val partsList = partRepository.getPartMaintenances(currentUserId)
@@ -619,7 +723,7 @@ class PartMaintenanceViewModel(
         if (partId != null) {
             deletePartMaintenance(partId, onSuccess)
         } else if (expId != null) {
-            viewModelScope.launch {
+            scope.launch {
                 _uiState.update { it.copy(isLoading = true) }
                 try {
                     val ok = expenseRepository.deleteExpense(expId)

@@ -139,6 +139,42 @@ fun LancarManutencaoScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Banner de contexto quando aberto via alerta da HomeScreen (Novo Ciclo de Troca)
+            if (uiState.targetPartIdForNewCycle != null) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = OrangeNeon.copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lightbulb,
+                            contentDescription = null,
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Registrando nova troca para:",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = uiState.partName.ifBlank { "Peça" }.uppercase(),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeNeon
+                            )
+                        }
+                    }
+                }
+            }
+
             // SEÇÃO 1: PEÇA & VIDA ÚTIL
             Text(
                 text = "DADOS DA PEÇA & TROCA",
@@ -718,7 +754,7 @@ fun LancarManutencaoScreen(
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isEditing) "SALVAR ALTERAÇÕES" else "SALVAR MANUTENÇÃO",
+                        text = if (isEditing) "ATUALIZAR CADASTRO DA PEÇA" else if (uiState.targetPartIdForNewCycle != null) "SALVAR NOVA MANUTENÇÃO" else "SALVAR MANUTENÇÃO",
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )
