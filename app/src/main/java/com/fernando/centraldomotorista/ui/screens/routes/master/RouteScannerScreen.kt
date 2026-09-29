@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -102,6 +103,7 @@ import com.fernando.centraldomotorista.ui.theme.TextPrimaryDark
 import com.fernando.centraldomotorista.ui.theme.TextSecondaryDark
 import com.fernando.centraldomotorista.ui.theme.YellowGold
 import com.fernando.centraldomotorista.util.BrazilianLabelParser
+import com.fernando.centraldomotorista.util.ParsedAddress
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -227,39 +229,38 @@ fun RouteScannerScreen(
 
                         viewModel.isAnalyzingFrame.set(true)
 
-                        barcodeScanner.process(inputImage)
-                            .addOnSuccessListener { barcodes ->
-                                val detectedBarcode = barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }?.rawValue?.trim()
-                                if (detectedBarcode != null) {
-                                    if (viewModel.isBarcodeAlreadyScanned(detectedBarcode)) {
-                                        viewModel.onDuplicateBarcodeDetected(ctx, detectedBarcode)
-                                        viewModel.isAnalyzingFrame.set(false)
-                                        imageProxy.close()
-                                    } else {
-                                        // Código novo! Processa OCR para capturar endereço
-                                        textRecognizer.process(inputImage)
-                                            .addOnSuccessListener { visionText ->
-                                                val parsed = BrazilianLabelParser.parse(visionText.text)
-                                                viewModel.onPackageScanned(ctx, detectedBarcode, parsed)
-                                            }
-                                            .addOnFailureListener {
-                                                val fallback = BrazilianLabelParser.parse("")
-                                                viewModel.onPackageScanned(ctx, detectedBarcode, fallback)
-                                            }
-                                            .addOnCompleteListener {
-                                                viewModel.isAnalyzingFrame.set(false)
-                                                imageProxy.close()
-                                            }
+                        val currentStep = viewModel.uiState.value.currentStep
+
+                        if (currentStep == ScannerStep.BARCODE_SEARCH) {
+                            barcodeScanner.process(inputImage)
+                                .addOnSuccessListener { barcodes ->
+                                    val detectedBarcode = barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }?.rawValue?.trim()
+                                    if (detectedBarcode != null) {
+                                        if (viewModel.isBarcodeAlreadyScanned(detectedBarcode)) {
+                                            viewModel.onDuplicateBarcodeDetected(ctx, detectedBarcode)
+                                        } else {
+                                            viewModel.onBarcodeDetected(ctx, detectedBarcode)
+                                        }
                                     }
-                                } else {
+                                }
+                                .addOnCompleteListener {
                                     viewModel.isAnalyzingFrame.set(false)
                                     imageProxy.close()
                                 }
-                            }
-                            .addOnFailureListener {
-                                viewModel.isAnalyzingFrame.set(false)
-                                imageProxy.close()
-                            }
+                        } else {
+                            // ScannerStep.OCR_CONFIRMATION: Foco contínuo no OCR da etiqueta
+                            textRecognizer.process(inputImage)
+                                .addOnSuccessListener { visionText ->
+                                    val parsed = BrazilianLabelParser.parse(visionText.text)
+                                    if (!parsed.cep.isNullOrBlank() || !parsed.recipientName.isNullOrBlank() || parsed.street != null) {
+                                        viewModel.onOcrAddressDetected(parsed)
+                                    }
+                                }
+                                .addOnCompleteListener {
+                                    viewModel.isAnalyzingFrame.set(false)
+                                    imageProxy.close()
+                                }
+                        }
                     }
 
                     val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -283,177 +284,73 @@ fun RouteScannerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // --- 2. Overlay do Retículo Duplo com Laser Animado ---
+        // --- 2. Overlay do Retículo Fracionado com Laser Animado (TASK-DES-08) ---
         DualScannerOverlay(
             modifier = Modifier.fillMaxSize(),
+            currentStep = uiState.currentStep,
             isProcessing = uiState.isSaving
         )
 
-        // --- 3. Barra Superior e Controles do Scanner ---
-        Column(
+        // --- 3. Barra Superior Minimalista (Visor 100% Desobstruído) ---
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 40.dp, start = 16.dp, end = 16.dp)
+                .padding(top = 40.dp, start = 16.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            IconButton(
+                onClick = onNavigateBack,
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                    .size(42.dp)
             ) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-                        .size(42.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Voltar",
-                        tint = Color.White
-                    )
-                }
-
-                // Contador de Pacotes Bipados
-                Surface(
-                    color = Color.Black.copy(alpha = 0.75f),
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "📦 ${uiState.totalScannedCount} Bipados",
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                // Botão Lanterna / Flash
-                IconButton(
-                    onClick = { viewModel.toggleTorch(cameraControl) },
-                    modifier = Modifier
-                        .background(
-                            if (uiState.isTorchOn) OrangeNeon else Color.Black.copy(alpha = 0.6f),
-                            CircleShape
-                        )
-                        .size(42.dp)
-                ) {
-                    Icon(
-                        imageVector = if (uiState.isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                        contentDescription = "Lanterna",
-                        tint = if (uiState.isTorchOn) Color.Black else Color.White
-                    )
-                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Voltar",
+                    tint = Color.White
+                )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // --- Prompt 2: Indicador Grande e Destacado de Plataforma Ativa (Sticky) ---
-            val activePlatName = uiState.activePlatform?.name ?: "Plataforma Geral"
+            // Contador de Pacotes Bipados
             Surface(
-                color = Color.Black.copy(alpha = 0.78f),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.5.dp, OrangeNeon),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showPlatformSelectorDialog = true }
+                color = Color.Black.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f))
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Apps,
-                            contentDescription = null,
-                            tint = OrangeNeon,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "PLATAFORMA ATIVA (STICKY):",
-                                fontSize = 9.sp,
-                                color = OrangeNeon,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = activePlatName.uppercase(),
-                                fontSize = 13.sp,
-                                color = TextPrimaryDark,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                    val counterText = if (uiState.currentStep == ScannerStep.OCR_CONFIRMATION) {
+                        "📦 Pacote #${uiState.totalScannedCount + 1}"
+                    } else {
+                        "📦 ${uiState.totalScannedCount} Bipados"
                     }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Trocar",
-                            fontSize = 11.sp,
-                            color = OrangeNeon,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                            tint = OrangeNeon,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    Text(
+                        text = counterText,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // --- Prompt 2: Seletor de Tipo de Pacote (Pacotinho vs Volumoso) ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Botão Lanterna / Flash
+            IconButton(
+                onClick = { viewModel.toggleTorch(cameraControl) },
+                modifier = Modifier
+                    .background(
+                        if (uiState.isTorchOn) OrangeNeon else Color.Black.copy(alpha = 0.6f),
+                        CircleShape
+                    )
+                    .size(42.dp)
             ) {
-                val isPacotinho = uiState.currentPackageType == PackageType.PACOTINHO
-                Surface(
-                    color = if (isPacotinho) OrangeNeon else Color.Black.copy(alpha = 0.65f),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, if (isPacotinho) OrangeNeon else Color.White.copy(alpha = 0.2f)),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { viewModel.onPackageTypeSelected(PackageType.PACOTINHO) }
-                ) {
-                    Text(
-                        text = "📦 Pacotinho",
-                        color = if (isPacotinho) Color.White else TextSecondaryDark,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 7.dp)
-                    )
-                }
-
-                val isVolumoso = uiState.currentPackageType == PackageType.VOLUMOSO
-                Surface(
-                    color = if (isVolumoso) YellowGold else Color.Black.copy(alpha = 0.65f),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, if (isVolumoso) YellowGold else Color.White.copy(alpha = 0.2f)),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { viewModel.onPackageTypeSelected(PackageType.VOLUMOSO) }
-                ) {
-                    Text(
-                        text = "🏋️ Volumoso",
-                        color = if (isVolumoso) Color.Black else TextSecondaryDark,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 7.dp)
-                    )
-                }
+                Icon(
+                    imageVector = if (uiState.isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                    contentDescription = "Lanterna",
+                    tint = if (uiState.isTorchOn) Color.Black else Color.White
+                )
             }
         }
 
@@ -464,7 +361,7 @@ fun RouteScannerScreen(
             exit = fadeOut() + slideOutVertically(),
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 180.dp)
+                .padding(top = 110.dp)
         ) {
             Surface(
                 color = RedAlert,
@@ -492,8 +389,36 @@ fun RouteScannerScreen(
             }
         }
 
-        // --- 5. Botão de Finalizar Carga e Ir para Cockpit (Fixo no Rodapé se não houver mini-card ativo) ---
-        if (uiState.lastScannedStop == null) {
+        // --- 5. Etapa 2: Card Inferior Deslizante de OCR & Confirmação (TASK-DES-08) ---
+        AnimatedVisibility(
+            visible = uiState.currentStep == ScannerStep.OCR_CONFIRMATION && uiState.pendingBarcode != null,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            OcrConfirmationCard(
+                barcode = uiState.pendingBarcode ?: "",
+                parsedAddress = uiState.pendingParsedAddress,
+                isOcrScanning = uiState.isOcrScanning,
+                activePlatform = uiState.activePlatform,
+                currentPackageType = uiState.currentPackageType,
+                selectedPartnerId = uiState.selectedPartnerIdForNextScan,
+                partners = uiState.deliveryPartners,
+                onChangePlatform = { showPlatformSelectorDialog = true },
+                onSelectPackageType = { viewModel.onPackageTypeSelected(it) },
+                onSelectPartner = { viewModel.onAssignedPartnerSelected(it) },
+                onConfirmPackage = { viewModel.confirmPendingPackage(context) },
+                onSkipOcr = { viewModel.skipOcrAndConfirm(context) },
+                onRetryBarcode = { viewModel.retryScanningCurrentPackage() },
+                isSaving = uiState.isSaving
+            )
+        }
+
+        // --- 6. Etapa 1: Botão de Finalizar Carga e Ir para Cockpit (Fixo no Rodapé se não houver mini-card ativo) ---
+        if (uiState.currentStep == ScannerStep.BARCODE_SEARCH && uiState.lastScannedStop == null) {
             Button(
                 onClick = { onNavigateToCockpit(routeId) },
                 colors = ButtonDefaults.buttonColors(
@@ -522,9 +447,9 @@ fun RouteScannerScreen(
             }
         }
 
-        // --- 6. Mini-Card Inferior com Dados do Pacote Bipado + Extensões dos Prompts 3 e 6 ---
+        // --- 7. Etapa 1: Mini-Card Inferior com Dados do Pacote Bipado + Extensões dos Prompts 3 e 6 ---
         AnimatedVisibility(
-            visible = uiState.lastScannedStop != null,
+            visible = uiState.currentStep == ScannerStep.BARCODE_SEARCH && uiState.lastScannedStop != null,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
             modifier = Modifier
@@ -918,6 +843,322 @@ private fun CameraPermissionDeniedState(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Voltar", color = TextSecondaryDark)
+            }
+        }
+    }
+}
+
+/**
+ * Card inferior deslizado na Etapa 2 (OCR_CONFIRMATION) conforme TASK-DES-08:
+ * - Exibe código lido em destaque com opção de descarte/re-bipar;
+ * - Exibe endereço e destinatário em tempo real lidos pelo OCR ML Kit;
+ * - Permite alternar a plataforma ativa e o tipo de pacote (Pacotinho vs Volumoso);
+ * - Botões de ação direta: CONFIRMAR PACOTE ou Pular OCR.
+ */
+@Composable
+private fun OcrConfirmationCard(
+    barcode: String,
+    parsedAddress: ParsedAddress?,
+    isOcrScanning: Boolean,
+    activePlatform: Platform?,
+    currentPackageType: PackageType,
+    selectedPartnerId: String?,
+    partners: List<DeliveryPartner>,
+    onChangePlatform: () -> Unit,
+    onSelectPackageType: (PackageType) -> Unit,
+    onSelectPartner: (String?) -> Unit,
+    onConfirmPackage: () -> Unit,
+    onSkipOcr: () -> Unit,
+    onRetryBarcode: () -> Unit,
+    isSaving: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark.copy(alpha = 0.98f)),
+        border = BorderStroke(1.5.dp, OrangeNeon),
+        elevation = CardDefaults.cardElevation(defaultElevation = 14.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Linha 1: Código lido e Botão Bipar Novamente
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = OrangeNeon.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🏷️ ",
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = barcode,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OrangeNeon
+                        )
+                    }
+                }
+
+                TextButton(
+                    onClick = onRetryBarcode,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Bipar Novamente",
+                        tint = TextSecondaryDark,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Bipar Novamente",
+                        color = TextSecondaryDark,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            // Linha 2: Dados do OCR
+            Surface(
+                color = SurfaceDarkAlt,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val hasRecipient = !parsedAddress?.recipientName.isNullOrBlank()
+                    val hasAddress = !parsedAddress?.fullFormattedAddress.isNullOrBlank()
+                    val hasCep = !parsedAddress?.cep.isNullOrBlank()
+
+                    if (hasRecipient) {
+                        Text(
+                            text = "👤 ${parsedAddress?.recipientName}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimaryDark,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (hasAddress) {
+                        Text(
+                            text = "📍 ${parsedAddress?.fullFormattedAddress}",
+                            fontSize = 11.sp,
+                            color = TextSecondaryDark,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 15.sp
+                        )
+                    }
+
+                    if (hasCep) {
+                        Text(
+                            text = "CEP: ${parsedAddress?.cep}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GreenNeon
+                        )
+                    }
+
+                    if (!hasRecipient && !hasAddress && !hasCep) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            if (isOcrScanning) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                    color = OrangeNeon
+                                )
+                                Text(
+                                    text = "Enquadre a etiqueta para capturar endereço...",
+                                    fontSize = 11.sp,
+                                    color = TextSecondaryDark
+                                )
+                            } else {
+                                Text(
+                                    text = "Etiqueta não identificada. Salve ou pule o OCR.",
+                                    fontSize = 11.sp,
+                                    color = YellowGold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Linha 3: Parametrização Operacional (Plataforma + Tipo de Pacote)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Chip Plataforma
+                Surface(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f)),
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .clickable(onClick = onChangePlatform)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = activePlatform?.name ?: "Plat. Geral",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimaryDark,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Trocar",
+                            fontSize = 10.sp,
+                            color = OrangeNeon,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Seletor Tipo: Pacotinho vs Volumoso
+                val isPacotinho = currentPackageType == PackageType.PACOTINHO
+                Surface(
+                    color = if (isPacotinho) OrangeNeon else SurfaceDarkAlt,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, if (isPacotinho) OrangeNeon else Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectPackageType(PackageType.PACOTINHO) }
+                ) {
+                    Text(
+                        text = "📦 Pacote",
+                        color = if (isPacotinho) Color.White else TextSecondaryDark,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 6.dp)
+                    )
+                }
+
+                val isVolumoso = currentPackageType == PackageType.VOLUMOSO
+                Surface(
+                    color = if (isVolumoso) YellowGold else SurfaceDarkAlt,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, if (isVolumoso) YellowGold else Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectPackageType(PackageType.VOLUMOSO) }
+                ) {
+                    Text(
+                        text = "🏋️ Volumoso",
+                        color = if (isVolumoso) Color.Black else TextSecondaryDark,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 6.dp)
+                    )
+                }
+            }
+
+            // Se houver parceiros cadastrados (Prompt 6), oferece atalho de atribuição
+            if (partners.isNotEmpty()) {
+                val assignedPartnerName = partners.firstOrNull { it.id == selectedPartnerId }?.fullName
+                Surface(
+                    color = if (selectedPartnerId != null) OrangeNeon.copy(alpha = 0.15f) else Color.Transparent,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, if (selectedPartnerId != null) OrangeNeon else Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val nextPartner = if (selectedPartnerId == null) partners.firstOrNull()?.id else null
+                            onSelectPartner(nextPartner)
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = if (selectedPartnerId != null) "👤 Atribuir a: ${assignedPartnerName ?: "Parceiro"}" else "👤 Destinado a: Master (Você)",
+                            fontSize = 11.sp,
+                            color = if (selectedPartnerId != null) OrangeNeon else TextSecondaryDark
+                        )
+                        Text(
+                            text = "Alternar",
+                            fontSize = 10.sp,
+                            color = OrangeNeon
+                        )
+                    }
+                }
+            }
+
+            // Linha 4: Botões de Ação
+            Button(
+                onClick = onConfirmPackage,
+                enabled = !isSaving,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeNeon,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Text(
+                        text = "CONFIRMAR PACOTE",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            TextButton(
+                onClick = onSkipOcr,
+                enabled = !isSaving,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+            ) {
+                Text(
+                    text = "Pular OCR (Salvar Apenas Código)",
+                    color = TextSecondaryDark,
+                    fontSize = 11.sp
+                )
             }
         }
     }

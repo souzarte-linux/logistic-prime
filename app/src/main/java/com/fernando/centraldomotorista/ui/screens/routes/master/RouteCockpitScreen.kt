@@ -53,10 +53,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.RouteStatus
 import com.fernando.centraldomotorista.data.model.StopStatus
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.DiscardEmptyRouteDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.FinishRouteDialog
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.RemoveStopConfirmDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteProgressHero
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteMapView
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.StopDeliveryCard
@@ -89,9 +91,22 @@ fun RouteCockpitScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showFinishDialog by remember { mutableStateOf(false) }
     var showDiscardEmptyDialog by remember { mutableStateOf(false) }
+    var stopToRemove by remember { mutableStateOf<MasterRouteStop?>(null) }
 
     LaunchedEffect(routeId) {
         viewModel.loadCockpit(routeId)
+    }
+
+    if (stopToRemove != null) {
+        val stop = stopToRemove!!
+        RemoveStopConfirmDialog(
+            stop = stop,
+            onDismiss = { stopToRemove = null },
+            onConfirmRemove = {
+                stopToRemove = null
+                viewModel.deleteStop(stop)
+            }
+        )
     }
 
     if (showDiscardEmptyDialog) {
@@ -487,6 +502,7 @@ fun RouteCockpitScreen(
                                 onAssignToPartner = { partnerId ->
                                     viewModel.assignStopToPartner(stop.id, partnerId)
                                 },
+                                onDeleteStop = { stopToRemove = it },
                                 partners = uiState.deliveryPartners
                             )
                         }
@@ -542,6 +558,7 @@ fun RouteCockpitScreen(
                                     onAssignToPartner = { partnerId ->
                                         viewModel.assignStopToPartner(stop.id, partnerId)
                                     },
+                                    onDeleteStop = { stopToRemove = it },
                                     partners = uiState.deliveryPartners
                                 )
                             }

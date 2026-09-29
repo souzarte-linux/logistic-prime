@@ -286,5 +286,37 @@ class MasterRouteCockpitTest {
         assertTrue("Deve navegar de volta após descarte", navigatedBack)
         assertTrue("Nenhum handoff deve ser gerado para rota descartada", handoffsGenerated.isEmpty())
     }
+
+    @Test
+    fun testDeleteStopRemovesPackageWithoutAffectingReturnedStatus() {
+        // Validação TASK-DES-08:
+        // A exclusão de pacote bipado por engano remove a parada da lista e decrementa o total.
+        // NÃO contabiliza o pacote como Devolvido nem altera as métricas de insucesso.
+        val stop1 = MasterRouteStop(id = "s-1", routeId = "r-1", userId = "u-1", barcode = "BC-1", fullAddress = "End 1", status = StopStatus.ENTREGUE)
+        val stop2Wrong = MasterRouteStop(id = "s-2", routeId = "r-1", userId = "u-1", barcode = "BC-2-WRONG", fullAddress = "End 2", status = StopStatus.PENDENTE)
+        val stop3 = MasterRouteStop(id = "s-3", routeId = "r-1", userId = "u-1", barcode = "BC-3", fullAddress = "End 3", status = StopStatus.PENDENTE)
+
+        var state = RouteCockpitUiState(
+            stops = listOf(stop1, stop2Wrong, stop3),
+            expandedStopIds = setOf("s-2")
+        )
+
+        assertEquals(3, state.totalPackages)
+        assertEquals(1, state.deliveredCount)
+        assertEquals(0, state.returnedCount)
+
+        // Simula a exclusão otimista da parada stop2Wrong
+        val updatedStops = state.stops.filter { it.id != stop2Wrong.id }
+        state = state.copy(
+            stops = updatedStops,
+            expandedStopIds = state.expandedStopIds - stop2Wrong.id
+        )
+
+        assertEquals(2, state.totalPackages)
+        assertEquals(1, state.deliveredCount)
+        assertEquals(0, state.returnedCount) // Continua 0 devoluções!
+        assertFalse(state.stops.any { it.id == "s-2" })
+        assertFalse(state.expandedStopIds.contains("s-2"))
+    }
 }
 

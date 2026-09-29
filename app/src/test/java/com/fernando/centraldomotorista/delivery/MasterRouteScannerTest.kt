@@ -5,6 +5,7 @@ import com.fernando.centraldomotorista.data.model.PackageType
 import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.model.TransferStatus
 import com.fernando.centraldomotorista.ui.screens.routes.master.RouteScannerUiState
+import com.fernando.centraldomotorista.ui.screens.routes.master.ScannerStep
 import com.fernando.centraldomotorista.util.ParsedAddress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -208,5 +209,142 @@ class MasterRouteScannerTest {
             packageType = state.currentPackageType
         )
         assertEquals("plat-ml", stop3.platformId)
+    }
+
+    @Test
+    fun testFractionatedScannerStepTransitionOnBarcodeDetected() {
+        // Validação TASK-DES-08: Scanner Fracionado (2 Etapas)
+        // Etapa 1: Começa em BARCODE_SEARCH com visor limpo
+        var state = RouteScannerUiState(
+            routeId = "route-test",
+            currentStep = ScannerStep.BARCODE_SEARCH,
+            pendingBarcode = null,
+            pendingParsedAddress = null
+        )
+
+        assertEquals(ScannerStep.BARCODE_SEARCH, state.currentStep)
+        assertNull(state.pendingBarcode)
+
+        // Ao ler código de barras: transiciona para OCR_CONFIRMATION
+        val scannedBarcode = "BR420918237BR"
+        state = state.copy(
+            currentStep = ScannerStep.OCR_CONFIRMATION,
+            pendingBarcode = scannedBarcode,
+            isOcrScanning = true
+        )
+
+        assertEquals(ScannerStep.OCR_CONFIRMATION, state.currentStep)
+        assertEquals("BR420918237BR", state.pendingBarcode)
+        assertTrue(state.isOcrScanning)
+
+        // Refinamento do OCR de endereço
+        val ocrAddress = ParsedAddress(
+            recipientName = "Carlos Eduardo Silva",
+            street = "Rua das Palmeiras",
+            number = "120",
+            neighborhood = "Centro",
+            city = "São Paulo",
+            state = "SP",
+            cep = "01001-000",
+            fullFormattedAddress = "Rua das Palmeiras, 120, Centro, São Paulo - SP"
+        )
+        state = state.copy(
+            pendingParsedAddress = ocrAddress,
+            isOcrScanning = false
+        )
+
+        assertEquals("Carlos Eduardo Silva", state.pendingParsedAddress?.recipientName)
+        assertEquals("01001-000", state.pendingParsedAddress?.cep)
+        assertFalse(state.isOcrScanning)
+
+        // Ao clicar em Confirmar: salva e retorna a BARCODE_SEARCH
+        val createdStop = MasterRouteStop(
+            id = "stop-new-1",
+            routeId = state.routeId,
+            userId = "user-1",
+            barcode = state.pendingBarcode!!,
+            recipientName = state.pendingParsedAddress?.recipientName,
+            fullAddress = state.pendingParsedAddress?.fullFormattedAddress ?: "",
+            cep = state.pendingParsedAddress?.cep
+        )
+
+        state = state.copy(
+            currentStep = ScannerStep.BARCODE_SEARCH,
+            totalScannedCount = state.totalScannedCount + 1,
+            lastScannedStop = createdStop,
+            pendingBarcode = null,
+            pendingParsedAddress = null,
+            isOcrScanning = false
+        )
+
+        assertEquals(ScannerStep.BARCODE_SEARCH, state.currentStep)
+        assertEquals(1, state.totalScannedCount)
+        assertNull(state.pendingBarcode)
+        assertNull(state.pendingParsedAddress)
+    }
+
+    @Test
+    fun testFractionatedScannerRetryDiscardsPendingAndReturnsToBarcodeSearch() {
+        // Validação TASK-DES-08: Bipar Novamente descarta código pendente e volta ao modo BARCODE_SEARCH
+        var state = RouteScannerUiState(
+            routeId = "route-test",
+            currentStep = ScannerStep.OCR_CONFIRMATION,
+            pendingBarcode = "BR_WRONG_BARCODE",
+            pendingParsedAddress = null,
+            isOcrScanning = true
+        )
+
+        assertEquals(ScannerStep.OCR_CONFIRMATION, state.currentStep)
+        assertNotNull(state.pendingBarcode)
+
+        // Motorista clica em "Bipar Novamente"
+        state = state.copy(
+            currentStep = ScannerStep.BARCODE_SEARCH,
+            pendingBarcode = null,
+            pendingParsedAddress = null,
+            isOcrScanning = false
+        )
+
+        assertEquals(ScannerStep.BARCODE_SEARCH, state.currentStep)
+        assertNull(state.pendingBarcode)
+        assertNull(state.pendingParsedAddress)
+        assertFalse(state.isOcrScanning)
+    }
+
+    @Test
+    fun testSkipOcrSavesWithEmptyAddressAndReturnsToBarcodeSearch() {
+        // Validação TASK-DES-08: Pular OCR salva apenas código de barras e tipo de pacote
+        var state = RouteScannerUiState(
+            routeId = "route-test",
+            currentStep = ScannerStep.OCR_CONFIRMATION,
+            pendingBarcode = "BR_UNREADABLE_OCR",
+            pendingParsedAddress = null,
+            currentPackageType = PackageType.VOLUMOSO
+        )
+
+        val createdStop = MasterRouteStop(
+            id = "stop-skip-ocr",
+            routeId = state.routeId,
+            userId = "user-1",
+            barcode = state.pendingBarcode!!,
+            recipientName = null,
+            fullAddress = "",
+            packageType = state.currentPackageType
+        )
+
+        state = state.copy(
+            currentStep = ScannerStep.BARCODE_SEARCH,
+            totalScannedCount = state.totalScannedCount + 1,
+            lastScannedStop = createdStop,
+            pendingBarcode = null,
+            pendingParsedAddress = null,
+            currentPackageType = PackageType.PACOTINHO // Reseta para PACOTINHO
+        )
+
+        assertEquals(ScannerStep.BARCODE_SEARCH, state.currentStep)
+        assertEquals(1, state.totalScannedCount)
+        assertEquals(PackageType.VOLUMOSO, createdStop.packageType)
+        assertEquals(PackageType.PACOTINHO, state.currentPackageType)
+        assertNull(state.pendingBarcode)
     }
 }

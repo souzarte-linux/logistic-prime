@@ -34,6 +34,11 @@ import kotlinx.coroutines.withContext
 import java.time.OffsetDateTime
 import java.util.concurrent.atomic.AtomicBoolean
 
+enum class ScannerStep {
+    BARCODE_SEARCH,
+    OCR_CONFIRMATION
+}
+
 data class RouteScannerUiState(
     val routeId: String = "",
     val totalScannedCount: Int = 0,
@@ -52,7 +57,12 @@ data class RouteScannerUiState(
     val isPhotoUploading: Boolean = false,
     // Extensões Prompt 6 (Atribuição Cruzada Master ↔ Parceiro)
     val deliveryPartners: List<DeliveryPartner> = emptyList(),
-    val selectedPartnerIdForNextScan: String? = null
+    val selectedPartnerIdForNextScan: String? = null,
+    // TASK-DES-08: Scanner Fracionado (2 Etapas)
+    val currentStep: ScannerStep = ScannerStep.BARCODE_SEARCH,
+    val pendingBarcode: String? = null,
+    val pendingParsedAddress: ParsedAddress? = null,
+    val isOcrScanning: Boolean = false
 ) {
     val activePlatform: Platform?
         get() = platforms.firstOrNull { it.id == currentPlatformId }
@@ -172,7 +182,106 @@ class RouteScannerViewModel(
         }
     }
 
+    /**
+     * Etapa 1 -> Etapa 2: Código de barras detectado com sucesso.
+     * Toca som/vibra e transiciona imediatamente para OCR_CONFIRMATION.
+     */
+    fun onBarcodeDetected(context: Context, barcode: String) {
+        val trimmed = barcode.trim()
+        if (trimmed.isBlank()) return
+
+        if (scannedBarcodes.contains(trimmed)) {
+            onDuplicateBarcodeDetected(context, trimmed)
+            return
+        }
+
+        emitSensoryFeedback(context, isSuccess = true)
+        _uiState.value = _uiState.value.copy(
+            currentStep = ScannerStep.OCR_CONFIRMATION,
+            pendingBarcode = trimmed,
+            pendingParsedAddress = null,
+            isOcrScanning = true,
+            duplicateAlertBarcode = null
+        )
+    }
+
+    /**
+     * Etapa 2: Refinamento contínuo de OCR da etiqueta enquanto em OCR_CONFIRMATION.
+     */
+    fun onOcrAddressDetected(parsedAddress: ParsedAddress) {
+        if (_uiState.value.currentStep != ScannerStep.OCR_CONFIRMATION) return
+
+        val current = _uiState.value.pendingParsedAddress
+        val hasValuableData = !parsedAddress.cep.isNullOrBlank() ||
+                !parsedAddress.recipientName.isNullOrBlank() ||
+                parsedAddress.street != null
+
+        if (current == null || hasValuableData) {
+            _uiState.value = _uiState.value.copy(
+                pendingParsedAddress = parsedAddress,
+                isOcrScanning = false
+            )
+        }
+    }
+
+    /**
+     * Etapa 2: Usuário clica em "CONFIRMAR PACOTE".
+     * Persiste o pacote com todos os dados capturados e retorna para BARCODE_SEARCH.
+     */
+    fun confirmPendingPackage(context: Context) {
+        val barcode = _uiState.value.pendingBarcode ?: return
+        val parsed = _uiState.value.pendingParsedAddress ?: ParsedAddress(
+            recipientName = null,
+            street = null,
+            number = null,
+            neighborhood = null,
+            city = null,
+            state = null,
+            cep = null,
+            fullFormattedAddress = ""
+        )
+        savePackageStop(context, barcode, parsed)
+    }
+
+    /**
+     * Etapa 2: Usuário clica em "Pular OCR" (salva apenas código e metadados).
+     */
+    fun skipOcrAndConfirm(context: Context) {
+        val barcode = _uiState.value.pendingBarcode ?: return
+        val emptyParsed = ParsedAddress(
+            recipientName = null,
+            street = null,
+            number = null,
+            neighborhood = null,
+            city = null,
+            state = null,
+            cep = null,
+            fullFormattedAddress = ""
+        )
+        savePackageStop(context, barcode, emptyParsed)
+    }
+
+    /**
+     * Etapa 2: Usuário clica em "Bipar Novamente" (descarta e volta à Etapa 1).
+     */
+    fun retryScanningCurrentPackage() {
+        _uiState.value = _uiState.value.copy(
+            currentStep = ScannerStep.BARCODE_SEARCH,
+            pendingBarcode = null,
+            pendingParsedAddress = null,
+            isOcrScanning = false
+        )
+    }
+
     fun onPackageScanned(
+        context: Context,
+        barcode: String,
+        parsedAddress: ParsedAddress
+    ) {
+        savePackageStop(context, barcode, parsedAddress)
+    }
+
+    private fun savePackageStop(
         context: Context,
         barcode: String,
         parsedAddress: ParsedAddress
@@ -184,7 +293,6 @@ class RouteScannerViewModel(
         }
 
         scannedBarcodes.add(trimmedBarcode)
-        emitSensoryFeedback(context, isSuccess = true)
 
         val nextOrder = _uiState.value.totalScannedCount + 1
         val selectedPlatformId = _uiState.value.currentPlatformId
@@ -226,6 +334,11 @@ class RouteScannerViewModel(
                         isSaving = false,
                         totalScannedCount = nextOrder,
                         lastScannedStop = createdStop,
+                        // Retorna ao modo de busca de barcode
+                        currentStep = ScannerStep.BARCODE_SEARCH,
+                        pendingBarcode = null,
+                        pendingParsedAddress = null,
+                        isOcrScanning = false,
                         // PackageType reseta para PACOTINHO (não-sticky)
                         currentPackageType = PackageType.PACOTINHO,
                         // Atribuição de parceiro reseta para Master (não-sticky)

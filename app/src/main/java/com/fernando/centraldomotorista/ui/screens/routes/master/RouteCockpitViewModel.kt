@@ -333,6 +333,42 @@ class RouteCockpitViewModel @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Exclui um pacote bipado por engano da rota (TASK-DES-08).
+     * Não contabiliza devolução nem altera negativamente as métricas do motorista.
+     */
+    fun deleteStop(
+        stop: MasterRouteStop,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val currentStops = _uiState.value.stops
+        val routeId = stop.routeId
+
+        // Atualização otimista local imediata
+        val updatedStops = currentStops.filter { it.id != stop.id }
+        _uiState.value = _uiState.value.copy(
+            stops = updatedStops,
+            expandedStopIds = _uiState.value.expandedStopIds - stop.id
+        )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = masterRouteRepository.deleteStop(stopId = stop.id, routeId = routeId)
+            withContext(Dispatchers.Main) {
+                if (success) {
+                    onSuccess()
+                } else {
+                    // Reverte se falhou no backend
+                    _uiState.value = _uiState.value.copy(
+                        stops = currentStops,
+                        error = "Erro ao remover pacote da rota."
+                    )
+                    onError("Falha ao excluir parada no servidor.")
+                }
+            }
+        }
+    }
+
     // --- Prompt 8: Cálculo de Handoff Multi-Plataforma com Rateio de KM e Tempo ---
 
     fun calculateMultiPlatformHandoffs(endKmInput: String?): List<MasterRouteHandOffItem> {

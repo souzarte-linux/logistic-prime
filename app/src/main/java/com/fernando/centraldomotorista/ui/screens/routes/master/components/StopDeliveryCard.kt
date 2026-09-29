@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Navigation
@@ -77,6 +78,7 @@ fun StopDeliveryCard(
     onNavigateGps: (String) -> Unit,
     onUpdateStatus: (String, StopStatus) -> Unit,
     onAssignToPartner: ((partnerId: String) -> Unit)? = null,
+    onDeleteStop: (MasterRouteStop) -> Unit = {},
     partners: List<DeliveryPartner> = emptyList(),
     modifier: Modifier = Modifier
 ) {
@@ -391,6 +393,34 @@ fun StopDeliveryCard(
                                 }
                             }
                         }
+                    }
+
+                    // Ação de Exclusão de Pacote Bipado por Engano (TASK-DES-08)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { onDeleteStop(stop) },
+                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.35f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = RedAlert.copy(alpha = 0.08f)
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Remover Pacote da Rota",
+                            tint = RedAlert,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Remover Pacote da Rota",
+                            color = RedAlert,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

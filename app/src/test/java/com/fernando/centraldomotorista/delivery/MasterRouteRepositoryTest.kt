@@ -991,4 +991,24 @@ class MasterRouteRepositoryTest {
         assertEquals(1, toClean.size)
         assertEquals("s-2", toClean.first().id)
     }
+
+    @Test
+    fun testDeleteStopRecalculatesTotalPackages() = runBlocking {
+        val route = repository.createRoute(platformId = "plat-shopee", startLocation = "Origem")
+        val stop1 = repository.addStop(routeId = route.id, barcode = "DEL-1", recipientName = "R1", fullAddress = "End 1", cep = "01001-000")
+        val stop2 = repository.addStop(routeId = route.id, barcode = "DEL-2", recipientName = "R2", fullAddress = "End 2", cep = "01002-000")
+
+        var currentRoute = repository.getRouteById(route.id)
+        assertEquals(2, currentRoute?.totalPackages)
+
+        val deleted = repository.deleteStop(stopId = stop1.id, routeId = route.id)
+        assertTrue(deleted)
+
+        val remainingStops = repository.getRouteStops(route.id)
+        assertEquals(1, remainingStops.size)
+        assertEquals("DEL-2", remainingStops.first().barcode)
+
+        currentRoute = repository.getRouteById(route.id)
+        assertEquals(1, currentRoute?.totalPackages)
+    }
 }

@@ -586,6 +586,32 @@ open class MasterRouteRepository(
     }
 
     /**
+     * Exclui uma parada de rota master e recalcula o total de pacotes da rota.
+     */
+    suspend fun deleteStop(stopId: String, routeId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            masterRouteApi.deleteStop("eq.$stopId")
+
+            // Recalcula a quantidade de paradas restantes na rota
+            try {
+                val remainingStops = masterRouteApi.getStopsByRoute("eq.$routeId")
+                masterRouteApi.updateRouteTotalPackages(
+                    idFilter = "eq.$routeId",
+                    body = UpdateRoutePackagesDto(totalPackages = remainingStops.size)
+                )
+            } catch (e: Exception) {
+                Log.w(tag, "Não foi possível recalcular total_packages da rota $routeId após excluir parada $stopId: ${e.message}")
+            }
+
+            AppDataSync.notifyDataChanged()
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "Erro ao excluir parada $stopId da rota $routeId: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
      * Exclui uma rota e todas as suas paradas (via cascade do banco).
      */
     suspend fun deleteRoute(routeId: String): Boolean = withContext(Dispatchers.IO) {
