@@ -5,6 +5,7 @@ import com.fernando.centraldomotorista.data.remote.dto.MasterDeliveryRouteDto
 import com.fernando.centraldomotorista.data.remote.dto.MasterRouteStopDto
 import com.fernando.centraldomotorista.data.remote.dto.PartnerSessionPackageDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateRoutePackagesDto
+import com.fernando.centraldomotorista.data.remote.dto.UpdateStopDetailsDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopLocationDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopOrderDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopPhotoDto
@@ -139,6 +140,13 @@ interface MasterRouteApi {
     suspend fun updateStopOrder(
         @Query("id") idFilter: String,
         @Body body: UpdateStopOrderDto
+    ): List<MasterRouteStopDto>
+
+    @Headers("Prefer: return=representation")
+    @PATCH("master_route_stops")
+    suspend fun updateStopDetails(
+        @Query("id") idFilter: String,
+        @Body body: UpdateStopDetailsDto
     ): List<MasterRouteStopDto>
 
     @Headers("Prefer: return=representation")

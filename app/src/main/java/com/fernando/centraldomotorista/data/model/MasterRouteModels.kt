@@ -124,7 +124,17 @@ data class MasterRouteStop(
     val assignedPartnerId: String? = null,
     val transferStatus: TransferStatus? = null,
     val transferredVia: String? = null,
-    val transferredAt: OffsetDateTime? = null
+    val transferredAt: OffsetDateTime? = null,
+    val marketplaceName: String? = null
+)
+
+/**
+ * Modelo de domínio para Marketplaces (e-commerces geradores de pacotes de entrega).
+ */
+data class Marketplace(
+    val id: String = "",
+    val name: String,
+    val active: Boolean = true
 )
 
 /**

@@ -8,6 +8,7 @@ import com.fernando.centraldomotorista.data.model.DeliveryPartner
 import com.fernando.centraldomotorista.data.model.MasterDeliveryRoute
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
+import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.preferences.RoutePreferences
 import com.fernando.centraldomotorista.data.model.RouteStatus
 import com.fernando.centraldomotorista.data.model.StopStatus
@@ -64,6 +65,7 @@ data class RouteCockpitUiState(
     val expandedStopIds: Set<String> = emptySet(),
     // Prompt 6: Lista de parceiros disponíveis para atribuição
     val deliveryPartners: List<DeliveryPartner> = emptyList(),
+    val platforms: List<Platform> = emptyList(),
     // Prompt 9: Mapa osmdroid, ordenação e geocodificação
     val isMapVisible: Boolean = false,
     val isOptimizing: Boolean = false,
@@ -140,8 +142,9 @@ class RouteCockpitViewModel @JvmOverloads constructor(
             try {
                 val route = masterRouteRepository.getRouteById(routeId)
                 val stops = masterRouteRepository.getRouteStops(routeId)
+                val allPlatforms = platformRepository.getActivePlatforms(user.id)
                 val platform = route?.platformId?.let { pId ->
-                    platformRepository.getActivePlatforms(user.id).firstOrNull { it.id == pId }
+                    allPlatforms.firstOrNull { it.id == pId }
                 }
                 val partners = deliveryPartnerRepository.getDeliveryPartners(user.id)
                 cachedLastOdometerKm = routeRepository.getLastOdometerKm(user.id)
@@ -153,6 +156,7 @@ class RouteCockpitViewModel @JvmOverloads constructor(
                         stops = stops,
                         platformName = platform?.name,
                         deliveryPartners = partners,
+                        platforms = allPlatforms,
                         expandedStopIds = emptySet(), // Por padrão todos contraídos (Prompt 5)
                         error = null
                     )
@@ -364,6 +368,55 @@ class RouteCockpitViewModel @JvmOverloads constructor(
                         error = "Erro ao remover pacote da rota."
                     )
                     onError("Falha ao excluir parada no servidor.")
+                }
+            }
+        }
+    }
+
+    /**
+     * Expande especificamente o card de uma parada pelo ID (ex: ao ser localizada via busca ou scanner).
+     */
+    fun expandStop(stopId: String) {
+        _uiState.value = _uiState.value.copy(
+            expandedStopIds = _uiState.value.expandedStopIds + stopId
+        )
+    }
+
+    /**
+     * Atualiza os dados cadastrais e logísticos de uma parada (Nome, Endereço, CEP, Tipo, Plataforma, Observações).
+     */
+    fun updateStop(
+        stop: MasterRouteStop,
+        recipientName: String?,
+        fullAddress: String,
+        cep: String?,
+        packageType: PackageType,
+        platformId: String?,
+        notes: String?,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val updatedStop = stop.copy(
+            recipientName = recipientName?.trim(),
+            fullAddress = fullAddress.trim(),
+            cep = cep?.trim(),
+            packageType = packageType,
+            platformId = platformId,
+            notes = notes?.trim()
+        )
+
+        val currentStops = _uiState.value.stops
+        val updatedList = currentStops.map { if (it.id == stop.id) updatedStop else it }
+        _uiState.value = _uiState.value.copy(stops = updatedList)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = masterRouteRepository.updateStop(updatedStop)
+            withContext(Dispatchers.Main) {
+                if (success) {
+                    onSuccess()
+                } else {
+                    _uiState.value = _uiState.value.copy(stops = currentStops)
+                    onError("Falha ao salvar alterações da parada no servidor.")
                 }
             }
         }

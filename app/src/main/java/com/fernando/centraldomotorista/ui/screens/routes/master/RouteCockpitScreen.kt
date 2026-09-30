@@ -1,6 +1,7 @@
 package com.fernando.centraldomotorista.ui.screens.routes.master
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,17 +51,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.RouteStatus
 import com.fernando.centraldomotorista.data.model.StopStatus
+import android.widget.Toast
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.DiscardEmptyRouteDialog
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.EditStopDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.FinishRouteDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.RemoveStopConfirmDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteProgressHero
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.RouteMapView
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.SearchBarcodeScannerDialog
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.StopDeliveryCard
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
@@ -92,9 +97,54 @@ fun RouteCockpitScreen(
     var showFinishDialog by remember { mutableStateOf(false) }
     var showDiscardEmptyDialog by remember { mutableStateOf(false) }
     var stopToRemove by remember { mutableStateOf<MasterRouteStop?>(null) }
+    var stopToEdit by remember { mutableStateOf<MasterRouteStop?>(null) }
+    var showSearchScannerDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(routeId) {
         viewModel.loadCockpit(routeId)
+    }
+
+    if (stopToEdit != null) {
+        val stop = stopToEdit!!
+        EditStopDialog(
+            stop = stop,
+            platforms = uiState.platforms,
+            onDismiss = { stopToEdit = null },
+            onSave = { name, addr, cep, pkgType, platId, notes ->
+                viewModel.updateStop(
+                    stop = stop,
+                    recipientName = name,
+                    fullAddress = addr,
+                    cep = cep,
+                    packageType = pkgType,
+                    platformId = platId,
+                    notes = notes,
+                    onSuccess = {
+                        stopToEdit = null
+                        Toast.makeText(context, "Pacote #${stop.stopOrder} atualizado!", Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        )
+    }
+
+    if (showSearchScannerDialog) {
+        SearchBarcodeScannerDialog(
+            onDismiss = { showSearchScannerDialog = false },
+            onBarcodeScanned = { barcode ->
+                viewModel.onSearchQueryChanged(barcode)
+                val foundStop = uiState.stops.firstOrNull { it.barcode.equals(barcode, ignoreCase = true) }
+                if (foundStop != null) {
+                    viewModel.expandStop(foundStop.id)
+                    Toast.makeText(context, "Pacote #${foundStop.stopOrder} localizado!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Pacote $barcode não encontrado nesta rota!", Toast.LENGTH_LONG).show()
+                }
+            }
+        )
     }
 
     if (stopToRemove != null) {
@@ -280,44 +330,71 @@ fun RouteCockpitScreen(
                         )
                     }
 
-                    // --- 2. Barra de Busca de Paradas ---
+                    // --- 2. Barra de Busca de Paradas com Leitor de Código de Barras ---
                     item {
-                        OutlinedTextField(
-                            value = uiState.searchQuery,
-                            onValueChange = { viewModel.onSearchQueryChanged(it) },
-                            placeholder = { Text("Buscar por endereço, cliente ou código...", fontSize = 12.sp) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = TextSecondaryDark,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            trailingIcon = {
-                                if (uiState.searchQuery.isNotBlank()) {
-                                    IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
-                                            contentDescription = "Limpar busca",
-                                            tint = TextSecondaryDark,
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.searchQuery,
+                                onValueChange = { viewModel.onSearchQueryChanged(it) },
+                                placeholder = { Text("Buscar por endereço, cliente ou código...", fontSize = 12.sp) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = TextSecondaryDark,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    if (uiState.searchQuery.isNotBlank()) {
+                                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = "Limpar busca",
+                                                tint = TextSecondaryDark,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = OrangeNeon,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                    focusedContainerColor = SurfaceDark,
+                                    unfocusedContainerColor = SurfaceDark,
+                                    focusedTextColor = TextPrimaryDark,
+                                    unfocusedTextColor = TextPrimaryDark
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = SurfaceDark,
+                                border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f)),
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clickable { showSearchScannerDialog = true }
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCodeScanner,
+                                        contentDescription = "Escanear pacote para buscar",
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = OrangeNeon,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                                focusedContainerColor = SurfaceDark,
-                                unfocusedContainerColor = SurfaceDark,
-                                focusedTextColor = TextPrimaryDark,
-                                unfocusedTextColor = TextPrimaryDark
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                            }
+                        }
                     }
 
                     // --- 2.1 Mapa osmdroid Embutido (Prompt 9) ---
@@ -388,18 +465,21 @@ fun RouteCockpitScreen(
                                         text = "$totalDisplayCount paradas listadas",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = TextSecondaryDark
+                                        color = TextSecondaryDark,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
                                     )
 
                                     Row(
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         // Botão Otimizar Ordem (GPS) via Nearest Neighbor offline
                                         TextButton(
                                             onClick = { viewModel.optimizeStopsOrder() },
                                             enabled = !uiState.isOptimizing && totalDisplayCount > 1,
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
                                             if (uiState.isOptimizing) {
                                                 CircularProgressIndicator(
@@ -408,7 +488,7 @@ fun RouteCockpitScreen(
                                                     modifier = Modifier.size(12.dp)
                                                 )
                                                 Spacer(modifier = Modifier.size(4.dp))
-                                                Text("Otimizando...", fontSize = 11.sp, color = OrangeNeon)
+                                                Text("Otimizando...", fontSize = 11.sp, color = OrangeNeon, maxLines = 1, softWrap = false)
                                             } else {
                                                 Icon(
                                                     imageVector = Icons.AutoMirrored.Filled.AltRoute,
@@ -417,22 +497,22 @@ fun RouteCockpitScreen(
                                                     modifier = Modifier.size(14.dp)
                                                 )
                                                 Spacer(modifier = Modifier.size(4.dp))
-                                                Text("Otimizar Rota", fontSize = 11.sp, color = OrangeNeon, fontWeight = FontWeight.Bold)
+                                                Text("Otimizar", fontSize = 11.sp, color = OrangeNeon, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                                             }
                                         }
 
                                         TextButton(
                                             onClick = { viewModel.expandAllStops() },
-                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                         ) {
-                                            Text("Expandir", fontSize = 11.sp, color = TextSecondaryDark, fontWeight = FontWeight.Bold)
+                                            Text("Expandir", fontSize = 11.sp, color = TextSecondaryDark, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                                         }
 
                                         TextButton(
                                             onClick = { viewModel.collapseAllStops() },
-                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                         ) {
-                                            Text("Contrair", fontSize = 11.sp, color = TextSecondaryDark, fontWeight = FontWeight.Bold)
+                                            Text("Contrair", fontSize = 11.sp, color = TextSecondaryDark, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                                         }
                                     }
                                 }
@@ -502,6 +582,7 @@ fun RouteCockpitScreen(
                                 onAssignToPartner = { partnerId ->
                                     viewModel.assignStopToPartner(stop.id, partnerId)
                                 },
+                                onEditStop = { stopToEdit = it },
                                 onDeleteStop = { stopToRemove = it },
                                 partners = uiState.deliveryPartners
                             )
@@ -558,6 +639,7 @@ fun RouteCockpitScreen(
                                     onAssignToPartner = { partnerId ->
                                         viewModel.assignStopToPartner(stop.id, partnerId)
                                     },
+                                    onEditStop = { stopToEdit = it },
                                     onDeleteStop = { stopToRemove = it },
                                     partners = uiState.deliveryPartners
                                 )

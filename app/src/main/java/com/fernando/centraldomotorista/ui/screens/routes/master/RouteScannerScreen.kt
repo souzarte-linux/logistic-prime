@@ -1009,45 +1009,56 @@ private fun OcrConfirmationCard(
                 }
             }
 
-            // Linha 3: Parametrização Operacional (Plataforma + Tipo de Pacote)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Linha 3: Parametrização Operacional - Plataforma Ativa (largura total para evitar cortes)
+            Surface(
+                color = Color.Black.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onChangePlatform)
             ) {
-                // Chip Plataforma
-                Surface(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f)),
-                    modifier = Modifier
-                        .weight(1.2f)
-                        .clickable(onClick = onChangePlatform)
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Text(
-                            text = activePlatform?.name ?: "Plat. Geral",
+                            text = "Plataforma:",
                             fontSize = 11.sp,
+                            color = TextSecondaryDark
+                        )
+                        Text(
+                            text = activePlatform?.name ?: "Plataforma Geral",
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimaryDark,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = "Trocar",
-                            fontSize = 10.sp,
-                            color = OrangeNeon,
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
+                    Text(
+                        text = "Trocar",
+                        fontSize = 11.sp,
+                        color = OrangeNeon,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
+            }
 
-                // Seletor Tipo: Pacotinho vs Volumoso
-                val isPacotinho = currentPackageType == PackageType.PACOTINHO
+            // Linha 4: Tipo de Pacote (50% / 50%)
+            val isPacotinho = currentPackageType == PackageType.PACOTINHO
+            val isVolumoso = currentPackageType == PackageType.VOLUMOSO
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Surface(
                     color = if (isPacotinho) OrangeNeon else SurfaceDarkAlt,
                     shape = RoundedCornerShape(8.dp),
@@ -1062,11 +1073,10 @@ private fun OcrConfirmationCard(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 6.dp)
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
 
-                val isVolumoso = currentPackageType == PackageType.VOLUMOSO
                 Surface(
                     color = if (isVolumoso) YellowGold else SurfaceDarkAlt,
                     shape = RoundedCornerShape(8.dp),
@@ -1081,7 +1091,7 @@ private fun OcrConfirmationCard(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 6.dp)
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
             }
@@ -1096,24 +1106,32 @@ private fun OcrConfirmationCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            val nextPartner = if (selectedPartnerId == null) partners.firstOrNull()?.id else null
+                            val nextPartner = when {
+                                selectedPartnerId == null -> partners.firstOrNull()?.id
+                                else -> {
+                                    val idx = partners.indexOfFirst { it.id == selectedPartnerId }
+                                    if (idx in 0 until partners.size - 1) partners[idx + 1].id else null
+                                }
+                            }
                             onSelectPartner(nextPartner)
                         }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
                             text = if (selectedPartnerId != null) "👤 Atribuir a: ${assignedPartnerName ?: "Parceiro"}" else "👤 Destinado a: Master (Você)",
                             fontSize = 11.sp,
-                            color = if (selectedPartnerId != null) OrangeNeon else TextSecondaryDark
+                            color = if (selectedPartnerId != null) OrangeNeon else TextSecondaryDark,
+                            fontWeight = if (selectedPartnerId != null) FontWeight.Bold else FontWeight.Normal
                         )
                         Text(
                             text = "Alternar",
                             fontSize = 10.sp,
-                            color = OrangeNeon
+                            color = OrangeNeon,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }

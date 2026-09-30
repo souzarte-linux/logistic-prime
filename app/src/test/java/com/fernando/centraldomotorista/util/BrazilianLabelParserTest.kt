@@ -102,4 +102,63 @@ class BrazilianLabelParserTest {
         assertTrue("Deve conter Rua Augusta", parsed.street?.contains("Rua Augusta") == true)
         assertEquals("450", parsed.number)
     }
+
+    @Test
+    fun testParseMultiLineRecipient() {
+        val label = """
+            MERCADO LIVRE
+            DESTINATÁRIO:
+            Lucas Martins
+            Rua Vergueiro, 1500
+            04101-000
+        """.trimIndent()
+
+        val parsed = BrazilianLabelParser.parse(label)
+        assertEquals("Lucas Martins", parsed.recipientName)
+        assertEquals("04101-000", parsed.cep)
+        assertEquals("1500", parsed.number)
+    }
+
+    @Test
+    fun testParseExtendedPrefixes() {
+        val labelPara = """
+            Para:
+            Beatriz Lima
+            Avenida Brasil, 200
+            CEP 20040-000
+        """.trimIndent()
+        assertEquals("Beatriz Lima", BrazilianLabelParser.parse(labelPara).recipientName)
+
+        val labelConsignatario = """
+            Consignatário: Rodrigo Oliveira
+            Rua das Acácias, 88
+            13010-000
+        """.trimIndent()
+        assertEquals("Rodrigo Oliveira", BrazilianLabelParser.parse(labelConsignatario).recipientName)
+
+        val labelComprador = """
+            Comprador:
+            Juliana Mendes
+            Alameda Santos, 500
+            01419-000
+        """.trimIndent()
+        assertEquals("Juliana Mendes", BrazilianLabelParser.parse(labelComprador).recipientName)
+    }
+
+    @Test
+    fun testParsePreAddressHeuristic() {
+        val labelWithoutLabel = """
+            PACOTE LOGÍSTICA
+            Carlos Eduardo Silva
+            Rua das Palmeiras, 120
+            Bairro Centro
+            São Paulo - SP
+            CEP: 01001-000
+        """.trimIndent()
+
+        val parsed = BrazilianLabelParser.parse(labelWithoutLabel)
+        assertEquals("Carlos Eduardo Silva", parsed.recipientName)
+        assertEquals("01001-000", parsed.cep)
+        assertEquals("120", parsed.number)
+    }
 }

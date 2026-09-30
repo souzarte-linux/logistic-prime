@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Navigation
@@ -78,6 +79,7 @@ fun StopDeliveryCard(
     onNavigateGps: (String) -> Unit,
     onUpdateStatus: (String, StopStatus) -> Unit,
     onAssignToPartner: ((partnerId: String) -> Unit)? = null,
+    onEditStop: (MasterRouteStop) -> Unit = {},
     onDeleteStop: (MasterRouteStop) -> Unit = {},
     partners: List<DeliveryPartner> = emptyList(),
     modifier: Modifier = Modifier
@@ -395,32 +397,64 @@ fun StopDeliveryCard(
                         }
                     }
 
-                    // Ação de Exclusão de Pacote Bipado por Engano (TASK-DES-08)
+                    // Ações de Gestão de Pacote: Editar e Excluir
                     Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = { onDeleteStop(stop) },
-                        border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.35f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = RedAlert.copy(alpha = 0.08f)
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(38.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "Remover Pacote da Rota",
-                            tint = RedAlert,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Remover Pacote da Rota",
-                            color = RedAlert,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        OutlinedButton(
+                            onClick = { onEditStop(stop) },
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = SurfaceDarkAlt
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Editar",
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Editar",
+                                color = TextPrimaryDark,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { onDeleteStop(stop) },
+                            border = BorderStroke(1.dp, RedAlert.copy(alpha = 0.35f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = RedAlert.copy(alpha = 0.08f)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .height(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Remover Pacote da Rota",
+                                tint = RedAlert,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Remover Pacote",
+                                color = RedAlert,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

@@ -14,6 +14,7 @@ import com.fernando.centraldomotorista.data.remote.dto.MasterDeliveryRouteDto
 import com.fernando.centraldomotorista.data.remote.dto.MasterRouteStopDto
 import com.fernando.centraldomotorista.data.remote.dto.PartnerSessionPackageDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateRoutePackagesDto
+import com.fernando.centraldomotorista.data.remote.dto.UpdateStopDetailsDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopLocationDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopOrderDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopPhotoDto
@@ -238,6 +239,24 @@ class MasterRouteRepositoryTest {
             val existing = stopsStorage[id] ?: return emptyList()
             val updated = existing.copy(
                 stopOrder = body.stopOrder
+            )
+            stopsStorage[id] = updated
+            return listOf(updated)
+        }
+
+        override suspend fun updateStopDetails(
+            idFilter: String,
+            body: UpdateStopDetailsDto
+        ): List<MasterRouteStopDto> {
+            val id = idFilter.removePrefix("eq.")
+            val existing = stopsStorage[id] ?: return emptyList()
+            val updated = existing.copy(
+                recipientName = body.recipientName,
+                fullAddress = body.fullAddress,
+                cep = body.cep,
+                packageType = body.packageType,
+                marketplaceName = body.marketplaceName,
+                notes = body.notes
             )
             stopsStorage[id] = updated
             return listOf(updated)
@@ -1010,5 +1029,76 @@ class MasterRouteRepositoryTest {
 
         currentRoute = repository.getRouteById(route.id)
         assertEquals(1, currentRoute?.totalPackages)
+    }
+
+    @Test
+    fun testAddStopWithMarketplace() = runBlocking {
+        val route = repository.createRoute(platformId = "plat-1", startLocation = "Origem Galpão")
+        val stop = repository.addStop(
+            routeId = route.id,
+            barcode = "BR-MKP-12345",
+            recipientName = "João Silva",
+            fullAddress = "Rua das Flores, 100",
+            cep = "01001-000",
+            marketplaceName = "TikTok Shop"
+        )
+
+        assertNotNull(stop.id)
+        assertEquals("TikTok Shop", stop.marketplaceName)
+
+        val stops = repository.getRouteStops(route.id)
+        assertEquals(1, stops.size)
+        assertEquals("TikTok Shop", stops.first().marketplaceName)
+    }
+
+    @Test
+    fun testUpdateStopDetails() = runBlocking {
+        val route = repository.createRoute(platformId = "plat-1", startLocation = "CD")
+        val originalStop = repository.addStop(
+            routeId = route.id,
+            barcode = "BR-EDIT-999",
+            recipientName = "Nome Antigo",
+            fullAddress = "Rua Velha, 10",
+            cep = "11111-111",
+            packageType = PackageType.PACOTINHO,
+            marketplaceName = "Shopee",
+            notes = "Observação antiga"
+        )
+
+        val updatedStop = originalStop.copy(
+            recipientName = "Novo Nome Editado",
+            fullAddress = "Avenida Nova, 500, Bloco B",
+            cep = "22222-222",
+            packageType = PackageType.VOLUMOSO,
+            marketplaceName = "Mercado Livre",
+            notes = "Entregar na portaria"
+        )
+
+        val success = repository.updateStop(updatedStop)
+        assertTrue(success)
+
+        val fetchedStops = repository.getRouteStops(route.id)
+        assertEquals(1, fetchedStops.size)
+        val stopAfter = fetchedStops.first()
+
+        assertEquals("Novo Nome Editado", stopAfter.recipientName)
+        assertEquals("Avenida Nova, 500, Bloco B", stopAfter.fullAddress)
+        assertEquals("22222-222", stopAfter.cep)
+        assertEquals(PackageType.VOLUMOSO, stopAfter.packageType)
+        assertEquals("Mercado Livre", stopAfter.marketplaceName)
+        assertEquals("Entregar na portaria", stopAfter.notes)
+    }
+
+    @Test
+    fun testUpdateStopWithBlankIdReturnsFalse() = runBlocking {
+        val stopWithNoId = MasterRouteStop(
+            id = "",
+            routeId = "route-1",
+            recipientName = "Teste",
+            fullAddress = "Endereço Qualquer"
+        )
+
+        val success = repository.updateStop(stopWithNoId)
+        assertFalse(success)
     }
 }

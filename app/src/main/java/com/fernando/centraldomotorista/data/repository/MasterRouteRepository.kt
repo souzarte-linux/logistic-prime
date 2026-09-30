@@ -16,6 +16,7 @@ import com.fernando.centraldomotorista.data.remote.dto.MasterDeliveryRouteDto
 import com.fernando.centraldomotorista.data.remote.dto.MasterRouteStopDto
 import com.fernando.centraldomotorista.data.remote.dto.PartnerSessionPackageDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateRoutePackagesDto
+import com.fernando.centraldomotorista.data.remote.dto.UpdateStopDetailsDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopLocationDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopOrderDto
 import com.fernando.centraldomotorista.data.remote.dto.UpdateStopPhotoDto
@@ -119,7 +120,8 @@ open class MasterRouteRepository(
         assignedPartnerId: String? = null,
         transferStatus: TransferStatus? = null,
         transferredVia: String? = null,
-        transferredAt: OffsetDateTime? = null
+        transferredAt: OffsetDateTime? = null,
+        marketplaceName: String? = null
     ): MasterRouteStop = withContext(Dispatchers.IO) {
         val userId = getCurrentUserId()
             ?: throw IllegalStateException("Usuário não autenticado no Supabase")
@@ -148,7 +150,8 @@ open class MasterRouteRepository(
             assignedPartnerId = assignedPartnerId?.ifBlank { null },
             transferStatus = transferStatus?.value,
             transferredVia = transferredVia,
-            transferredAt = transferredAt?.toString()
+            transferredAt = transferredAt?.toString(),
+            marketplaceName = marketplaceName?.trim()
         )
 
         val createdList = masterRouteApi.addStop(stopDto)
@@ -427,6 +430,32 @@ open class MasterRouteRepository(
             success
         } catch (e: Exception) {
             Log.e(tag, "Erro ao atualizar status da parada $stopId: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * Atualiza os detalhes de uma parada (destinatário, endereço, CEP, tipo de pacote, marketplace e observações).
+     */
+    suspend fun updateStop(stop: MasterRouteStop): Boolean = withContext(Dispatchers.IO) {
+        if (stop.id.isBlank()) return@withContext false
+        try {
+            val body = UpdateStopDetailsDto(
+                recipientName = stop.recipientName?.trim(),
+                fullAddress = stop.fullAddress.trim(),
+                cep = stop.cep?.trim(),
+                packageType = stop.packageType.value,
+                marketplaceName = stop.marketplaceName?.trim(),
+                notes = stop.notes?.trim()
+            )
+            val updated = masterRouteApi.updateStopDetails("eq.${stop.id}", body)
+            val success = updated.isNotEmpty()
+            if (success) {
+                AppDataSync.notifyDataChanged()
+            }
+            success
+        } catch (e: Exception) {
+            Log.e(tag, "Erro ao atualizar detalhes da parada ${stop.id}: ${e.message}", e)
             false
         }
     }

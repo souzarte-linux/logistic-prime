@@ -26,8 +26,12 @@ object BrazilianLabelParser {
     private val GENERIC_CEP_REGEX = Regex("""\b(\d{5})(\d{3})\b""")
 
     // Prefixos típicos de identificação de destinatário em etiquetas
-    private val RECIPIENT_REGEX = Regex(
-        """(?i)(?:destinat[aá]rio|recebedor|cliente|entregar\s+para|nome)[:\s]*([A-Za-zÀ-ÿ\s.'-]{3,45})"""
+    private val RECIPIENT_LABEL_PATTERN = """(?i)(?:destinat[aá]rio|para|recebedor|cliente|consignat[aá]rio|comprador|entregar\s+para|nome)"""
+    private val RECIPIENT_INLINE_REGEX = Regex(
+        """$RECIPIENT_LABEL_PATTERN[:\s-]+([A-Za-zÀ-ÿ\s.'-]{3,50})"""
+    )
+    private val RECIPIENT_ISOLATED_LABEL_REGEX = Regex(
+        """^$RECIPIENT_LABEL_PATTERN[:\s-]*$"""
     )
 
     // Prefixos comuns de logradouro no Brasil
@@ -76,14 +80,26 @@ object BrazilianLabelParser {
             }
         }
 
-        // 2. Extração do Destinatário
+        // 2. Extração do Destinatário (inline e multilinha)
         var recipientName: String? = null
-        for (line in lines) {
-            val recMatch = RECIPIENT_REGEX.find(line)
-            if (recMatch != null) {
-                val candidate = recMatch.groupValues[1].trim()
+        for (i in lines.indices) {
+            val line = lines[i]
+
+            // Caso A: Rótulo e nome na mesma linha (ex: "Destinatário: Carlos Eduardo Silva")
+            val inlineMatch = RECIPIENT_INLINE_REGEX.find(line)
+            if (inlineMatch != null) {
+                val candidate = inlineMatch.groupValues[1].trim()
                 if (isValidRecipient(candidate)) {
                     recipientName = candidate
+                    break
+                }
+            }
+
+            // Caso B: Rótulo multilinha isolado (ex: "DESTINATÁRIO:" e o nome na linha seguinte)
+            if (RECIPIENT_ISOLATED_LABEL_REGEX.matches(line) && i + 1 < lines.size) {
+                val nextLineCandidate = lines[i + 1].trim()
+                if (isValidRecipient(nextLineCandidate)) {
+                    recipientName = nextLineCandidate
                     break
                 }
             }
@@ -92,10 +108,13 @@ object BrazilianLabelParser {
         // 3. Extração do Logradouro e Número
         var street: String? = null
         var number: String? = null
+        var streetLineIndex = -1
 
-        for (line in lines) {
+        for (i in lines.indices) {
+            val line = lines[i]
             val streetMatch = STREET_PREFIX_REGEX.find(line)
             if (streetMatch != null) {
+                streetLineIndex = i
                 street = streetMatch.groupValues[1] + " " + streetMatch.groupValues[2].trim()
 
                 // Remove possíveis pontuações finais do logradouro
@@ -111,6 +130,16 @@ object BrazilianLabelParser {
                     }
                 }
                 break
+            }
+        }
+
+        // Heurística pré-endereço: se não encontrou destinatário por rótulo explícito,
+        // avalia a linha anterior ao logradouro (de 2 a 5 palavras)
+        if (recipientName == null && streetLineIndex > 0) {
+            val candidateLine = lines[streetLineIndex - 1].trim()
+            val words = candidateLine.split(Regex("""\s+""")).filter { it.isNotBlank() }
+            if (words.size in 2..5 && !candidateLine.contains(Regex("""\d""")) && isValidRecipient(candidateLine)) {
+                recipientName = candidateLine
             }
         }
 
@@ -182,10 +211,15 @@ object BrazilianLabelParser {
 
     private fun isValidRecipient(name: String): Boolean {
         if (name.length < 3) return false
-        val lower = name.lowercase()
-        // Evita falsos positivos como títulos de seções
-        val blacklist = listOf("destinatario", "recebedor", "remetente", "origem", "declaracao", "codigo", "endereco")
-        return !blacklist.contains(lower)
+        val lower = name.lowercase().trim()
+        val blacklist = listOf(
+            "destinatario", "destinatário", "recebedor", "remetente", "origem",
+            "declaracao", "declaração", "codigo", "código", "endereco", "endereço",
+            "mercado livre", "mercado envios", "shopee", "shopee xpress", "amazon",
+            "correios", "sedex", "pac", "jadlog", "logistica", "logística", "danfe",
+            "nota fiscal", "nf-e", "chave de acesso", "conteudo", "conteúdo", "pacote"
+        )
+        return !blacklist.any { lower.contains(it) }
     }
 
     private fun isKnownBrazilianState(uf: String): Boolean {

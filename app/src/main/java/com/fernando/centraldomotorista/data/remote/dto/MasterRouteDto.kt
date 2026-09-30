@@ -101,7 +101,24 @@ data class MasterRouteStopDto(
     @SerializedName("transferred_via")
     val transferredVia: String? = null,
     @SerializedName("transferred_at")
-    val transferredAt: String? = null
+    val transferredAt: String? = null,
+    @SerializedName("marketplace_name")
+    val marketplaceName: String? = null
+)
+
+data class UpdateStopDetailsDto(
+    @SerializedName("recipient_name")
+    val recipientName: String?,
+    @SerializedName("full_address")
+    val fullAddress: String,
+    @SerializedName("cep")
+    val cep: String?,
+    @SerializedName("package_type")
+    val packageType: String,
+    @SerializedName("marketplace_name")
+    val marketplaceName: String?,
+    @SerializedName("notes")
+    val notes: String?
 )
 
 data class UpdateStopStatusDto(
@@ -253,7 +270,8 @@ fun MasterRouteStopDto.toDomain(): MasterRouteStop {
         assignedPartnerId = assignedPartnerId,
         transferStatus = TransferStatus.fromValue(transferStatus),
         transferredVia = transferredVia,
-        transferredAt = parseToLocalOffsetDateTime(transferredAt)
+        transferredAt = parseToLocalOffsetDateTime(transferredAt),
+        marketplaceName = marketplaceName
     )
 }
 
@@ -286,7 +304,8 @@ fun MasterRouteStop.toDto(): MasterRouteStopDto {
         assignedPartnerId = assignedPartnerId,
         transferStatus = transferStatus?.value,
         transferredVia = transferredVia,
-        transferredAt = transferredAt?.toString()
+        transferredAt = transferredAt?.toString(),
+        marketplaceName = marketplaceName
     )
 }
 
