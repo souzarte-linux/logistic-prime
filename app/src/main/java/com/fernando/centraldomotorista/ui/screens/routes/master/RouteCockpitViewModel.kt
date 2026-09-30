@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
+import com.fernando.centraldomotorista.data.model.Marketplace
 import com.fernando.centraldomotorista.data.model.MasterDeliveryRoute
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
@@ -15,6 +16,7 @@ import com.fernando.centraldomotorista.data.model.StopStatus
 import com.fernando.centraldomotorista.data.model.TransferStatus
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
+import com.fernando.centraldomotorista.data.repository.MarketplaceRepository
 import com.fernando.centraldomotorista.data.repository.MasterRouteRepository
 import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import com.fernando.centraldomotorista.data.repository.RouteRepository
@@ -66,6 +68,7 @@ data class RouteCockpitUiState(
     // Prompt 6: Lista de parceiros disponíveis para atribuição
     val deliveryPartners: List<DeliveryPartner> = emptyList(),
     val platforms: List<Platform> = emptyList(),
+    val marketplaces: List<Marketplace> = emptyList(),
     // Prompt 9: Mapa osmdroid, ordenação e geocodificação
     val isMapVisible: Boolean = false,
     val isOptimizing: Boolean = false,
@@ -108,6 +111,7 @@ class RouteCockpitViewModel @JvmOverloads constructor(
     private val platformRepository: PlatformRepository = PlatformRepository(),
     private val deliveryPartnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
     private val routeRepository: RouteRepository = RouteRepository(),
+    private val marketplaceRepository: MarketplaceRepository = MarketplaceRepository(),
     private val geocodingRepository: GeocodingRepository = GeocodingRepository(),
     private val routePreferences: RoutePreferences = RoutePreferences(application)
 ) : AndroidViewModel(application) {
@@ -143,6 +147,7 @@ class RouteCockpitViewModel @JvmOverloads constructor(
                 val route = masterRouteRepository.getRouteById(routeId)
                 val stops = masterRouteRepository.getRouteStops(routeId)
                 val allPlatforms = platformRepository.getActivePlatforms(user.id)
+                val allMarketplaces = marketplaceRepository.getMarketplaces()
                 val platform = route?.platformId?.let { pId ->
                     allPlatforms.firstOrNull { it.id == pId }
                 }
@@ -157,6 +162,7 @@ class RouteCockpitViewModel @JvmOverloads constructor(
                         platformName = platform?.name,
                         deliveryPartners = partners,
                         platforms = allPlatforms,
+                        marketplaces = allMarketplaces,
                         expandedStopIds = emptySet(), // Por padrão todos contraídos (Prompt 5)
                         error = null
                     )
@@ -383,7 +389,7 @@ class RouteCockpitViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Atualiza os dados cadastrais e logísticos de uma parada (Nome, Endereço, CEP, Tipo, Plataforma, Observações).
+     * Atualiza os dados cadastrais e logísticos de uma parada (Nome, Endereço, CEP, Tipo, Plataforma, Marketplace, Observações).
      */
     fun updateStop(
         stop: MasterRouteStop,
@@ -392,6 +398,7 @@ class RouteCockpitViewModel @JvmOverloads constructor(
         cep: String?,
         packageType: PackageType,
         platformId: String?,
+        marketplaceName: String? = stop.marketplaceName,
         notes: String?,
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
@@ -402,6 +409,7 @@ class RouteCockpitViewModel @JvmOverloads constructor(
             cep = cep?.trim(),
             packageType = packageType,
             platformId = platformId,
+            marketplaceName = marketplaceName?.trim(),
             notes = notes?.trim()
         )
 

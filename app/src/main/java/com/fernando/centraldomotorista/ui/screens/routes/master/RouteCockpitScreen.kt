@@ -109,8 +109,9 @@ fun RouteCockpitScreen(
         EditStopDialog(
             stop = stop,
             platforms = uiState.platforms,
+            marketplaces = uiState.marketplaces,
             onDismiss = { stopToEdit = null },
-            onSave = { name, addr, cep, pkgType, platId, notes ->
+            onSave = { name, addr, cep, pkgType, platId, mktName, notes ->
                 viewModel.updateStop(
                     stop = stop,
                     recipientName = name,
@@ -118,6 +119,7 @@ fun RouteCockpitScreen(
                     cep = cep,
                     packageType = pkgType,
                     platformId = platId,
+                    marketplaceName = mktName,
                     notes = notes,
                     onSuccess = {
                         stopToEdit = null

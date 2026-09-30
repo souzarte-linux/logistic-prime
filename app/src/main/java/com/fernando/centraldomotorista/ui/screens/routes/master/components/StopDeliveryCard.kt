@@ -139,11 +139,24 @@ fun StopDeliveryCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = "📦 ${stop.barcode}",
-                            fontSize = 11.sp,
-                            color = TextSecondaryDark
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "📦 ${stop.barcode}",
+                                fontSize = 11.sp,
+                                color = TextSecondaryDark
+                            )
+                            if (!stop.marketplaceName.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "• 🏬 ${stop.marketplaceName}",
+                                    fontSize = 11.sp,
+                                    color = OrangeNeon,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -214,8 +227,11 @@ fun StopDeliveryCard(
                         .fillMaxWidth()
                         .padding(top = 12.dp)
                 ) {
-                    // Tipo de Pacote Badge
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Tipo de Pacote Badge + Marketplace Badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Surface(
                             color = if (stop.packageType == PackageType.VOLUMOSO) YellowGold.copy(alpha = 0.18f) else SurfaceDarkAlt,
                             shape = RoundedCornerShape(6.dp)
@@ -229,8 +245,23 @@ fun StopDeliveryCard(
                             )
                         }
 
+                        if (!stop.marketplaceName.isNullOrBlank()) {
+                            Surface(
+                                color = OrangeNeon.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(0.5.dp, OrangeNeon.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = "🏬 ${stop.marketplaceName}",
+                                    color = OrangeNeon,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
                         if (!stop.cep.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "CEP ${stop.cep}",
                                 fontSize = 11.sp,

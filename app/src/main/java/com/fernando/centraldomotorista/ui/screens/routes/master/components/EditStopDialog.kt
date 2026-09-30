@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fernando.centraldomotorista.data.model.Marketplace
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
 import com.fernando.centraldomotorista.data.model.Platform
@@ -53,18 +54,20 @@ import com.fernando.centraldomotorista.ui.theme.TextSecondaryDark
 import com.fernando.centraldomotorista.ui.theme.YellowGold
 
 /**
- * Diálogo modal para edição completa dos dados de uma parada no Cockpit de Bordo:
+ * Diálogo modal para edição completa dos dados de uma parada no Cockpit de Bordo ou Bipagem:
  * - Nome do Cliente / Destinatário
  * - Endereço Completo
  * - CEP
  * - Tipo de Pacote (Pacotinho vs Volumoso)
- * - Plataforma / Marketplace
+ * - Transportadora / Plataforma
+ * - Tomador / Marketplace
  * - Observações
  */
 @Composable
 fun EditStopDialog(
     stop: MasterRouteStop,
     platforms: List<Platform>,
+    marketplaces: List<Marketplace> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (
         recipientName: String?,
@@ -72,6 +75,7 @@ fun EditStopDialog(
         cep: String?,
         packageType: PackageType,
         platformId: String?,
+        marketplaceName: String?,
         notes: String?
     ) -> Unit
 ) {
@@ -80,9 +84,11 @@ fun EditStopDialog(
     var cep by remember { mutableStateOf(stop.cep ?: "") }
     var selectedPackageType by remember { mutableStateOf(stop.packageType ?: PackageType.PACOTINHO) }
     var selectedPlatformId by remember { mutableStateOf(stop.platformId) }
+    var selectedMarketplaceName by remember { mutableStateOf(stop.marketplaceName ?: "") }
     var notes by remember { mutableStateOf(stop.notes ?: "") }
 
     var isPlatformDropdownExpanded by remember { mutableStateOf(false) }
+    var isMarketplaceDropdownExpanded by remember { mutableStateOf(false) }
 
     val activePlatformName = platforms.firstOrNull { it.id == selectedPlatformId }?.name
         ?: stop.platformId?.takeIf { it.isNotBlank() }
@@ -229,9 +235,9 @@ fun EditStopDialog(
                     }
                 }
 
-                // Seletor Plataforma / Marketplace
+                // Seletor Transportadora / Plataforma
                 Text(
-                    text = "Plataforma / Marketplace:",
+                    text = "🚚 Transportadora / Plataforma:",
                     fontSize = 11.sp,
                     color = TextSecondaryDark,
                     fontWeight = FontWeight.SemiBold
@@ -292,6 +298,68 @@ fun EditStopDialog(
                     }
                 }
 
+                // Seletor Tomador / Marketplace
+                Text(
+                    text = "🏬 Tomador / Marketplace:",
+                    fontSize = 11.sp,
+                    color = TextSecondaryDark,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Surface(
+                    color = SurfaceDarkAlt,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isMarketplaceDropdownExpanded = true }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (selectedMarketplaceName.isNotBlank()) "🏬 $selectedMarketplaceName" else "🏬 Nenhum / Não Informado",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selectedMarketplaceName.isNotBlank()) OrangeNeon else TextSecondaryDark
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = TextSecondaryDark
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = isMarketplaceDropdownExpanded,
+                        onDismissRequest = { isMarketplaceDropdownExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Nenhum / Não informado", fontSize = 12.sp) },
+                            onClick = {
+                                selectedMarketplaceName = ""
+                                isMarketplaceDropdownExpanded = false
+                            }
+                        )
+                        marketplaces.forEach { marketplace ->
+                            val isSelected = marketplace.name.equals(selectedMarketplaceName, ignoreCase = true)
+                            DropdownMenuItem(
+                                text = { Text(marketplace.name, fontSize = 12.sp) },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, tint = OrangeNeon) }
+                                } else null,
+                                onClick = {
+                                    selectedMarketplaceName = marketplace.name
+                                    isMarketplaceDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 // Campo: Observações
                 OutlinedTextField(
                     value = notes,
@@ -317,6 +385,7 @@ fun EditStopDialog(
                         cep.takeIf { it.isNotBlank() },
                         selectedPackageType,
                         selectedPlatformId,
+                        selectedMarketplaceName.takeIf { it.isNotBlank() },
                         notes.takeIf { it.isNotBlank() }
                     )
                 },

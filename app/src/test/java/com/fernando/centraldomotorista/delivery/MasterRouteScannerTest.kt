@@ -347,4 +347,129 @@ class MasterRouteScannerTest {
         assertEquals(PackageType.PACOTINHO, state.currentPackageType)
         assertNull(state.pendingBarcode)
     }
+
+    @Test
+    fun testStickyMarketplaceSelectorPersistsBetweenScans() {
+        // Validação da seleção sticky de Tomador / Marketplace
+        // O tomador selecionado persiste entre sucessivas bipagens até nova troca manual
+        var state = RouteScannerUiState(
+            routeId = "route-mkt-1",
+            currentMarketplaceName = "TikTok Shop"
+        )
+
+        assertEquals("TikTok Shop", state.currentMarketplaceName)
+
+        // 1ª bipagem: herda TikTok Shop
+        val stop1 = MasterRouteStop(
+            id = "stop-mkt-1",
+            routeId = state.routeId,
+            userId = "user-1",
+            barcode = "BR-TIKTOK-001",
+            recipientName = "Consumidor TikTok",
+            fullAddress = "Rua Teste, 100",
+            marketplaceName = state.currentMarketplaceName
+        )
+        assertEquals("TikTok Shop", stop1.marketplaceName)
+
+        // Ao concluir a 1ª bipagem, o marketplace MANTÉM-SE (sticky!)
+        state = state.copy(
+            totalScannedCount = 1,
+            lastScannedStop = stop1
+        )
+        assertEquals("TikTok Shop", state.currentMarketplaceName)
+
+        // Motorista troca manualmente para Shopee
+        state = state.copy(currentMarketplaceName = "Shopee")
+        assertEquals("Shopee", state.currentMarketplaceName)
+
+        // 2ª bipagem: herda Shopee
+        val stop2 = MasterRouteStop(
+            id = "stop-mkt-2",
+            routeId = state.routeId,
+            userId = "user-1",
+            barcode = "BR-SHOPEE-002",
+            recipientName = "Consumidor Shopee",
+            fullAddress = "Avenida Central, 500",
+            marketplaceName = state.currentMarketplaceName
+        )
+        assertEquals("Shopee", stop2.marketplaceName)
+
+        // Ao concluir a 2ª bipagem, continua Shopee (sticky!)
+        state = state.copy(
+            totalScannedCount = 2,
+            lastScannedStop = stop2
+        )
+        assertEquals("Shopee", state.currentMarketplaceName)
+    }
+
+    @Test
+    fun testCancelAutoAdvanceSetsCountdownToNull() {
+        // Validação do cancelamento do timer de auto-avanço:
+        // Ao clicar em 'Editar' ou interagir com o card, o timer de 5s é cancelado imediatamente
+        // para permitir edição calma e sem interrupções.
+        var state = RouteScannerUiState(
+            routeId = "route-test",
+            autoAdvanceCountdown = 5
+        )
+
+        assertEquals(5, state.autoAdvanceCountdown)
+
+        // Simula a invocação de cancelAutoAdvance()
+        state = state.copy(autoAdvanceCountdown = null)
+
+        assertNull("Countdown de auto-avanço deve ser nulo após cancelAutoAdvance", state.autoAdvanceCountdown)
+    }
+
+    @Test
+    fun testUpdateScannedStopPersistsMarketplaceAndCancelsAutoAdvance() {
+        // Validação da atualização e edição de dados pelo EditStopDialog
+        val originalStop = MasterRouteStop(
+            id = "stop-edit-1",
+            routeId = "route-test",
+            userId = "user-1",
+            barcode = "BR-ORIGINAL-001",
+            recipientName = "Nome Antigo",
+            fullAddress = "Endereço Antigo, 10",
+            cep = "01001-000",
+            packageType = PackageType.PACOTINHO,
+            marketplaceName = "Kwai",
+            notes = "Sem notas"
+        )
+
+        var state = RouteScannerUiState(
+            routeId = "route-test",
+            lastScannedStop = originalStop,
+            autoAdvanceCountdown = 3,
+            isConfidenceWarning = true
+        )
+
+        assertEquals(3, state.autoAdvanceCountdown)
+        assertTrue(state.isConfidenceWarning)
+
+        // Edição realizada com novo tomador e endereço corrigido
+        val updatedStop = originalStop.copy(
+            recipientName = "Nome Corrigido",
+            fullAddress = "Endereço Novo, 20",
+            cep = "02002-000",
+            packageType = PackageType.VOLUMOSO,
+            marketplaceName = "Mercado Livre",
+            notes = "Entregar na portaria"
+        )
+
+        state = state.copy(
+            lastScannedStop = updatedStop,
+            autoAdvanceCountdown = null,
+            isConfidenceWarning = false
+        )
+
+        assertNull("Countdown deve estar zerado", state.autoAdvanceCountdown)
+        assertFalse("Aviso de conferência deve ser limpo", state.isConfidenceWarning)
+        assertEquals("Nome Corrigido", state.lastScannedStop?.recipientName)
+        assertEquals("Endereço Novo, 20", state.lastScannedStop?.fullAddress)
+        assertEquals("02002-000", state.lastScannedStop?.cep)
+        assertEquals(PackageType.VOLUMOSO, state.lastScannedStop?.packageType)
+        assertEquals("Mercado Livre", state.lastScannedStop?.marketplaceName)
+        assertEquals("Entregar na portaria", state.lastScannedStop?.notes)
+    }
 }
+

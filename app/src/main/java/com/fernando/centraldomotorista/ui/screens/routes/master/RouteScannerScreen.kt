@@ -86,13 +86,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import android.widget.Toast
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
+import com.fernando.centraldomotorista.data.model.Marketplace
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
 import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.DualScannerOverlay
+import com.fernando.centraldomotorista.ui.screens.routes.master.components.EditStopDialog
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
@@ -139,6 +142,8 @@ fun RouteScannerScreen(
     }
 
     var showPlatformSelectorDialog by remember { mutableStateOf(false) }
+    var showMarketplaceSelectorDialog by remember { mutableStateOf(false) }
+    var stopToEdit by remember { mutableStateOf<MasterRouteStop?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -188,6 +193,47 @@ fun RouteScannerScreen(
                 showPlatformSelectorDialog = false
             },
             onDismiss = { showPlatformSelectorDialog = false }
+        )
+    }
+
+    if (showMarketplaceSelectorDialog) {
+        MarketplaceSelectorDialog(
+            marketplaces = uiState.marketplaces,
+            currentMarketplaceName = uiState.currentMarketplaceName,
+            onSelect = { marketplaceName ->
+                viewModel.onMarketplaceSelected(marketplaceName)
+                showMarketplaceSelectorDialog = false
+            },
+            onDismiss = { showMarketplaceSelectorDialog = false }
+        )
+    }
+
+    if (stopToEdit != null) {
+        val stop = stopToEdit!!
+        EditStopDialog(
+            stop = stop,
+            platforms = uiState.platforms,
+            marketplaces = uiState.marketplaces,
+            onDismiss = { stopToEdit = null },
+            onSave = { name, addr, cep, pkgType, platId, mktName, notes ->
+                viewModel.updateScannedStop(
+                    stop = stop,
+                    recipientName = name,
+                    fullAddress = addr,
+                    cep = cep,
+                    packageType = pkgType,
+                    platformId = platId,
+                    marketplaceName = mktName,
+                    notes = notes,
+                    onSuccess = {
+                        stopToEdit = null
+                        Toast.makeText(context, "Pacote #${stop.stopOrder} atualizado!", Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
         )
     }
 
@@ -404,10 +450,12 @@ fun RouteScannerScreen(
                 parsedAddress = uiState.pendingParsedAddress,
                 isOcrScanning = uiState.isOcrScanning,
                 activePlatform = uiState.activePlatform,
+                currentMarketplaceName = uiState.currentMarketplaceName,
                 currentPackageType = uiState.currentPackageType,
                 selectedPartnerId = uiState.selectedPartnerIdForNextScan,
                 partners = uiState.deliveryPartners,
                 onChangePlatform = { showPlatformSelectorDialog = true },
+                onChangeMarketplace = { showMarketplaceSelectorDialog = true },
                 onSelectPackageType = { viewModel.onPackageTypeSelected(it) },
                 onSelectPartner = { viewModel.onAssignedPartnerSelected(it) },
                 onConfirmPackage = { viewModel.confirmPendingPackage(context) },
@@ -466,8 +514,9 @@ fun RouteScannerScreen(
                     onDismiss = { viewModel.dismissLastScannedCard() },
                     onFinishToCockpit = { onNavigateToCockpit(routeId) },
                     onAttachPhoto = { photoUri -> viewModel.attachPhotoToLastStop(photoUri) },
-                    onUpdateManualData = { name, addr, cep ->
-                        viewModel.updateStopManualData(name, addr, cep)
+                    onEditClick = {
+                        viewModel.cancelAutoAdvance()
+                        stopToEdit = stop
                     }
                 )
             }
@@ -547,9 +596,131 @@ private fun PlatformSelectorDialog(
 }
 
 /**
+ * Diálogo para seleção do Tomador / Marketplace ativo sticky.
+ * Permite selecionar entre os tomadores conhecidos (TikTok Shop, Kwai, Mercado Livre, Shopee, C&A, Riachuelo, Shein, Amazon, Magalu, Loja Virtual)
+ * ou cadastrar/digitar um novo tomador sob demanda.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MarketplaceSelectorDialog(
+    marketplaces: List<Marketplace>,
+    currentMarketplaceName: String?,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var customName by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceDark,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "🏬 Selecionar Tomador / Origem",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimaryDark
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Defina o e-commerce ou cliente gerador da carga. Os próximos pacotes bipados carregarão esta origem até nova alteração.",
+                    fontSize = 12.sp,
+                    color = TextSecondaryDark
+                )
+
+                // Campo para digitar tomador customizado
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = customName,
+                        onValueChange = { customName = it },
+                        placeholder = { Text("Outro marketplace...", fontSize = 12.sp) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangeNeon,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                            focusedTextColor = TextPrimaryDark,
+                            unfocusedTextColor = TextPrimaryDark
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Button(
+                        onClick = {
+                            if (customName.isNotBlank()) {
+                                onSelect(customName.trim())
+                            }
+                        },
+                        enabled = customName.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = OrangeNeon),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text("Usar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Text(
+                    text = "Principais Tomadores:",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondaryDark
+                )
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    marketplaces.forEach { mkt ->
+                        val isSelected = mkt.name.equals(currentMarketplaceName, ignoreCase = true)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onSelect(mkt.name) },
+                            label = { Text(mkt.name, fontSize = 12.sp) },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = OrangeNeon
+                                    )
+                                }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = OrangeNeon.copy(alpha = 0.2f),
+                                selectedLabelColor = OrangeNeon,
+                                containerColor = SurfaceDarkAlt,
+                                labelColor = TextSecondaryDark
+                            )
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Fechar", color = TextSecondaryDark)
+            }
+        }
+    )
+}
+
+/**
  * Mini-card inferior com feedback de confirmação imediata do pacote lido
  * e suporte a:
- * - Gate de confiança (bloqueio do countdown e modo edição manual)
+ * - Edição completa sem fechar via EditStopDialog (Prompt 4)
  * - Foto de backup da etiqueta
  * - Atribuição a parceiro
  */
@@ -562,13 +733,8 @@ private fun ScannedPackageMiniCard(
     onDismiss: () -> Unit,
     onFinishToCockpit: () -> Unit,
     onAttachPhoto: (String) -> Unit,
-    onUpdateManualData: (String?, String, String?) -> Unit
+    onEditClick: () -> Unit
 ) {
-    var isEditing by remember { mutableStateOf(false) }
-    var editName by remember { mutableStateOf(stop.recipientName ?: "") }
-    var editAddress by remember { mutableStateOf(stop.fullAddress) }
-    var editCep by remember { mutableStateOf(stop.cep ?: "") }
-
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceDark.copy(alpha = 0.96f)),
@@ -618,6 +784,23 @@ private fun ScannedPackageMiniCard(
                         )
                     }
 
+                    // Badge Tomador / Marketplace (se houver)
+                    if (!stop.marketplaceName.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            color = OrangeNeon.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "🏬 ${stop.marketplaceName}",
+                                color = OrangeNeon,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.width(6.dp))
 
                     Surface(
@@ -637,83 +820,27 @@ private fun ScannedPackageMiniCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Modo Edição Manual ou Exibição
-            if (isEditing) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = editName,
-                        onValueChange = { editName = it },
-                        label = { Text("Destinatário", fontSize = 11.sp) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                            focusedTextColor = TextPrimaryDark,
-                            unfocusedTextColor = TextPrimaryDark
-                        ),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = editAddress,
-                        onValueChange = { editAddress = it },
-                        label = { Text("Endereço Completo", fontSize = 11.sp) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                            focusedTextColor = TextPrimaryDark,
-                            unfocusedTextColor = TextPrimaryDark
-                        ),
-                        maxLines = 2,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = editCep,
-                        onValueChange = { editCep = it },
-                        label = { Text("CEP", fontSize = 11.sp) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangeNeon,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                            focusedTextColor = TextPrimaryDark,
-                            unfocusedTextColor = TextPrimaryDark
-                        ),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Button(
-                        onClick = {
-                            onUpdateManualData(editName, editAddress, editCep)
-                            isEditing = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenNeon),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Salvar Correção", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                }
-            } else {
-                if (!stop.recipientName.isNullOrBlank()) {
-                    Text(
-                        text = "👤 ${stop.recipientName.uppercase()}",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimaryDark,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-
+            // Exibição dos Dados Capturados
+            if (!stop.recipientName.isNullOrBlank()) {
                 Text(
-                    text = stop.fullAddress.ifBlank { "Endereço incompleto no OCR (toque em Editar)" },
-                    fontSize = 12.sp,
-                    color = if (stop.fullAddress.isBlank()) YellowGold else TextSecondaryDark,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 16.sp
+                    text = "👤 ${stop.recipientName.uppercase()}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimaryDark,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(2.dp))
             }
+
+            Text(
+                text = stop.fullAddress.ifBlank { "Endereço incompleto no OCR (toque em Editar)" },
+                fontSize = 12.sp,
+                color = if (stop.fullAddress.isBlank()) YellowGold else TextSecondaryDark,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 16.sp
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -723,21 +850,19 @@ private fun ScannedPackageMiniCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Botão de Editar Dados
-                if (!isEditing) {
-                    OutlinedButton(
-                        onClick = { isEditing = true },
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(38.dp)
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = TextSecondaryDark)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Editar", fontSize = 11.sp, color = TextSecondaryDark)
-                    }
+                // Botão de Editar Dados - abre o diálogo completo e cancela o timer
+                OutlinedButton(
+                    onClick = onEditClick,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(38.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = TextSecondaryDark)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Editar", fontSize = 11.sp, color = TextSecondaryDark)
                 }
 
-                // Botão Bipar Próximo (Auto 2s se confiável, manual se incompleto)
+                // Botão Bipar Próximo (Auto 5s se confiável, manual se incompleto)
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(
@@ -861,10 +986,12 @@ private fun OcrConfirmationCard(
     parsedAddress: ParsedAddress?,
     isOcrScanning: Boolean,
     activePlatform: Platform?,
+    currentMarketplaceName: String?,
     currentPackageType: PackageType,
     selectedPartnerId: String?,
     partners: List<DeliveryPartner>,
     onChangePlatform: () -> Unit,
+    onChangeMarketplace: () -> Unit,
     onSelectPackageType: (PackageType) -> Unit,
     onSelectPartner: (String?) -> Unit,
     onConfirmPackage: () -> Unit,
@@ -1009,7 +1136,7 @@ private fun OcrConfirmationCard(
                 }
             }
 
-            // Linha 3: Parametrização Operacional - Plataforma Ativa (largura total para evitar cortes)
+            // Linha 3: Parametrização Operacional - Transportadora / Plataforma Ativa
             Surface(
                 color = Color.Black.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(8.dp),
@@ -1029,7 +1156,7 @@ private fun OcrConfirmationCard(
                         modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Text(
-                            text = "Plataforma:",
+                            text = "🚚 Transportadora:",
                             fontSize = 11.sp,
                             color = TextSecondaryDark
                         )
@@ -1038,6 +1165,48 @@ private fun OcrConfirmationCard(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimaryDark,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = "Trocar",
+                        fontSize = 11.sp,
+                        color = OrangeNeon,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            // Linha 3.1: Parametrização Operacional - Tomador / Marketplace
+            Surface(
+                color = Color.Black.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onChangeMarketplace)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Text(
+                            text = "🏬 Tomador / Origem:",
+                            fontSize = 11.sp,
+                            color = TextSecondaryDark
+                        )
+                        Text(
+                            text = currentMarketplaceName ?: "Geral",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OrangeNeon,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

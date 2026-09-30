@@ -12,6 +12,7 @@ import androidx.camera.core.CameraControl
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.data.model.DeliveryPartner
+import com.fernando.centraldomotorista.data.model.Marketplace
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
 import com.fernando.centraldomotorista.data.model.Platform
@@ -19,6 +20,7 @@ import com.fernando.centraldomotorista.data.model.StopStatus
 import com.fernando.centraldomotorista.data.model.TransferStatus
 import com.fernando.centraldomotorista.data.remote.supabase
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
+import com.fernando.centraldomotorista.data.repository.MarketplaceRepository
 import com.fernando.centraldomotorista.data.repository.MasterRouteRepository
 import com.fernando.centraldomotorista.data.repository.PlatformRepository
 import com.fernando.centraldomotorista.util.ParsedAddress
@@ -52,6 +54,9 @@ data class RouteScannerUiState(
     val platforms: List<Platform> = emptyList(),
     val currentPlatformId: String? = null,
     val currentPackageType: PackageType = PackageType.PACOTINHO,
+    // Extensões Tomador / Marketplace
+    val marketplaces: List<Marketplace> = emptyList(),
+    val currentMarketplaceName: String? = null,
     // Extensões Prompt 3 (Gate de Confiança + Foto)
     val isConfidenceWarning: Boolean = false,
     val isPhotoUploading: Boolean = false,
@@ -71,7 +76,8 @@ data class RouteScannerUiState(
 class RouteScannerViewModel(
     private val masterRouteRepository: MasterRouteRepository = MasterRouteRepository(),
     private val platformRepository: PlatformRepository = PlatformRepository(),
-    private val deliveryPartnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository()
+    private val deliveryPartnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
+    private val marketplaceRepository: MarketplaceRepository = MarketplaceRepository()
 ) : ViewModel() {
 
     private val tag = "RouteScannerVM"
@@ -116,24 +122,39 @@ class RouteScannerViewModel(
                 val currentRoute = masterRouteRepository.getRouteById(routeId)
                 val platformsList = if (user != null) platformRepository.getActivePlatforms(user.id) else emptyList()
                 val partnersList = if (user != null) deliveryPartnerRepository.getDeliveryPartners(user.id) else emptyList()
+                val marketplacesList = marketplaceRepository.getMarketplaces()
 
                 // Se ainda não houver currentPlatformId definido, herda a da rota ou a primeira ativa
                 val initialPlatformId = _uiState.value.currentPlatformId
                     ?: currentRoute?.platformId
                     ?: platformsList.firstOrNull()?.id
 
+                // Se ainda não houver currentMarketplaceName definido, herda o primeiro da lista
+                val initialMarketplaceName = _uiState.value.currentMarketplaceName
+                    ?: marketplacesList.firstOrNull()?.name
+
                 withContext(Dispatchers.Main) {
                     _uiState.value = _uiState.value.copy(
                         totalScannedCount = existingStops.size,
                         platforms = platformsList,
                         deliveryPartners = partnersList,
-                        currentPlatformId = initialPlatformId
+                        marketplaces = marketplacesList,
+                        currentPlatformId = initialPlatformId,
+                        currentMarketplaceName = initialMarketplaceName
                     )
                 }
             } catch (e: Exception) {
                 Log.e(tag, "Erro ao carregar dados da rota $routeId: ${e.message}", e)
             }
         }
+    }
+
+    /**
+     * Alterna o marketplace/tomador ativo.
+     * Esta seleção é sticky: persiste entre scans até nova troca manual.
+     */
+    fun onMarketplaceSelected(marketplaceName: String) {
+        _uiState.value = _uiState.value.copy(currentMarketplaceName = marketplaceName.trim())
     }
 
     /**
@@ -326,7 +347,8 @@ class RouteScannerViewModel(
                     packageType = selectedPackageType,
                     assignedPartnerId = assignedPartner,
                     transferStatus = if (assignedPartner != null) TransferStatus.ATRIBUIDO_PENDENTE else null,
-                    transferredVia = if (assignedPartner != null) "manual_master" else null
+                    transferredVia = if (assignedPartner != null) "manual_master" else null,
+                    marketplaceName = _uiState.value.currentMarketplaceName
                 )
 
                 withContext(Dispatchers.Main) {
@@ -343,7 +365,7 @@ class RouteScannerViewModel(
                         currentPackageType = PackageType.PACOTINHO,
                         // Atribuição de parceiro reseta para Master (não-sticky)
                         selectedPartnerIdForNextScan = null
-                        // currentPlatformId MANTÉM-SE (sticky!)
+                        // currentPlatformId e currentMarketplaceName MANTÊM-SE (sticky!)
                     )
 
                     // Só dispara auto-avanço se a leitura for 100% confiável (Prompt 3)
@@ -367,14 +389,65 @@ class RouteScannerViewModel(
         }
     }
 
+    /**
+     * Inicia o timer de auto-avanço configurado para 5s (visualização confortável).
+     */
     private fun startAutoAdvanceTimer() {
         autoAdvanceJob?.cancel()
         autoAdvanceJob = viewModelScope.launch {
-            for (sec in 2 downTo 1) {
+            for (sec in 5 downTo 1) {
                 _uiState.value = _uiState.value.copy(autoAdvanceCountdown = sec)
                 delay(1000)
             }
             dismissLastScannedCard()
+        }
+    }
+
+    /**
+     * Cancela imediatamente o timer de auto-avanço do card do pacote lido.
+     * Utilizado para permitir edição manual calma e confortável sem o card fechar sozinho.
+     */
+    fun cancelAutoAdvance() {
+        autoAdvanceJob?.cancel()
+        _uiState.value = _uiState.value.copy(autoAdvanceCountdown = null)
+    }
+
+    /**
+     * Atualiza os dados de um pacote já bipado (via EditStopDialog) com persistência imediata.
+     */
+    fun updateScannedStop(
+        stop: MasterRouteStop,
+        recipientName: String?,
+        fullAddress: String,
+        cep: String?,
+        packageType: PackageType,
+        platformId: String?,
+        marketplaceName: String?,
+        notes: String?,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        cancelAutoAdvance()
+        val updated = stop.copy(
+            recipientName = recipientName?.trim(),
+            fullAddress = fullAddress.trim(),
+            cep = cep?.trim(),
+            packageType = packageType,
+            platformId = platformId,
+            marketplaceName = marketplaceName?.trim(),
+            notes = notes?.trim()
+        )
+        _uiState.value = _uiState.value.copy(lastScannedStop = updated, isConfidenceWarning = false)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = masterRouteRepository.updateStop(updated)
+            withContext(Dispatchers.Main) {
+                if (success) {
+                    onSuccess()
+                } else {
+                    onError("Erro ao salvar alterações no servidor.")
+                }
+            }
         }
     }
 
