@@ -62,6 +62,8 @@ import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
 import com.fernando.centraldomotorista.data.model.StopStatus
 import com.fernando.centraldomotorista.data.model.TransferStatus
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeEmoji
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeIcon
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
@@ -92,6 +94,7 @@ fun StopDeliveryCard(
 ) {
     val isPending = stop.status == StopStatus.PENDENTE
     val isTransferred = stop.transferStatus == TransferStatus.ATRIBUIDO_PENDENTE
+    val assignedPartner = partners.find { it.id == stop.assignedPartnerId }
     var showPartnerMenu by remember { mutableStateOf(false) }
 
     val borderStroke = when {
@@ -140,30 +143,18 @@ fun StopDeliveryCard(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    Column(modifier = Modifier.weight(1f, fill = false)) {
-                        // Linha 1: #Número + ENDEREÇO COMPLETO EM LETRAS MAIÚSCULAS em destaque
+                    Column(modifier = Modifier.weight(1f)) {
+                        // Linha 1: ENDEREÇO COMPLETO EM LETRAS MAIÚSCULAS em destaque exclusivo (sem truncamento)
                         val formattedAddr = AddressFormatter.toTitleCase(stop.fullAddress.ifBlank { "ENDEREÇO NÃO IDENTIFICADO" })
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = formattedAddr.uppercase(),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimaryDark,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            if (!stop.marketplaceName.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "• 🏬 ${stop.marketplaceName}",
-                                    fontSize = 10.sp,
-                                    color = OrangeNeon,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1
-                                )
-                            }
-                        }
+                        Text(
+                            text = formattedAddr.uppercase(),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimaryDark,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
                         // Linha 2 (abaixo do endereço): Nome do(a) cliente (barcode oculto no modo contraído)
                         val recipient = stop.recipientName?.ifBlank { null }
@@ -184,8 +175,9 @@ fun StopDeliveryCard(
                             color = YellowGold.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(6.dp)
                         ) {
+                            val vehicleEmoji = if (assignedPartner != null) getDeliveryTypeEmoji(assignedPartner.deliveryType) else "🛵"
                             Text(
-                                text = "🛵 Enviado ao Parceiro",
+                                text = "$vehicleEmoji Enviado ao Parceiro",
                                 color = YellowGold,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -204,36 +196,36 @@ fun StopDeliveryCard(
                         ) {
                             Text(
                                 text = when (stop.status) {
-                                    StopStatus.ENTREGUE -> "Entregue"
-                                    StopStatus.AUSENTE -> "Ausente"
-                                    StopStatus.DEVOLVIDO -> "Devolvido"
-                                    StopStatus.PENDENTE -> if (isNext) "Próxima" else "Pendente"
-                                },
-                                color = when (stop.status) {
-                                    StopStatus.ENTREGUE -> GreenNeon
-                                    StopStatus.AUSENTE -> YellowGold
-                                    StopStatus.DEVOLVIDO -> RedAlert
-                                    StopStatus.PENDENTE -> if (isNext) OrangeNeon else TextSecondaryDark
-                                },
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
+                                StopStatus.ENTREGUE -> "Entregue"
+                                StopStatus.AUSENTE -> "Ausente"
+                                StopStatus.DEVOLVIDO -> "Devolvido"
+                                StopStatus.PENDENTE -> if (isNext) "Próxima" else "Pendente"
+                            },
+                            color = when (stop.status) {
+                                StopStatus.ENTREGUE -> GreenNeon
+                                StopStatus.AUSENTE -> YellowGold
+                                StopStatus.DEVOLVIDO -> RedAlert
+                                StopStatus.PENDENTE -> if (isNext) OrangeNeon else TextSecondaryDark
+                            },
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
-
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isExpanded) "Contrair" else "Expandir",
-                        tint = TextSecondaryDark,
-                        modifier = Modifier.size(20.dp)
-                    )
                 }
-            }
 
-            // --- Conteúdo Expandido (Detalhes do Endereço, Ações e Botões) ---
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) "Contrair" else "Expandir",
+                    tint = TextSecondaryDark,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+            // --- Conteúdo Expandido (Detalhes do Endereço, Ações e Botões com espaçamentos harmoniosos) ---
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = expandVertically() + fadeIn(),
@@ -242,7 +234,7 @@ fun StopDeliveryCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp)
+                        .padding(top = 8.dp)
                 ) {
                     // Tipo de Pacote Badge + Barcode + Marketplace Badge
                     Row(
@@ -308,7 +300,7 @@ fun StopDeliveryCard(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Endereço Formatado Completo
                     Row(
@@ -332,7 +324,7 @@ fun StopDeliveryCard(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Botão Primário Hero: NAVEGAR NO GPS
                     Button(
@@ -344,7 +336,7 @@ fun StopDeliveryCard(
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(42.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Navigation,
@@ -359,7 +351,7 @@ fun StopDeliveryCard(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Botões de Status em 1 Toque
                     Row(
@@ -379,7 +371,7 @@ fun StopDeliveryCard(
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(38.dp)
+                                .height(36.dp)
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenNeon, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(4.dp))
@@ -399,7 +391,7 @@ fun StopDeliveryCard(
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(38.dp)
+                                .height(36.dp)
                         ) {
                             Icon(Icons.Default.PersonOff, contentDescription = null, tint = YellowGold, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(4.dp))
@@ -419,7 +411,7 @@ fun StopDeliveryCard(
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(38.dp)
+                                .height(36.dp)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.AssignmentReturn, contentDescription = null, tint = RedAlert, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(4.dp))
@@ -429,20 +421,22 @@ fun StopDeliveryCard(
 
                     // Ação de Atribuição Cruzada para Parceiro (Prompt 6 e Requisito 7)
                     if (isPending && onAssignToPartner != null && (partners.isNotEmpty() || isTransferred)) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Box(modifier = Modifier.fillMaxWidth()) {
+                            val partnerVehicleIcon = if (assignedPartner != null) getDeliveryTypeIcon(assignedPartner.deliveryType) else Icons.Default.TwoWheeler
+                            val partnerVehicleEmoji = if (assignedPartner != null) getDeliveryTypeEmoji(assignedPartner.deliveryType) else "🛵"
                             OutlinedButton(
                                 onClick = { showPartnerMenu = true },
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(36.dp)
+                                    .height(34.dp)
                             ) {
-                                Icon(Icons.Default.TwoWheeler, contentDescription = null, tint = TextSecondaryDark, modifier = Modifier.size(15.dp))
+                                Icon(partnerVehicleIcon, contentDescription = null, tint = TextSecondaryDark, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (isTransferred) "Reatribuir Parceiro" else "Transferir para Parceiro",
+                                    text = if (isTransferred && assignedPartner != null) "Reatribuir ($partnerVehicleEmoji ${assignedPartner.fullName})" else if (isTransferred) "Reatribuir Parceiro" else "Transferir para Parceiro",
                                     color = TextSecondaryDark,
                                     fontSize = 11.sp
                                 )
@@ -465,11 +459,11 @@ fun StopDeliveryCard(
                                         )
                                     },
                                     leadingIcon = {
-                                        Icon(Icons.Default.Person, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.Person, contentDescription = null, tint = if (stop.assignedPartnerId == null) OrangeNeon else TextSecondaryDark, modifier = Modifier.size(16.dp))
                                     },
                                     colors = MenuDefaults.itemColors(
                                         textColor = TextPrimaryDark,
-                                        leadingIconColor = OrangeNeon
+                                        leadingIconColor = TextSecondaryDark
                                     ),
                                     onClick = {
                                         showPartnerMenu = false
@@ -479,10 +473,12 @@ fun StopDeliveryCard(
 
                                 partners.sortedBy { it.fullName.lowercase() }.forEach { partner ->
                                     val isSelected = partner.id == stop.assignedPartnerId
+                                    val vehicleEmoji = getDeliveryTypeEmoji(partner.deliveryType)
+                                    val vehicleIcon = getDeliveryTypeIcon(partner.deliveryType)
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                text = "🛵 ${partner.fullName}",
+                                                text = "$vehicleEmoji ${partner.fullName}",
                                                 fontSize = 12.sp,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                                 color = if (isSelected) OrangeNeon else TextPrimaryDark
@@ -490,7 +486,7 @@ fun StopDeliveryCard(
                                         },
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Default.TwoWheeler,
+                                                imageVector = vehicleIcon,
                                                 contentDescription = null,
                                                 tint = if (isSelected) OrangeNeon else TextSecondaryDark,
                                                 modifier = Modifier.size(16.dp)
@@ -511,7 +507,7 @@ fun StopDeliveryCard(
                     }
 
                     // Ações de Gestão de Pacote: Editar e Excluir
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -526,7 +522,7 @@ fun StopDeliveryCard(
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(38.dp)
+                                .height(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
@@ -552,7 +548,7 @@ fun StopDeliveryCard(
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .weight(1.3f)
-                                .height(38.dp)
+                                .height(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,

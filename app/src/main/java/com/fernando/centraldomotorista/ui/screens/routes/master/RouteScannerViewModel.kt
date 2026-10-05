@@ -158,7 +158,14 @@ class RouteScannerViewModel(
      * Esta seleção é sticky: persiste entre scans até nova troca manual.
      */
     fun onMarketplaceSelected(marketplaceName: String) {
-        _uiState.value = _uiState.value.copy(currentMarketplaceName = marketplaceName.trim())
+        val trimmed = marketplaceName.trim()
+        _uiState.value = _uiState.value.copy(currentMarketplaceName = trimmed)
+        viewModelScope.launch(Dispatchers.IO) {
+            val updated = marketplaceRepository.getMarketplaces()
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(marketplaces = updated)
+            }
+        }
     }
 
     /**

@@ -67,4 +67,22 @@ class MarketplaceRepositoryTest {
         assertEquals(10, defaultList.size)
         assertEquals(MarketplaceRepository.DEFAULT_MARKETPLACES, defaultList)
     }
+
+    @Test
+    fun testAddCustomMarketplaceAndQueryByName() = runBlocking {
+        val newMarketplaceName = "Drogaria Pacheco Cajamar"
+        val created = repository.addCustomMarketplace(newMarketplaceName)
+
+        assertNotNull(created)
+        assertEquals(newMarketplaceName, created.name)
+        assertTrue(created.active)
+
+        val all = repository.getMarketplaces()
+        assertTrue("Lista deve conter a nova empresa", all.any { it.name == newMarketplaceName })
+
+        val found = repository.findByName("drogaria pacheco cajamar")
+        assertNotNull(found)
+        assertEquals(newMarketplaceName, found?.name)
+    }
 }
+

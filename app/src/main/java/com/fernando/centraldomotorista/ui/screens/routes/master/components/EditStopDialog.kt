@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -43,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +53,8 @@ import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
 import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.remote.api.ViaCepApi
+import com.fernando.centraldomotorista.data.repository.MarketplaceRepository
+import com.fernando.centraldomotorista.ui.components.CreateMarketplaceDialog
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.SurfaceDark
 import com.fernando.centraldomotorista.ui.theme.SurfaceDarkAlt
@@ -68,7 +72,7 @@ import kotlinx.coroutines.withContext
  * - CEP (com validação assíncrona automática)
  * - Tipo de Carga / Pacote (5 tipos operacionais)
  * - Transportadora / Plataforma
- * - Tomador / Marketplace
+ * - Tomador / Marketplace (com opção + Nova Empresa sob demanda)
  * - Observações
  */
 @Composable
@@ -87,6 +91,7 @@ fun EditStopDialog(
         notes: String?
     ) -> Unit
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isSearchingCep by remember { mutableStateOf(false) }
     var lastSearchedCep by remember { mutableStateOf<String?>(null) }
@@ -98,6 +103,12 @@ fun EditStopDialog(
     var selectedPlatformId by remember { mutableStateOf(stop.platformId) }
     var selectedMarketplaceName by remember { mutableStateOf(stop.marketplaceName ?: "") }
     var notes by remember { mutableStateOf(stop.notes ?: "") }
+
+    var localMarketplaces by remember(marketplaces) {
+        val custom = MarketplaceRepository.getCustomMarketplaces(context)
+        mutableStateOf((marketplaces + custom).distinctBy { it.name.lowercase().trim() })
+    }
+    var showCreateMarketplaceDialog by remember { mutableStateOf(false) }
 
     var isPackageTypeDropdownExpanded by remember { mutableStateOf(false) }
     var isPlatformDropdownExpanded by remember { mutableStateOf(false) }
@@ -449,7 +460,7 @@ fun EditStopDialog(
                                 isMarketplaceDropdownExpanded = false
                             }
                         )
-                        marketplaces.forEach { marketplace ->
+                        localMarketplaces.forEach { marketplace ->
                             val isSelected = marketplace.name.equals(selectedMarketplaceName, ignoreCase = true)
                             DropdownMenuItem(
                                 text = { Text(marketplace.name, fontSize = 12.sp, color = if (isSelected) OrangeNeon else TextPrimaryDark) },
@@ -463,6 +474,34 @@ fun EditStopDialog(
                                 }
                             )
                         }
+
+                        // Última opção: Cadastrar nova empresa / tomador sob demanda
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "+ Nova Empresa",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OrangeNeon
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = MenuDefaults.itemColors(
+                                textColor = OrangeNeon,
+                                leadingIconColor = OrangeNeon
+                            ),
+                            onClick = {
+                                isMarketplaceDropdownExpanded = false
+                                showCreateMarketplaceDialog = true
+                            }
+                        )
                     }
                 }
 
@@ -514,4 +553,18 @@ fun EditStopDialog(
             }
         }
     )
+
+    if (showCreateMarketplaceDialog) {
+        CreateMarketplaceDialog(
+            onDismiss = { showCreateMarketplaceDialog = false },
+            onConfirm = { newName ->
+                val created = MarketplaceRepository.saveCustomMarketplace(newName, context)
+                if (localMarketplaces.none { it.name.equals(created.name, ignoreCase = true) }) {
+                    localMarketplaces = localMarketplaces + created
+                }
+                selectedMarketplaceName = created.name
+                showCreateMarketplaceDialog = false
+            }
+        )
+    }
 }

@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -97,6 +98,10 @@ import com.fernando.centraldomotorista.data.model.Marketplace
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
 import com.fernando.centraldomotorista.data.model.Platform
+import com.fernando.centraldomotorista.data.repository.MarketplaceRepository
+import com.fernando.centraldomotorista.ui.components.CreateMarketplaceDialog
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeEmoji
+import com.fernando.centraldomotorista.ui.screens.deliverypartners.components.getDeliveryTypeIcon
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.DualScannerOverlay
 import com.fernando.centraldomotorista.ui.screens.routes.master.components.EditStopDialog
 import com.fernando.centraldomotorista.ui.theme.BackgroundDark
@@ -612,11 +617,15 @@ private fun MarketplaceSelectorDialog(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var customName by remember { mutableStateOf("") }
+    var localMarketplaces by remember(marketplaces) { mutableStateOf(marketplaces) }
+    var showCreateMarketplaceDialog by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = SurfaceDark,
+        shape = RoundedCornerShape(18.dp),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -661,7 +670,11 @@ private fun MarketplaceSelectorDialog(
                     Button(
                         onClick = {
                             if (customName.isNotBlank()) {
-                                onSelect(customName.trim())
+                                val created = MarketplaceRepository.saveCustomMarketplace(customName.trim(), context)
+                                if (localMarketplaces.none { it.name.equals(created.name, ignoreCase = true) }) {
+                                    localMarketplaces = localMarketplaces + created
+                                }
+                                onSelect(created.name)
                             }
                         },
                         enabled = customName.isNotBlank(),
@@ -685,7 +698,7 @@ private fun MarketplaceSelectorDialog(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    marketplaces.forEach { mkt ->
+                    localMarketplaces.forEach { mkt ->
                         val isSelected = mkt.name.equals(currentMarketplaceName, ignoreCase = true)
                         FilterChip(
                             selected = isSelected,
@@ -709,6 +722,33 @@ private fun MarketplaceSelectorDialog(
                             )
                         )
                     }
+
+                    // Opção para adicionar Nova Empresa com diálogo dedicado
+                    FilterChip(
+                        selected = false,
+                        onClick = { showCreateMarketplaceDialog = true },
+                        label = {
+                            Text(
+                                text = "+ Nova Empresa",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeNeon
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = OrangeNeon
+                            )
+                        },
+                        border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f)),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = OrangeNeon.copy(alpha = 0.12f),
+                            labelColor = OrangeNeon
+                        )
+                    )
                 }
             }
         },
@@ -719,6 +759,20 @@ private fun MarketplaceSelectorDialog(
             }
         }
     )
+
+    if (showCreateMarketplaceDialog) {
+        CreateMarketplaceDialog(
+            onDismiss = { showCreateMarketplaceDialog = false },
+            onConfirm = { newName ->
+                val created = MarketplaceRepository.saveCustomMarketplace(newName, context)
+                if (localMarketplaces.none { it.name.equals(created.name, ignoreCase = true) }) {
+                    localMarketplaces = localMarketplaces + created
+                }
+                showCreateMarketplaceDialog = false
+                onSelect(created.name)
+            }
+        )
+    }
 }
 
 /**
@@ -1360,6 +1414,10 @@ private fun OcrConfirmationCard(
 
             // Linha 5: Combobox de Parceiros ('Atribuir a:') com opção 'Motorista Master (Você)' e ordem alfabética
             Box(modifier = Modifier.fillMaxWidth()) {
+                val selectedPartner = sortedPartners.firstOrNull { it.id == selectedPartnerId }
+                val selectedPartnerEmoji = if (selectedPartner != null) getDeliveryTypeEmoji(selectedPartner.deliveryType) else "👤"
+                val selectedPartnerIcon = if (selectedPartner != null) getDeliveryTypeIcon(selectedPartner.deliveryType) else Icons.Default.Person
+
                 Surface(
                     color = if (selectedPartnerId != null) OrangeNeon.copy(alpha = 0.12f) else SurfaceDarkAlt,
                     shape = RoundedCornerShape(8.dp),
@@ -1378,13 +1436,19 @@ private fun OcrConfirmationCard(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.weight(1f, fill = false)
                         ) {
+                            Icon(
+                                imageVector = selectedPartnerIcon,
+                                contentDescription = null,
+                                tint = if (selectedPartnerId != null) OrangeNeon else TextSecondaryDark,
+                                modifier = Modifier.size(16.dp)
+                            )
                             Text(
-                                text = "👤 Atribuir a:",
+                                text = "Atribuir a:",
                                 fontSize = 11.sp,
                                 color = TextSecondaryDark
                             )
                             Text(
-                                text = if (selectedPartnerId != null) (assignedPartnerName ?: "Parceiro") else "Motorista Master (Você)",
+                                text = if (selectedPartner != null) "$selectedPartnerEmoji ${selectedPartner.fullName}" else "Motorista Master (Você)",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (selectedPartnerId != null) OrangeNeon else TextPrimaryDark,
@@ -1417,8 +1481,17 @@ private fun OcrConfirmationCard(
                                 color = if (selectedPartnerId == null) OrangeNeon else TextPrimaryDark
                             )
                         },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = if (selectedPartnerId == null) OrangeNeon else TextSecondaryDark,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
                         colors = MenuDefaults.itemColors(
-                            textColor = TextPrimaryDark
+                            textColor = TextPrimaryDark,
+                            leadingIconColor = TextSecondaryDark
                         ),
                         onClick = {
                             showPartnerDropdown = false
@@ -1427,17 +1500,28 @@ private fun OcrConfirmationCard(
                     )
                     sortedPartners.forEach { partner ->
                         val isSelected = partner.id == selectedPartnerId
+                        val partnerEmoji = getDeliveryTypeEmoji(partner.deliveryType)
+                        val partnerIcon = getDeliveryTypeIcon(partner.deliveryType)
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    text = "🛵 ${partner.fullName}",
+                                    text = "$partnerEmoji ${partner.fullName}",
                                     fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                     color = if (isSelected) OrangeNeon else TextPrimaryDark
                                 )
                             },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = partnerIcon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) OrangeNeon else TextSecondaryDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
                             colors = MenuDefaults.itemColors(
-                                textColor = TextPrimaryDark
+                                textColor = TextPrimaryDark,
+                                leadingIconColor = TextSecondaryDark
                             ),
                             onClick = {
                                 showPartnerDropdown = false
