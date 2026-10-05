@@ -78,4 +78,61 @@ class AddressFormatterTest {
         val compCasa = AddressFormatter.extractComplement("Rua das Acácias, 88 Casa 2")
         assertEquals("Casa 2", compCasa)
     }
+
+    @Test
+    fun testMergeAddressPreservingDetailsWithNumberComplementAndReference() {
+        val previousAddress = "Rua das Flores, 123, Apt 101, próximo do mercado de Senhor Luis, Jardim Primavera, São Paulo - SP, CEP 01310-100"
+
+        val merged = AddressFormatter.mergeAddressPreservingDetails(
+            previousAddress = previousAddress,
+            officialStreet = "Rua Barão de Jaguara",
+            officialNeighborhood = "Centro",
+            officialCity = "Campinas",
+            officialState = "SP",
+            cep = "13010-000"
+        )
+
+        assertEquals(
+            "Rua Barão de Jaguara, 123, Apt 101, Próximo do Mercado de Senhor Luis, Centro, Campinas - SP, CEP 13010-000",
+            merged
+        )
+    }
+
+    @Test
+    fun testMergeAddressPreservingSnAndGalpao() {
+        val previousAddress = "Estrada Velha, SN, Galpão 4, fundos"
+
+        val merged = AddressFormatter.mergeAddressPreservingDetails(
+            previousAddress = previousAddress,
+            officialStreet = "Estrada do Campo Limpo",
+            officialNeighborhood = "Campo Limpo",
+            officialCity = "São Paulo",
+            officialState = "SP",
+            cep = "05787-000"
+        )
+
+        assertEquals(
+            "Estrada do Campo Limpo, S/N, Galpão 4, Fundos, Campo Limpo, São Paulo - SP, CEP 05787-000",
+            merged
+        )
+    }
+
+    @Test
+    fun testMergeAddressPreservingInlineNumberWithoutPreviousComplements() {
+        val previousAddress = "Avenida Brasil, 450"
+
+        val merged = AddressFormatter.mergeAddressPreservingDetails(
+            previousAddress = previousAddress,
+            officialStreet = "Avenida Paulista",
+            officialNeighborhood = "Bela Vista",
+            officialCity = "São Paulo",
+            officialState = "SP",
+            cep = "01311-000"
+        )
+
+        assertEquals(
+            "Avenida Paulista, 450, Bela Vista, São Paulo - SP, CEP 01311-000",
+            merged
+        )
+    }
 }

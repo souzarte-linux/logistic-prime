@@ -159,4 +159,137 @@ object AddressFormatter {
         )
         return complementRegex.find(text)?.groupValues?.get(1)?.trim()
     }
+
+    data class ExtractedAddressDetails(
+        val number: String? = null,
+        val complementAndReferences: String? = null
+    )
+
+    /**
+     * Extrai número predial, complementos (apto, bloco) e pontos de referência de um endereço existente.
+     */
+    fun extractDetailsFromAddress(address: String?): ExtractedAddressDetails {
+        if (address.isNullOrBlank()) return ExtractedAddressDetails()
+
+        val raw = address.trim()
+        val parts = raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+        var detectedNumber: String? = null
+        val complementsAndRefs = mutableListOf<String>()
+
+        val numberRegex = Regex("""^(?:n[ºo]?\s*)?(\d+[a-zA-Z]?|s/n|sn)$""", RegexOption.IGNORE_CASE)
+        val cepRegex = Regex("""(?i)\bcep\b|\b\d{5}-?\d{3}\b""")
+        val cityStateRegex = Regex("""(?i)\s*-\s*[a-z]{2}$""")
+
+        if (parts.size >= 2) {
+            // Identifica posições de CEP e Cidade-UF se existirem
+            val cepIndex = parts.indexOfLast { cepRegex.containsMatchIn(it) }
+            val cityStateIndex = parts.indexOfLast { cityStateRegex.containsMatchIn(it) }
+            val neighborhoodIndex = if (cityStateIndex > 1) cityStateIndex - 1 else -1
+
+            for (i in 1 until parts.size) {
+                if (i == cepIndex) continue
+                if (i == cityStateIndex) continue
+                if (i == neighborhoodIndex && !hasComplementOrReferenceKeywords(parts[i])) continue
+
+                val part = parts[i]
+
+                // Número residencial puro
+                if (detectedNumber == null && numberRegex.matches(part)) {
+                    val match = numberRegex.find(part)
+                    detectedNumber = match?.groupValues?.get(1)
+                    continue
+                }
+
+                // Número com complemento inline (ex: "120 Apto 42")
+                val inlineNumMatch = Regex("""^(?:n[ºo]?\s*)?(\d+[a-zA-Z]?|s/n|sn)\s+(.+)$""", RegexOption.IGNORE_CASE).find(part)
+                if (detectedNumber == null && inlineNumMatch != null) {
+                    detectedNumber = inlineNumMatch.groupValues[1]
+                    val rem = inlineNumMatch.groupValues[2].trim()
+                    if (rem.isNotEmpty()) {
+                        complementsAndRefs.add(rem)
+                    }
+                    continue
+                }
+
+                complementsAndRefs.add(part)
+            }
+
+            // Se ainda não encontrou número, verifica se estava colado ao final da 1ª parte
+            if (detectedNumber == null) {
+                val firstPart = parts[0]
+                val endNumMatch = Regex("""\s+(?:n[ºo]?\s*)?(\d+[a-zA-Z]?|s/n|sn)$""", RegexOption.IGNORE_CASE).find(firstPart)
+                if (endNumMatch != null) {
+                    detectedNumber = endNumMatch.groupValues[1]
+                }
+            }
+        } else {
+            // Endereço sem vírgula
+            val numMatch = Regex("""\b(?:n[ºo]?\s*)?(\d+[a-zA-Z]?|s/n|sn)\b""", RegexOption.IGNORE_CASE).find(raw)
+            if (numMatch != null) {
+                detectedNumber = numMatch.groupValues[1]
+            }
+
+            val comp = extractComplement(raw)
+            if (comp != null) {
+                complementsAndRefs.add(comp)
+            }
+        }
+
+        val cleanNumber = detectedNumber?.let {
+            if (it.equals("sn", ignoreCase = true) || it.equals("s/n", ignoreCase = true)) "S/N" else it
+        }
+
+        val joinedComplements = complementsAndRefs
+            .map { toTitleCase(it) }
+            .distinct()
+            .joinToString(", ")
+            .takeIf { it.isNotBlank() }
+
+        return ExtractedAddressDetails(
+            number = cleanNumber,
+            complementAndReferences = joinedComplements
+        )
+    }
+
+    private fun hasComplementOrReferenceKeywords(text: String): Boolean {
+        val keywordsRegex = Regex(
+            """(?i)\b(apto|apt|bloco|bl|torre|tr|casa|cs|sala|sl|quadra|qd|lote|lt|fundos|frente|and|andar|sobrado|galp[aã]o|km|pr[oó]ximo|perto|em frente|ao lado|ref|obs)\b"""
+        )
+        return keywordsRegex.containsMatchIn(text)
+    }
+
+    /**
+     * Mescla os dados de logradouro oficial retornados pelo ViaCEP com dados pré-existentes
+     * em um endereço (como número residencial, complementos prediais e pontos de referência),
+     * preservando integralmente tais informações.
+     */
+    fun mergeAddressPreservingDetails(
+        previousAddress: String?,
+        officialStreet: String?,
+        officialNeighborhood: String?,
+        officialCity: String?,
+        officialState: String?,
+        cep: String?,
+        viaCepComplement: String? = null
+    ): String {
+        val extracted = extractDetailsFromAddress(previousAddress)
+
+        val combinedComplement = when {
+            extracted.complementAndReferences.isNullOrBlank() -> viaCepComplement?.takeIf { it.isNotBlank() }
+            viaCepComplement.isNullOrBlank() -> extracted.complementAndReferences
+            extracted.complementAndReferences.contains(viaCepComplement, ignoreCase = true) -> extracted.complementAndReferences
+            else -> "${extracted.complementAndReferences}, $viaCepComplement"
+        }
+
+        return formatFullAddress(
+            street = officialStreet,
+            number = extracted.number,
+            complement = combinedComplement,
+            neighborhood = officialNeighborhood,
+            city = officialCity,
+            state = officialState,
+            cep = cep
+        )
+    }
 }

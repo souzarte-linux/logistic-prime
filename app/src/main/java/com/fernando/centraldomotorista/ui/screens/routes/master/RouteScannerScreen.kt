@@ -60,6 +60,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -1321,7 +1322,10 @@ private fun OcrConfirmationCard(
 
                 DropdownMenu(
                     expanded = showCargoTypeDropdown,
-                    onDismissRequest = { showCargoTypeDropdown = false }
+                    onDismissRequest = { showCargoTypeDropdown = false },
+                    containerColor = SurfaceDarkAlt,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier.background(SurfaceDarkAlt)
                 ) {
                     PackageType.entries.forEach { pkgType ->
                         val itemLabel = when (pkgType) {
@@ -1341,6 +1345,10 @@ private fun OcrConfirmationCard(
                                     color = if (isSelected) OrangeNeon else TextPrimaryDark
                                 )
                             },
+                            colors = MenuDefaults.itemColors(
+                                textColor = TextPrimaryDark,
+                                leadingIconColor = TextPrimaryDark
+                            ),
                             onClick = {
                                 showCargoTypeDropdown = false
                                 onSelectPackageType(pkgType)
@@ -1395,7 +1403,10 @@ private fun OcrConfirmationCard(
 
                 DropdownMenu(
                     expanded = showPartnerDropdown,
-                    onDismissRequest = { showPartnerDropdown = false }
+                    onDismissRequest = { showPartnerDropdown = false },
+                    containerColor = SurfaceDarkAlt,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier.background(SurfaceDarkAlt)
                 ) {
                     DropdownMenuItem(
                         text = {
@@ -1406,6 +1417,9 @@ private fun OcrConfirmationCard(
                                 color = if (selectedPartnerId == null) OrangeNeon else TextPrimaryDark
                             )
                         },
+                        colors = MenuDefaults.itemColors(
+                            textColor = TextPrimaryDark
+                        ),
                         onClick = {
                             showPartnerDropdown = false
                             onSelectPartner(null)
@@ -1422,6 +1436,9 @@ private fun OcrConfirmationCard(
                                     color = if (isSelected) OrangeNeon else TextPrimaryDark
                                 )
                             },
+                            colors = MenuDefaults.itemColors(
+                                textColor = TextPrimaryDark
+                            ),
                             onClick = {
                                 showPartnerDropdown = false
                                 onSelectPartner(partner.id)

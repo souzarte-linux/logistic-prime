@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +41,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -448,7 +450,10 @@ fun StopDeliveryCard(
 
                             DropdownMenu(
                                 expanded = showPartnerMenu,
-                                onDismissRequest = { showPartnerMenu = false }
+                                onDismissRequest = { showPartnerMenu = false },
+                                containerColor = SurfaceDarkAlt,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                modifier = Modifier.background(SurfaceDarkAlt)
                             ) {
                                 DropdownMenuItem(
                                     text = {
@@ -462,6 +467,10 @@ fun StopDeliveryCard(
                                     leadingIcon = {
                                         Icon(Icons.Default.Person, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
                                     },
+                                    colors = MenuDefaults.itemColors(
+                                        textColor = TextPrimaryDark,
+                                        leadingIconColor = OrangeNeon
+                                    ),
                                     onClick = {
                                         showPartnerMenu = false
                                         onAssignToPartner(null)
@@ -479,7 +488,18 @@ fun StopDeliveryCard(
                                                 color = if (isSelected) OrangeNeon else TextPrimaryDark
                                             )
                                         },
-                                        leadingIcon = { Icon(Icons.Default.TwoWheeler, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.TwoWheeler,
+                                                contentDescription = null,
+                                                tint = if (isSelected) OrangeNeon else TextSecondaryDark,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        colors = MenuDefaults.itemColors(
+                                            textColor = TextPrimaryDark,
+                                            leadingIconColor = TextSecondaryDark
+                                        ),
                                         onClick = {
                                             showPartnerMenu = false
                                             onAssignToPartner(partner.id)

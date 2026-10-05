@@ -5,11 +5,11 @@ import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,10 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AltRoute
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EditLocation
 import androidx.compose.material.icons.filled.MyLocation
@@ -29,9 +32,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -49,9 +53,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fernando.centraldomotorista.data.model.Platform
+import com.fernando.centraldomotorista.data.preferences.RoutePreferences
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.SurfaceDark
@@ -73,7 +79,6 @@ enum class StartRouteDestination {
  * Diálogo modal para criação da Rota do Dia do Usuário Master.
  * Permite capturar ponto de partida via GPS ou digitação manual e vincular a uma plataforma.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StartRouteDialog(
     platforms: List<Platform>,
@@ -84,8 +89,20 @@ fun StartRouteDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val routePreferences = remember { RoutePreferences(context) }
 
-    var selectedPlatformId by remember { mutableStateOf<String?>(platforms.firstOrNull()?.id) }
+    // Lembra e pré-seleciona a última plataforma utilizada pelo motorista
+    val lastSavedPlatformId = remember { routePreferences.getLastPlatformIdSync() }
+    var selectedPlatformId by remember {
+        val initialId = if (lastSavedPlatformId != null && platforms.any { it.id == lastSavedPlatformId }) {
+            lastSavedPlatformId
+        } else {
+            platforms.firstOrNull()?.id
+        }
+        mutableStateOf<String?>(initialId)
+    }
+    var showPlatformDropdown by remember { mutableStateOf(false) }
+
     var startLocationText by remember { mutableStateOf("") }
     var startLatitude by remember { mutableStateOf<Double?>(null) }
     var startLongitude by remember { mutableStateOf<Double?>(null) }
@@ -135,19 +152,21 @@ fun StartRouteDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = "Configure as informações iniciais para abrir a bipagem de pacotes.",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     color = TextSecondaryDark
                 )
 
-                // 1. Seleção de Plataforma
+                // 1. Seleção de Plataforma (Combobox)
                 Text(
                     text = "Plataforma de Entrega:",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimaryDark
                 )
@@ -159,49 +178,115 @@ fun StartRouteDialog(
                         color = TextSecondaryDark
                     )
                 } else {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        platforms.forEach { platform ->
-                            val isSelected = selectedPlatformId == platform.id
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedPlatformId = platform.id },
-                                label = { Text(platform.name, fontSize = 12.sp) },
-                                leadingIcon = if (isSelected) {
-                                    {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = OrangeNeon
-                                        )
-                                    }
-                                } else null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = OrangeNeon.copy(alpha = 0.15f),
-                                    selectedLabelColor = OrangeNeon,
-                                    containerColor = SurfaceDarkAlt,
-                                    labelColor = TextSecondaryDark
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    borderColor = if (isSelected) OrangeNeon else Color.Transparent,
-                                    enabled = true,
-                                    selected = isSelected
+                    val activePlatform = platforms.firstOrNull { it.id == selectedPlatformId }
+                    val platformDisplayName = activePlatform?.name ?: "Plataforma Geral / Nenhuma"
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            color = SurfaceDarkAlt,
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, if (selectedPlatformId != null) OrangeNeon.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.15f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showPlatformDropdown = true }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Apps,
+                                        contentDescription = null,
+                                        tint = OrangeNeon,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = platformDisplayName,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimaryDark,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Selecionar Plataforma",
+                                    tint = OrangeNeon,
+                                    modifier = Modifier.size(20.dp)
                                 )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showPlatformDropdown,
+                            onDismissRequest = { showPlatformDropdown = false },
+                            containerColor = SurfaceDarkAlt,
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                            modifier = Modifier.background(SurfaceDarkAlt)
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "🌐 Plataforma Geral / Nenhuma",
+                                        fontSize = 12.sp,
+                                        fontWeight = if (selectedPlatformId == null) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selectedPlatformId == null) OrangeNeon else TextPrimaryDark
+                                    )
+                                },
+                                colors = MenuDefaults.itemColors(textColor = TextPrimaryDark),
+                                onClick = {
+                                    selectedPlatformId = null
+                                    routePreferences.setLastPlatformIdSync(null)
+                                    showPlatformDropdown = false
+                                }
                             )
+
+                            platforms.forEach { platform ->
+                                val isSelected = platform.id == selectedPlatformId
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "📦 ${platform.name}",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) OrangeNeon else TextPrimaryDark
+                                        )
+                                    },
+                                    leadingIcon = if (isSelected) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = OrangeNeon,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    } else null,
+                                    colors = MenuDefaults.itemColors(textColor = TextPrimaryDark),
+                                    onClick = {
+                                        selectedPlatformId = platform.id
+                                        routePreferences.setLastPlatformIdSync(platform.id)
+                                        showPlatformDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(2.dp))
-
                 // 2. Ponto de Partida (GPS vs Manual)
                 Text(
                     text = "Ponto de Partida / Galpão:",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimaryDark
                 )
@@ -231,11 +316,11 @@ fun StartRouteDialog(
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(38.dp)
                     ) {
                         if (isLocating) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(15.dp),
                                 strokeWidth = 2.dp,
                                 color = GreenNeon
                             )
@@ -243,14 +328,14 @@ fun StartRouteDialog(
                             Icon(
                                 imageVector = Icons.Default.MyLocation,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(15.dp),
                                 tint = GreenNeon
                             )
                         }
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Usar GPS",
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -269,17 +354,17 @@ fun StartRouteDialog(
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(38.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.EditLocation,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Digitar",
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -292,8 +377,8 @@ fun StartRouteDialog(
                         startLocationText = it
                         isManualLocation = true
                     },
-                    label = { Text("Nome da Origem ou Galpão", fontSize = 12.sp) },
-                    placeholder = { Text("Ex: Galpão Cajamar - Mercado Livre", fontSize = 12.sp) },
+                    label = { Text("Nome da Origem ou Galpão", fontSize = 11.sp) },
+                    placeholder = { Text("Ex: Galpão Cajamar - Mercado Livre", fontSize = 11.sp) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
@@ -327,13 +412,14 @@ fun StartRouteDialog(
         confirmButton = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Opção 1: Abrir Scanner de Pacotes (Ação Primária)
                 Button(
                     onClick = {
                         if (!isCreating) {
                             val finalLocation = startLocationText.trim().ifBlank { "Galpão Base" }
+                            routePreferences.setLastPlatformIdSync(selectedPlatformId)
                             onConfirmStart(
                                 selectedPlatformId,
                                 finalLocation,
@@ -351,11 +437,13 @@ fun StartRouteDialog(
                         disabledContentColor = Color.White.copy(alpha = 0.8f)
                     ),
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
                 ) {
                     if (isCreating) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(16.dp),
                             color = Color.White,
                             strokeWidth = 2.dp
                         )
@@ -363,7 +451,7 @@ fun StartRouteDialog(
                         Text(
                             text = "CRIANDO ROTA...",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontSize = 12.sp
                         )
                     } else {
                         Icon(
@@ -375,7 +463,7 @@ fun StartRouteDialog(
                         Text(
                             text = "ABRIR SCANNER DE PACOTES",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontSize = 12.sp
                         )
                     }
                 }
@@ -385,6 +473,7 @@ fun StartRouteDialog(
                     onClick = {
                         if (!isCreating) {
                             val finalLocation = startLocationText.trim().ifBlank { "Galpão Base" }
+                            routePreferences.setLastPlatformIdSync(selectedPlatformId)
                             onConfirmStart(
                                 selectedPlatformId,
                                 finalLocation,
@@ -401,7 +490,9 @@ fun StartRouteDialog(
                         disabledContentColor = OrangeNeon.copy(alpha = 0.5f)
                     ),
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.AltRoute,
@@ -412,18 +503,26 @@ fun StartRouteDialog(
                     Text(
                         text = "IR PARA O COCKPIT DE BORDO",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        fontSize = 12.sp
+                    )
+                }
+
+                // Opção 3: Cancelar (Alinhado verticalmente para não sobrepor botões)
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !isCreating,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                ) {
+                    Text(
+                        text = "Cancelar",
+                        color = TextSecondaryDark,
+                        fontSize = 12.sp
                     )
                 }
             }
         },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isCreating
-            ) {
-                Text(text = "Cancelar", color = TextSecondaryDark)
-            }
-        }
+        dismissButton = null
     )
 }

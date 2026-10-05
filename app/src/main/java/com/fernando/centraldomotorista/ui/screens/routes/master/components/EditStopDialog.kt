@@ -1,8 +1,10 @@
 package com.fernando.centraldomotorista.ui.screens.routes.master.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,9 +24,11 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -34,31 +38,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fernando.centraldomotorista.data.model.Marketplace
 import com.fernando.centraldomotorista.data.model.MasterRouteStop
 import com.fernando.centraldomotorista.data.model.PackageType
 import com.fernando.centraldomotorista.data.model.Platform
+import com.fernando.centraldomotorista.data.remote.api.ViaCepApi
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.SurfaceDark
 import com.fernando.centraldomotorista.ui.theme.SurfaceDarkAlt
 import com.fernando.centraldomotorista.ui.theme.TextPrimaryDark
 import com.fernando.centraldomotorista.ui.theme.TextSecondaryDark
-import com.fernando.centraldomotorista.ui.theme.YellowGold
+import com.fernando.centraldomotorista.util.AddressFormatter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Diálogo modal para edição completa dos dados de uma parada no Cockpit de Bordo ou Bipagem:
  * - Nome do Cliente / Destinatário
- * - Endereço Completo
- * - CEP
- * - Tipo de Pacote (Pacotinho vs Volumoso)
+ * - Endereço Completo (atualizado com ViaCEP ao alterar CEP)
+ * - CEP (com validação assíncrona automática)
+ * - Tipo de Carga / Pacote (5 tipos operacionais)
  * - Transportadora / Plataforma
  * - Tomador / Marketplace
  * - Observações
@@ -79,6 +87,10 @@ fun EditStopDialog(
         notes: String?
     ) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    var isSearchingCep by remember { mutableStateOf(false) }
+    var lastSearchedCep by remember { mutableStateOf<String?>(null) }
+
     var recipientName by remember { mutableStateOf(stop.recipientName ?: "") }
     var fullAddress by remember { mutableStateOf(stop.fullAddress) }
     var cep by remember { mutableStateOf(stop.cep ?: "") }
@@ -87,6 +99,7 @@ fun EditStopDialog(
     var selectedMarketplaceName by remember { mutableStateOf(stop.marketplaceName ?: "") }
     var notes by remember { mutableStateOf(stop.notes ?: "") }
 
+    var isPackageTypeDropdownExpanded by remember { mutableStateOf(false) }
     var isPlatformDropdownExpanded by remember { mutableStateOf(false) }
     var isMarketplaceDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -170,12 +183,63 @@ fun EditStopDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Campo: CEP
+                // Campo: CEP com busca automática via ViaCEP
                 OutlinedTextField(
                     value = cep,
-                    onValueChange = { cep = it },
+                    onValueChange = { newCep ->
+                        cep = newCep
+                        val cleanCep = newCep.replace(Regex("""\D"""), "")
+                        if (cleanCep.length == 8 && cleanCep != lastSearchedCep) {
+                            lastSearchedCep = cleanCep
+                            scope.launch {
+                                isSearchingCep = true
+                                try {
+                                    val viaCepResult = withContext(Dispatchers.IO) {
+                                        ViaCepApi.instance.getAddressByCep(cleanCep)
+                                    }
+                                    if (viaCepResult.erro != true) {
+                                        val officialStreet = viaCepResult.logradouro?.takeIf { it.isNotBlank() }
+                                        val officialNeighborhood = viaCepResult.bairro?.takeIf { it.isNotBlank() }
+                                        val officialCity = viaCepResult.localidade?.takeIf { it.isNotBlank() }
+                                        val officialState = viaCepResult.uf?.takeIf { it.isNotBlank() }
+                                        val formattedCep = "${cleanCep.substring(0, 5)}-${cleanCep.substring(5)}"
+
+                                        val merged = AddressFormatter.mergeAddressPreservingDetails(
+                                            previousAddress = fullAddress,
+                                            officialStreet = officialStreet,
+                                            officialNeighborhood = officialNeighborhood,
+                                            officialCity = officialCity,
+                                            officialState = officialState,
+                                            cep = formattedCep,
+                                            viaCepComplement = viaCepResult.complemento?.takeIf { it.isNotBlank() }
+                                        )
+
+                                        withContext(Dispatchers.Main) {
+                                            fullAddress = merged
+                                            cep = formattedCep
+                                        }
+                                    }
+                                } catch (_: Exception) {
+                                    // Mantém o valor digitado caso ocorra falha de conexão
+                                } finally {
+                                    withContext(Dispatchers.Main) {
+                                        isSearchingCep = false
+                                    }
+                                }
+                            }
+                        }
+                    },
                     label = { Text("CEP", fontSize = 11.sp) },
                     singleLine = true,
+                    trailingIcon = {
+                        if (isSearchingCep) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = OrangeNeon
+                            )
+                        }
+                    },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = OrangeNeon,
                         unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
@@ -185,53 +249,86 @@ fun EditStopDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Seletor Tipo: Pacotinho vs Volumoso
+                // Seletor Tipo de Carga / Pacote: Combobox com 5 opções operacionais
                 Text(
-                    text = "Tipo de Pacote:",
+                    text = "Tipo de Pacote / Carga:",
                     fontSize = 11.sp,
                     color = TextSecondaryDark,
                     fontWeight = FontWeight.SemiBold
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val isPacote = selectedPackageType == PackageType.PACOTINHO
+                Box(modifier = Modifier.fillMaxWidth()) {
                     Surface(
-                        color = if (isPacote) OrangeNeon else SurfaceDarkAlt,
+                        color = SurfaceDarkAlt,
                         shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, if (isPacote) OrangeNeon else Color.White.copy(alpha = 0.15f)),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
                         modifier = Modifier
-                            .weight(1f)
-                            .clickable { selectedPackageType = PackageType.PACOTINHO }
+                            .fillMaxWidth()
+                            .clickable { isPackageTypeDropdownExpanded = true }
                     ) {
-                        Text(
-                            text = "📦 Pacotinho",
-                            color = if (isPacote) Color.White else TextSecondaryDark,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val cargoLabel = when (selectedPackageType) {
+                                PackageType.PACOTINHO -> "📦 Pacote"
+                                PackageType.VOLUMOSO -> "🏋️ Volumoso"
+                                PackageType.DOCUMENTO -> "📄 Documento"
+                                PackageType.COMIDA -> "🍔 Comida"
+                                PackageType.FARMACIA -> "💊 Farmácia"
+                            }
+                            Text(
+                                text = cargoLabel,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeNeon
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Selecionar Tipo",
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
 
-                    val isVolumoso = selectedPackageType == PackageType.VOLUMOSO
-                    Surface(
-                        color = if (isVolumoso) YellowGold else SurfaceDarkAlt,
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, if (isVolumoso) YellowGold else Color.White.copy(alpha = 0.15f)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { selectedPackageType = PackageType.VOLUMOSO }
+                    DropdownMenu(
+                        expanded = isPackageTypeDropdownExpanded,
+                        onDismissRequest = { isPackageTypeDropdownExpanded = false },
+                        containerColor = SurfaceDarkAlt,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        modifier = Modifier.background(SurfaceDarkAlt)
                     ) {
-                        Text(
-                            text = "🏋️ Volumoso",
-                            color = if (isVolumoso) Color.Black else TextSecondaryDark,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                        PackageType.entries.forEach { pkgType ->
+                            val itemLabel = when (pkgType) {
+                                PackageType.PACOTINHO -> "📦 Pacote"
+                                PackageType.VOLUMOSO -> "🏋️ Volumoso"
+                                PackageType.DOCUMENTO -> "📄 Documento"
+                                PackageType.COMIDA -> "🍔 Comida"
+                                PackageType.FARMACIA -> "💊 Farmácia"
+                            }
+                            val isSelected = pkgType == selectedPackageType
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = itemLabel,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) OrangeNeon else TextPrimaryDark
+                                    )
+                                },
+                                colors = MenuDefaults.itemColors(
+                                    textColor = TextPrimaryDark,
+                                    leadingIconColor = TextPrimaryDark
+                                ),
+                                onClick = {
+                                    selectedPackageType = pkgType
+                                    isPackageTypeDropdownExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -281,14 +378,18 @@ fun EditStopDialog(
 
                     DropdownMenu(
                         expanded = isPlatformDropdownExpanded,
-                        onDismissRequest = { isPlatformDropdownExpanded = false }
+                        onDismissRequest = { isPlatformDropdownExpanded = false },
+                        containerColor = SurfaceDarkAlt,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        modifier = Modifier.background(SurfaceDarkAlt)
                     ) {
                         platforms.forEach { platform ->
                             DropdownMenuItem(
-                                text = { Text(platform.name, fontSize = 12.sp) },
+                                text = { Text(platform.name, fontSize = 12.sp, color = TextPrimaryDark) },
                                 leadingIcon = if (platform.id == selectedPlatformId) {
                                     { Icon(Icons.Default.Check, contentDescription = null, tint = OrangeNeon) }
                                 } else null,
+                                colors = MenuDefaults.itemColors(textColor = TextPrimaryDark),
                                 onClick = {
                                     selectedPlatformId = platform.id
                                     isPlatformDropdownExpanded = false
@@ -335,10 +436,14 @@ fun EditStopDialog(
 
                     DropdownMenu(
                         expanded = isMarketplaceDropdownExpanded,
-                        onDismissRequest = { isMarketplaceDropdownExpanded = false }
+                        onDismissRequest = { isMarketplaceDropdownExpanded = false },
+                        containerColor = SurfaceDarkAlt,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        modifier = Modifier.background(SurfaceDarkAlt)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Nenhum / Não informado", fontSize = 12.sp) },
+                            text = { Text("Nenhum / Não informado", fontSize = 12.sp, color = TextPrimaryDark) },
+                            colors = MenuDefaults.itemColors(textColor = TextPrimaryDark),
                             onClick = {
                                 selectedMarketplaceName = ""
                                 isMarketplaceDropdownExpanded = false
@@ -347,10 +452,11 @@ fun EditStopDialog(
                         marketplaces.forEach { marketplace ->
                             val isSelected = marketplace.name.equals(selectedMarketplaceName, ignoreCase = true)
                             DropdownMenuItem(
-                                text = { Text(marketplace.name, fontSize = 12.sp) },
+                                text = { Text(marketplace.name, fontSize = 12.sp, color = if (isSelected) OrangeNeon else TextPrimaryDark) },
                                 leadingIcon = if (isSelected) {
                                     { Icon(Icons.Default.Check, contentDescription = null, tint = OrangeNeon) }
                                 } else null,
+                                colors = MenuDefaults.itemColors(textColor = TextPrimaryDark),
                                 onClick = {
                                     selectedMarketplaceName = marketplace.name
                                     isMarketplaceDropdownExpanded = false
