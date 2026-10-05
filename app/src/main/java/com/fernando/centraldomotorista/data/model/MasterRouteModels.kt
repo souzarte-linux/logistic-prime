@@ -36,13 +36,22 @@ enum class StopStatus(val value: String) {
 /**
  * Tipo de pacote bipado na rota Master.
  */
-enum class PackageType(val value: String) {
-    PACOTINHO("pacotinho"),
-    VOLUMOSO("volumoso");
+enum class PackageType(val value: String, val label: String) {
+    PACOTINHO("pacotinho", "Pacote"),
+    VOLUMOSO("volumoso", "Volumoso"),
+    DOCUMENTO("documento", "Documento"),
+    COMIDA("comida", "Comida"),
+    FARMACIA("farmacia", "Farmácia");
 
     companion object {
         fun fromValue(value: String?): PackageType =
-            entries.firstOrNull { it.value.equals(value, ignoreCase = true) } ?: PACOTINHO
+            entries.firstOrNull {
+                it.value.equals(value, ignoreCase = true) ||
+                it.label.equals(value, ignoreCase = true) ||
+                it.name.equals(value, ignoreCase = true)
+            } ?: PACOTINHO
+
+        fun all(): List<PackageType> = entries.toList()
     }
 }
 

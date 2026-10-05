@@ -294,9 +294,45 @@ class RouteCockpitViewModel @JvmOverloads constructor(
         }
     }
 
-    // --- Prompt 6: Atribuição Cruzada Master -> Parceiro ---
+    // --- Prompt 6 & Requisito 7: Atribuição Cruzada Master <-> Parceiro ---
 
-    fun assignStopToPartner(stopId: String, partnerId: String) {
+    /**
+     * Reatribui uma parada de volta para o Motorista Master (Você), cancelando transferências pendentes.
+     */
+    fun reassignStopToMaster(stopId: String) {
+        val currentStops = _uiState.value.stops
+        val updatedStops = currentStops.map { stop ->
+            if (stop.id == stopId) {
+                stop.copy(
+                    assignedPartnerId = null,
+                    transferStatus = null,
+                    transferredVia = null
+                )
+            } else stop
+        }
+        _uiState.value = _uiState.value.copy(stops = updatedStops)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = masterRouteRepository.updateStopTransfer(
+                stopId = stopId,
+                partnerId = null,
+                status = null,
+                via = null
+            )
+            if (!success) {
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(stops = currentStops)
+                }
+            }
+        }
+    }
+
+    fun assignStopToPartner(stopId: String, partnerId: String?) {
+        if (partnerId.isNullOrBlank()) {
+            reassignStopToMaster(stopId)
+            return
+        }
+
         val currentStops = _uiState.value.stops
         val updatedStops = currentStops.map { stop ->
             if (stop.id == stopId) {
@@ -321,6 +357,36 @@ class RouteCockpitViewModel @JvmOverloads constructor(
                     _uiState.value = _uiState.value.copy(stops = currentStops)
                 }
             }
+        }
+    }
+
+    // --- Requisito 10: Reordenação Manual no Cockpit (Drag & Drop) ---
+
+    /**
+     * Move uma parada de posição na lista com atualização instantânea na UI e mapa.
+     */
+    fun moveStop(fromIndex: Int, toIndex: Int) {
+        val currentStops = _uiState.value.stops.toMutableList()
+        if (fromIndex !in currentStops.indices || toIndex !in currentStops.indices || fromIndex == toIndex) return
+
+        val movedItem = currentStops.removeAt(fromIndex)
+        currentStops.add(toIndex, movedItem)
+
+        val reordered = currentStops.mapIndexed { index, stop ->
+            stop.copy(stopOrder = index + 1)
+        }
+
+        _uiState.value = _uiState.value.copy(stops = reordered)
+    }
+
+    /**
+     * Persiste a nova sequência de paradas no banco de dados Supabase.
+     */
+    fun saveReorderedStops() {
+        val stops = _uiState.value.stops
+        viewModelScope.launch(Dispatchers.IO) {
+            val orderPairs = stops.map { it.id to it.stopOrder }
+            masterRouteRepository.updateStopsOrder(orderPairs)
         }
     }
 

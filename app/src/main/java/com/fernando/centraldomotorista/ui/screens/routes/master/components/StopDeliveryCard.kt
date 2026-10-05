@@ -22,13 +22,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.TwoWheeler
+import com.fernando.centraldomotorista.util.AddressFormatter
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -78,10 +81,11 @@ fun StopDeliveryCard(
     onToggleExpand: () -> Unit,
     onNavigateGps: (String) -> Unit,
     onUpdateStatus: (String, StopStatus) -> Unit,
-    onAssignToPartner: ((partnerId: String) -> Unit)? = null,
+    onAssignToPartner: ((partnerId: String?) -> Unit)? = null,
     onEditStop: (MasterRouteStop) -> Unit = {},
     onDeleteStop: (MasterRouteStop) -> Unit = {},
     partners: List<DeliveryPartner> = emptyList(),
+    dragHandle: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isPending = stop.status == StopStatus.PENDENTE
@@ -120,6 +124,11 @@ fun StopDeliveryCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
+                    if (dragHandle != null) {
+                        dragHandle()
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+
                     Text(
                         text = "#${stop.stopOrder}",
                         fontSize = 17.sp,
@@ -129,34 +138,40 @@ fun StopDeliveryCard(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    Column {
-                        val recipient = stop.recipientName?.ifBlank { null }
-                        Text(
-                            text = recipient?.uppercase() ?: "PACOTE SEM NOME",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimaryDark,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
+                        // Linha 1: #Número + ENDEREÇO COMPLETO EM LETRAS MAIÚSCULAS em destaque
+                        val formattedAddr = AddressFormatter.toTitleCase(stop.fullAddress.ifBlank { "ENDEREÇO NÃO IDENTIFICADO" })
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "📦 ${stop.barcode}",
-                                fontSize = 11.sp,
-                                color = TextSecondaryDark
+                                text = formattedAddr.uppercase(),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimaryDark,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
                             if (!stop.marketplaceName.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = "• 🏬 ${stop.marketplaceName}",
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     color = OrangeNeon,
                                     fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    maxLines = 1
                                 )
                             }
                         }
+
+                        // Linha 2 (abaixo do endereço): Nome do(a) cliente (barcode oculto no modo contraído)
+                        val recipient = stop.recipientName?.ifBlank { null }
+                        Text(
+                            text = if (recipient != null) "👤 $recipient" else "👤 Pacote sem nome",
+                            fontSize = 11.sp,
+                            color = TextSecondaryDark,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
 
@@ -227,17 +242,38 @@ fun StopDeliveryCard(
                         .fillMaxWidth()
                         .padding(top = 12.dp)
                 ) {
-                    // Tipo de Pacote Badge + Marketplace Badge
+                    // Tipo de Pacote Badge + Barcode + Marketplace Badge
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Requisito 8: Barcode visível apenas ao expandir o card
+                        Surface(
+                            color = OrangeNeon.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(0.5.dp, OrangeNeon.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "🏷️ ${stop.barcode}",
+                                color = OrangeNeon,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+
                         Surface(
                             color = if (stop.packageType == PackageType.VOLUMOSO) YellowGold.copy(alpha = 0.18f) else SurfaceDarkAlt,
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text(
-                                text = if (stop.packageType == PackageType.VOLUMOSO) "🏋️ Volumoso" else "📦 Pacotinho",
+                                text = when (stop.packageType) {
+                                    PackageType.PACOTINHO -> "📦 Pacotinho"
+                                    PackageType.VOLUMOSO -> "🏋️ Volumoso"
+                                    PackageType.DOCUMENTO -> "📄 Documento"
+                                    PackageType.COMIDA -> "🍔 Comida"
+                                    PackageType.FARMACIA -> "💊 Farmácia"
+                                },
                                 color = if (stop.packageType == PackageType.VOLUMOSO) YellowGold else TextSecondaryDark,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -389,8 +425,8 @@ fun StopDeliveryCard(
                         }
                     }
 
-                    // Ação de Atribuição Cruzada para Parceiro (Prompt 6)
-                    if (isPending && onAssignToPartner != null && partners.isNotEmpty()) {
+                    // Ação de Atribuição Cruzada para Parceiro (Prompt 6 e Requisito 7)
+                    if (isPending && onAssignToPartner != null && (partners.isNotEmpty() || isTransferred)) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(modifier = Modifier.fillMaxWidth()) {
                             OutlinedButton(
@@ -414,9 +450,35 @@ fun StopDeliveryCard(
                                 expanded = showPartnerMenu,
                                 onDismissRequest = { showPartnerMenu = false }
                             ) {
-                                partners.forEach { partner ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "👤 Motorista Master (Você)",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (stop.assignedPartnerId == null) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (stop.assignedPartnerId == null) OrangeNeon else TextPrimaryDark
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Person, contentDescription = null, tint = OrangeNeon, modifier = Modifier.size(16.dp))
+                                    },
+                                    onClick = {
+                                        showPartnerMenu = false
+                                        onAssignToPartner(null)
+                                    }
+                                )
+
+                                partners.sortedBy { it.fullName.lowercase() }.forEach { partner ->
+                                    val isSelected = partner.id == stop.assignedPartnerId
                                     DropdownMenuItem(
-                                        text = { Text(partner.fullName, fontSize = 12.sp) },
+                                        text = {
+                                            Text(
+                                                text = "🛵 ${partner.fullName}",
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) OrangeNeon else TextPrimaryDark
+                                            )
+                                        },
                                         leadingIcon = { Icon(Icons.Default.TwoWheeler, contentDescription = null, modifier = Modifier.size(16.dp)) },
                                         onClick = {
                                             showPartnerMenu = false

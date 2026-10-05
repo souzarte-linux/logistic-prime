@@ -19,10 +19,12 @@ import com.fernando.centraldomotorista.data.model.Platform
 import com.fernando.centraldomotorista.data.model.StopStatus
 import com.fernando.centraldomotorista.data.model.TransferStatus
 import com.fernando.centraldomotorista.data.remote.supabase
+import com.fernando.centraldomotorista.data.remote.api.ViaCepApi
 import com.fernando.centraldomotorista.data.repository.DeliveryPartnerRepository
 import com.fernando.centraldomotorista.data.repository.MarketplaceRepository
 import com.fernando.centraldomotorista.data.repository.MasterRouteRepository
 import com.fernando.centraldomotorista.data.repository.PlatformRepository
+import com.fernando.centraldomotorista.util.AddressFormatter
 import com.fernando.centraldomotorista.util.ParsedAddress
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
@@ -77,7 +79,8 @@ class RouteScannerViewModel(
     private val masterRouteRepository: MasterRouteRepository = MasterRouteRepository(),
     private val platformRepository: PlatformRepository = PlatformRepository(),
     private val deliveryPartnerRepository: DeliveryPartnerRepository = DeliveryPartnerRepository(),
-    private val marketplaceRepository: MarketplaceRepository = MarketplaceRepository()
+    private val marketplaceRepository: MarketplaceRepository = MarketplaceRepository(),
+    private val viaCepApi: ViaCepApi = ViaCepApi.instance
 ) : ViewModel() {
 
     private val tag = "RouteScannerVM"
@@ -87,6 +90,7 @@ class RouteScannerViewModel(
 
     private val scannedBarcodes = mutableSetOf<String>()
     private var lastDuplicateBeepTimestamp = 0L
+    private var lastValidatedCep: String? = null
     private var autoAdvanceJob: Job? = null
     val isAnalyzingFrame = AtomicBoolean(false)
 
@@ -217,6 +221,7 @@ class RouteScannerViewModel(
         }
 
         emitSensoryFeedback(context, isSuccess = true)
+        lastValidatedCep = null
         _uiState.value = _uiState.value.copy(
             currentStep = ScannerStep.OCR_CONFIRMATION,
             pendingBarcode = trimmed,
@@ -227,21 +232,162 @@ class RouteScannerViewModel(
     }
 
     /**
+     * Etapa 2: Usuário clica em "Ler Novamente" no endereço do card de confirmação.
+     * Mantém o código de barras intacto e reabre a captura de OCR da câmera.
+     */
+    fun retryOcrReading() {
+        lastValidatedCep = null
+        _uiState.value = _uiState.value.copy(
+            pendingParsedAddress = null,
+            isOcrScanning = true
+        )
+    }
+
+    /**
      * Etapa 2: Refinamento contínuo de OCR da etiqueta enquanto em OCR_CONFIRMATION.
+     * Executa mesclagem cumulativa (não-destrutiva) entre frames para nunca perder o recipientName
+     * ou outros dados capturados previamente.
      */
     fun onOcrAddressDetected(parsedAddress: ParsedAddress) {
         if (_uiState.value.currentStep != ScannerStep.OCR_CONFIRMATION) return
 
         val current = _uiState.value.pendingParsedAddress
-        val hasValuableData = !parsedAddress.cep.isNullOrBlank() ||
-                !parsedAddress.recipientName.isNullOrBlank() ||
-                parsedAddress.street != null
 
-        if (current == null || hasValuableData) {
-            _uiState.value = _uiState.value.copy(
-                pendingParsedAddress = parsedAddress,
-                isOcrScanning = false
-            )
+        // Mesclagem cumulativa não-destrutiva de destinatário
+        val mergedRecipient = when {
+            current?.recipientName.isNullOrBlank() -> parsedAddress.recipientName
+            parsedAddress.recipientName.isNullOrBlank() -> current?.recipientName
+            (parsedAddress.recipientName?.length ?: 0) > (current?.recipientName?.length ?: 0) -> parsedAddress.recipientName
+            else -> current?.recipientName
+        }
+
+        val mergedCep = when {
+            current?.cep.isNullOrBlank() -> parsedAddress.cep
+            else -> current?.cep
+        }
+
+        val mergedStreet = when {
+            current?.street.isNullOrBlank() -> parsedAddress.street
+            parsedAddress.street.isNullOrBlank() -> current?.street
+            (parsedAddress.street?.length ?: 0) > (current?.street?.length ?: 0) -> parsedAddress.street
+            else -> current?.street
+        }
+
+        val mergedNumber = when {
+            current?.number.isNullOrBlank() -> parsedAddress.number
+            else -> current?.number
+        }
+
+        val mergedComplement = when {
+            current?.complement.isNullOrBlank() -> parsedAddress.complement
+            else -> current?.complement
+        }
+
+        val mergedNeighborhood = when {
+            current?.neighborhood.isNullOrBlank() -> parsedAddress.neighborhood
+            parsedAddress.neighborhood.isNullOrBlank() -> current?.neighborhood
+            else -> current?.neighborhood
+        }
+
+        val mergedCity = when {
+            current?.city.isNullOrBlank() -> parsedAddress.city
+            parsedAddress.city.isNullOrBlank() -> current?.city
+            else -> current?.city
+        }
+
+        val mergedState = when {
+            current?.state.isNullOrBlank() -> parsedAddress.state
+            parsedAddress.state.isNullOrBlank() -> current?.state
+            else -> current?.state
+        }
+
+        val mergedReference = when {
+            current?.reference.isNullOrBlank() -> parsedAddress.reference
+            else -> current?.reference
+        }
+
+        val formattedAddress = AddressFormatter.formatFullAddress(
+            street = mergedStreet,
+            number = mergedNumber,
+            complement = mergedComplement,
+            neighborhood = mergedNeighborhood,
+            city = mergedCity,
+            state = mergedState,
+            cep = mergedCep
+        ).ifBlank { parsedAddress.fullFormattedAddress.ifBlank { current?.fullFormattedAddress ?: "" } }
+
+        val merged = ParsedAddress(
+            recipientName = mergedRecipient,
+            street = mergedStreet,
+            number = mergedNumber,
+            complement = mergedComplement,
+            neighborhood = mergedNeighborhood,
+            city = mergedCity,
+            state = mergedState,
+            cep = mergedCep,
+            reference = mergedReference,
+            fullFormattedAddress = formattedAddress
+        )
+
+        _uiState.value = _uiState.value.copy(
+            pendingParsedAddress = merged,
+            isOcrScanning = false
+        )
+
+        // Validação cruzada com ViaCEP em background
+        if (!mergedCep.isNullOrBlank()) {
+            checkAndCrossValidateViaCep(mergedCep, merged)
+        }
+    }
+
+    /**
+     * Consulta o ViaCEP em background para validação cruzada dos dados de endereço.
+     * Mantém o número predial e complemento da etiqueta e padroniza a formatação oficial.
+     */
+    private fun checkAndCrossValidateViaCep(rawCep: String?, baseAddress: ParsedAddress) {
+        val cleanCep = rawCep?.replace(Regex("""\D"""), "") ?: return
+        if (cleanCep.length != 8 || cleanCep == lastValidatedCep) return
+        lastValidatedCep = cleanCep
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val viaCepResult = viaCepApi.getAddressByCep(cleanCep)
+                if (viaCepResult.erro != true) {
+                    val officialStreet = viaCepResult.logradouro?.takeIf { it.isNotBlank() } ?: baseAddress.street
+                    val officialNeighborhood = viaCepResult.bairro?.takeIf { it.isNotBlank() } ?: baseAddress.neighborhood
+                    val officialCity = viaCepResult.localidade?.takeIf { it.isNotBlank() } ?: baseAddress.city
+                    val officialState = viaCepResult.uf?.takeIf { it.isNotBlank() } ?: baseAddress.state
+                    val complement = baseAddress.complement ?: viaCepResult.complemento?.takeIf { it.isNotBlank() }
+
+                    val formatted = AddressFormatter.formatFullAddress(
+                        street = officialStreet,
+                        number = baseAddress.number,
+                        complement = complement,
+                        neighborhood = officialNeighborhood,
+                        city = officialCity,
+                        state = officialState,
+                        cep = baseAddress.cep
+                    )
+
+                    withContext(Dispatchers.Main) {
+                        val current = _uiState.value.pendingParsedAddress
+                        if (current != null) {
+                            _uiState.value = _uiState.value.copy(
+                                pendingParsedAddress = current.copy(
+                                    street = officialStreet?.let { AddressFormatter.toTitleCase(it) },
+                                    neighborhood = officialNeighborhood?.let { AddressFormatter.toTitleCase(it) },
+                                    city = officialCity?.let { AddressFormatter.toTitleCase(it) },
+                                    state = officialState?.uppercase(),
+                                    complement = complement?.let { AddressFormatter.toTitleCase(it) },
+                                    fullFormattedAddress = formatted
+                                )
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(tag, "Validação ViaCEP offline ou indisponível: ${e.message}")
+            }
         }
     }
 
@@ -338,6 +484,7 @@ class RouteScannerViewModel(
                     fullAddress = parsedAddress.fullFormattedAddress,
                     cep = parsedAddress.cep,
                     stopOrder = nextOrder,
+                    notes = parsedAddress.reference,
                     street = parsedAddress.street,
                     number = parsedAddress.number,
                     neighborhood = parsedAddress.neighborhood,
@@ -362,9 +509,8 @@ class RouteScannerViewModel(
                         pendingParsedAddress = null,
                         isOcrScanning = false,
                         // PackageType reseta para PACOTINHO (não-sticky)
-                        currentPackageType = PackageType.PACOTINHO,
-                        // Atribuição de parceiro reseta para Master (não-sticky)
-                        selectedPartnerIdForNextScan = null
+                        currentPackageType = PackageType.PACOTINHO
+                        // selectedPartnerIdForNextScan MANTÉM-SE (sticky / memória do último parceiro escolhido!)
                         // currentPlatformId e currentMarketplaceName MANTÊM-SE (sticky!)
                     )
 

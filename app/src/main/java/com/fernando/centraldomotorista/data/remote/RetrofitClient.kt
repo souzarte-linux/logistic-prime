@@ -29,11 +29,27 @@ object RetrofitClient {
             .build()
     }
 
+    private val gson by lazy {
+        com.google.gson.GsonBuilder()
+            .registerTypeAdapter(
+                com.fernando.centraldomotorista.data.remote.dto.UpdateStopTransferDto::class.java,
+                com.google.gson.JsonSerializer<com.fernando.centraldomotorista.data.remote.dto.UpdateStopTransferDto> { src, _, _ ->
+                    com.google.gson.JsonObject().apply {
+                        add("assigned_partner_id", src.assignedPartnerId?.let { com.google.gson.JsonPrimitive(it) } ?: com.google.gson.JsonNull.INSTANCE)
+                        add("transfer_status", src.transferStatus?.let { com.google.gson.JsonPrimitive(it) } ?: com.google.gson.JsonNull.INSTANCE)
+                        add("transferred_via", src.transferredVia?.let { com.google.gson.JsonPrimitive(it) } ?: com.google.gson.JsonNull.INSTANCE)
+                        add("transferred_at", src.transferredAt?.let { com.google.gson.JsonPrimitive(it) } ?: com.google.gson.JsonNull.INSTANCE)
+                    }
+                }
+            )
+            .create()
+    }
+
     private val retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(SUPABASE_REST_URL)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
     }
 

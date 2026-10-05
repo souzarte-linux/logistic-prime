@@ -161,4 +161,40 @@ class BrazilianLabelParserTest {
         assertEquals("01001-000", parsed.cep)
         assertEquals("120", parsed.number)
     }
+
+    @Test
+    fun testParseShortDestAndStrippingPhoneAndCpf() {
+        val label = """
+            DEST: CARLOS EDUARDO SILVA - TEL: (11) 98765-4321
+            Rua das Palmeiras, 120 - Apto 42
+            Bairro: Centro
+            São Paulo - SP
+            CEP: 01001-000
+            Ref: Deixar na portaria
+        """.trimIndent()
+
+        val parsed = BrazilianLabelParser.parse(label)
+        assertEquals("Carlos Eduardo Silva", parsed.recipientName)
+        assertEquals("01001-000", parsed.cep)
+        assertEquals("120", parsed.number)
+        assertEquals("Apto 42", parsed.complement)
+        assertEquals("Deixar na portaria", parsed.reference)
+    }
+
+    @Test
+    fun testParseNomeDoClienteWithCpf() {
+        val label = """
+            NOME DO CLIENTE: MARIA DE LOURDES SOUZA CPF: 123.456.789-00
+            Avenida Paulista, 1000 Bloco B
+            Bairro: Bela Vista
+            São Paulo - SP
+            01310-100
+        """.trimIndent()
+
+        val parsed = BrazilianLabelParser.parse(label)
+        assertEquals("Maria de Lourdes Souza", parsed.recipientName)
+        assertEquals("01310-100", parsed.cep)
+        assertEquals("1000", parsed.number)
+        assertEquals("Bloco B", parsed.complement)
+    }
 }

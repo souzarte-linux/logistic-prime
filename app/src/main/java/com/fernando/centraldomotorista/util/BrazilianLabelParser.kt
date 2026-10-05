@@ -7,10 +7,12 @@ data class ParsedAddress(
     val recipientName: String? = null,
     val street: String? = null,
     val number: String? = null,
+    val complement: String? = null,
     val neighborhood: String? = null,
     val city: String? = null,
     val state: String? = null,
     val cep: String? = null,
+    val reference: String? = null,
     val fullFormattedAddress: String
 )
 
@@ -25,10 +27,11 @@ object BrazilianLabelParser {
     private val HYPHEN_CEP_REGEX = Regex("""\b(\d{5})-(\d{3})\b""")
     private val GENERIC_CEP_REGEX = Regex("""\b(\d{5})(\d{3})\b""")
 
-    // Prefixos típicos de identificação de destinatário em etiquetas
-    private val RECIPIENT_LABEL_PATTERN = """(?i)(?:destinat[aá]rio|para|recebedor|cliente|consignat[aá]rio|comprador|entregar\s+para|nome)"""
+    // Prefixos ampliados de identificação de destinatário em etiquetas físicas
+    private val RECIPIENT_LABEL_PATTERN = """(?i)(?:destinat[aá]rio(?:\s*[/]\s*recebedor)?|dest\b\.?|recebedor\b\.?|rec\b\.?|cliente\b|nome(?:\s+do\s+cliente)?\b|consignat[aá]rio\b|comprador\b|entregar\s+(?:para|a)\b|a\/c\b|aos\s+cuidados\s+de\b|para\b)"""
+    
     private val RECIPIENT_INLINE_REGEX = Regex(
-        """$RECIPIENT_LABEL_PATTERN[:\s-]+([A-Za-zÀ-ÿ\s.'-]{3,50})"""
+        """$RECIPIENT_LABEL_PATTERN[:\s-]+(.+)"""
     )
     private val RECIPIENT_ISOLATED_LABEL_REGEX = Regex(
         """^$RECIPIENT_LABEL_PATTERN[:\s-]*$"""
@@ -46,12 +49,17 @@ object BrazilianLabelParser {
 
     // Regex para identificação de Bairro
     private val NEIGHBORHOOD_REGEX = Regex(
-        """(?i)(?:bairro|b\.)[:\s]*([A-Za-zÀ-ÿ0-9\s'-]{2,30})"""
+        """(?i)(?:bairro|b\.)[:\s]*([A-Za-zÀ-ÿ0-9\s'-]{2,35})"""
     )
 
     // Regex para formato "Cidade - UF" ou "Cidade/UF"
     private val CITY_STATE_REGEX = Regex(
         """(?i)\b([A-Za-zÀ-ÿ\s'-]{3,35})\s*[-/]\s*([A-Za-z]{2})\b"""
+    )
+
+    // Regex para identificação de Ponto de Referência / Instruções de Entrega / Notas
+    private val REFERENCE_REGEX = Regex(
+        """(?i)(?:ref(?:er[eê]ncia)?|ponto\s+de\s+ref(?:er[eê]ncia)?|obs(?:erva[cç][aã]o)?|instru[cç][oõ]es?|hor[aá]rio|recado|aten[cç][aã]o)[:\s-]+(.+)"""
     )
 
     /**
@@ -80,7 +88,7 @@ object BrazilianLabelParser {
             }
         }
 
-        // 2. Extração do Destinatário (inline e multilinha)
+        // 2. Extração do Destinatário (inline e multilinha) com limpeza avançada
         var recipientName: String? = null
         for (i in lines.indices) {
             val line = lines[i]
@@ -88,7 +96,7 @@ object BrazilianLabelParser {
             // Caso A: Rótulo e nome na mesma linha (ex: "Destinatário: Carlos Eduardo Silva")
             val inlineMatch = RECIPIENT_INLINE_REGEX.find(line)
             if (inlineMatch != null) {
-                val candidate = inlineMatch.groupValues[1].trim()
+                val candidate = cleanRecipientString(inlineMatch.groupValues[1])
                 if (isValidRecipient(candidate)) {
                     recipientName = candidate
                     break
@@ -97,7 +105,7 @@ object BrazilianLabelParser {
 
             // Caso B: Rótulo multilinha isolado (ex: "DESTINATÁRIO:" e o nome na linha seguinte)
             if (RECIPIENT_ISOLATED_LABEL_REGEX.matches(line) && i + 1 < lines.size) {
-                val nextLineCandidate = lines[i + 1].trim()
+                val nextLineCandidate = cleanRecipientString(lines[i + 1])
                 if (isValidRecipient(nextLineCandidate)) {
                     recipientName = nextLineCandidate
                     break
@@ -105,9 +113,10 @@ object BrazilianLabelParser {
             }
         }
 
-        // 3. Extração do Logradouro e Número
+        // 3. Extração do Logradouro, Número e Complemento
         var street: String? = null
         var number: String? = null
+        var complement: String? = null
         var streetLineIndex = -1
 
         for (i in lines.indices) {
@@ -116,6 +125,14 @@ object BrazilianLabelParser {
             if (streetMatch != null) {
                 streetLineIndex = i
                 street = streetMatch.groupValues[1] + " " + streetMatch.groupValues[2].trim()
+
+                // Tenta extrair complemento predial da linha do logradouro
+                complement = AddressFormatter.extractComplement(line)
+
+                // Remove complementos do nome da rua se detectados
+                if (complement != null) {
+                    street = street.replace(complement, "").trim()
+                }
 
                 // Remove possíveis pontuações finais do logradouro
                 street = street.replace(Regex("""[;,.-]+$"""), "").trim()
@@ -127,6 +144,8 @@ object BrazilianLabelParser {
                     val rawNum = numMatch.groupValues[1].trim()
                     if (rawNum.isNotBlank()) {
                         number = rawNum
+                        // Limpa o número do logradouro se tiver sobrado
+                        street = street.replace(Regex("""[,\s]+$rawNum\b"""), "").trim()
                     }
                 }
                 break
@@ -136,7 +155,7 @@ object BrazilianLabelParser {
         // Heurística pré-endereço: se não encontrou destinatário por rótulo explícito,
         // avalia a linha anterior ao logradouro (de 2 a 5 palavras)
         if (recipientName == null && streetLineIndex > 0) {
-            val candidateLine = lines[streetLineIndex - 1].trim()
+            val candidateLine = cleanRecipientString(lines[streetLineIndex - 1])
             val words = candidateLine.split(Regex("""\s+""")).filter { it.isNotBlank() }
             if (words.size in 2..5 && !candidateLine.contains(Regex("""\d""")) && isValidRecipient(candidateLine)) {
                 recipientName = candidateLine
@@ -148,7 +167,7 @@ object BrazilianLabelParser {
         for (line in lines) {
             val neighMatch = NEIGHBORHOOD_REGEX.find(line)
             if (neighMatch != null) {
-                neighborhood = neighMatch.groupValues[1].trim()
+                neighborhood = neighMatch.groupValues[1].trim().replace(Regex("""[;,.-]+$"""), "")
                 break
             }
         }
@@ -169,44 +188,74 @@ object BrazilianLabelParser {
             }
         }
 
-        // 6. Montagem do endereço formatado para exibição e navegação veicular
-        val fullFormatted = buildString {
-            if (!street.isNullOrBlank()) {
-                append(street)
-                if (!number.isNullOrBlank()) {
-                    append(", ").append(number)
+        // 6. Extração de Referência / Notas / Observações
+        var reference: String? = null
+        for (line in lines) {
+            val refMatch = REFERENCE_REGEX.find(line)
+            if (refMatch != null) {
+                reference = refMatch.groupValues[1].trim()
+                break
+            }
+        }
+
+        // Se houver complemento mas não foi detectado na linha da rua, busca em outras linhas
+        if (complement == null) {
+            for (line in lines) {
+                if (line != street && !line.contains(rawCep ?: "###")) {
+                    val comp = AddressFormatter.extractComplement(line)
+                    if (comp != null && comp != number) {
+                        complement = comp
+                        break
+                    }
                 }
             }
-            if (!neighborhood.isNullOrBlank()) {
-                if (isNotEmpty()) append(" - ")
-                append(neighborhood)
-            }
-            if (!city.isNullOrBlank()) {
-                if (isNotEmpty()) append(", ")
-                append(city)
-                if (!state.isNullOrBlank()) {
-                    append(" - ").append(state)
-                }
-            }
-            if (!rawCep.isNullOrBlank()) {
-                if (isNotEmpty()) append(" • ")
-                append("CEP ").append(rawCep)
-            }
-        }.ifBlank {
+        }
+
+        // 7. Montagem do endereço formatado com Title Case e padrão oficial
+        val fullFormatted = if (!street.isNullOrBlank() || !rawCep.isNullOrBlank()) {
+            AddressFormatter.formatFullAddress(
+                street = street,
+                number = number,
+                complement = complement,
+                neighborhood = neighborhood,
+                city = city,
+                state = state,
+                cep = rawCep
+            )
+        } else {
             // Se as heurísticas não detectaram campos individuais, utiliza as primeiras linhas limpas
             lines.take(3).joinToString(" ").take(140)
         }
 
         return ParsedAddress(
-            recipientName = recipientName,
-            street = street,
+            recipientName = recipientName?.let { AddressFormatter.toTitleCase(it) },
+            street = street?.let { AddressFormatter.toTitleCase(it) },
             number = number,
-            neighborhood = neighborhood,
-            city = city,
-            state = state,
+            complement = complement?.let { AddressFormatter.toTitleCase(it) },
+            neighborhood = neighborhood?.let { AddressFormatter.toTitleCase(it) },
+            city = city?.let { AddressFormatter.toTitleCase(it) },
+            state = state?.uppercase(),
             cep = rawCep,
+            reference = reference,
             fullFormattedAddress = fullFormatted
         )
+    }
+
+    /**
+     * Remove sufixos como telefone, CPF, documentos fiscais que frequentemente
+     * aparecem na mesma linha do nome do destinatário.
+     */
+    private fun cleanRecipientString(raw: String): String {
+        var cleaned = raw.trim()
+        // Remove trecho de CPF / Doc / Tel / Contato após o nome
+        cleaned = cleaned.replace(Regex("""(?i)\s*[-/|]?\s*(?:cpf|tel|cel|telefone|doc|documento|rg|contato)\b.*"""), "")
+        // Remove telefones embutidos (ex: (11) 98765-4321 ou 11987654321)
+        cleaned = cleaned.replace(Regex("""(?:\(?\d{2}\)?\s*)?\d{4,5}-?\d{4}"""), "")
+        // Remove CPF (ex: 123.456.789-00 ou 12345678900)
+        cleaned = cleaned.replace(Regex("""\d{3}\.?\d{3}\.?\d{3}-?\d{2}"""), "")
+        // Remove pontuações residuais no início e fim
+        cleaned = cleaned.replace(Regex("""^[\s:;,-]+|[\s:;,-]+$"""), "")
+        return cleaned.trim()
     }
 
     private fun isValidRecipient(name: String): Boolean {
@@ -217,7 +266,8 @@ object BrazilianLabelParser {
             "declaracao", "declaração", "codigo", "código", "endereco", "endereço",
             "mercado livre", "mercado envios", "shopee", "shopee xpress", "amazon",
             "correios", "sedex", "pac", "jadlog", "logistica", "logística", "danfe",
-            "nota fiscal", "nf-e", "chave de acesso", "conteudo", "conteúdo", "pacote"
+            "nota fiscal", "nf-e", "chave de acesso", "conteudo", "conteúdo", "pacote",
+            "transportadora", "peso", "volumes", "declarado", "valor", "remessa"
         )
         return !blacklist.any { lower.contains(it) }
     }

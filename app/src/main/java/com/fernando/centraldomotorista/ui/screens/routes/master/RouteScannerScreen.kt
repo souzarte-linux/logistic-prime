@@ -58,6 +58,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -461,6 +463,7 @@ fun RouteScannerScreen(
                 onConfirmPackage = { viewModel.confirmPendingPackage(context) },
                 onSkipOcr = { viewModel.skipOcrAndConfirm(context) },
                 onRetryBarcode = { viewModel.retryScanningCurrentPackage() },
+                onRetryOcr = { viewModel.retryOcrReading() },
                 isSaving = uiState.isSaving
             )
         }
@@ -997,9 +1000,15 @@ private fun OcrConfirmationCard(
     onConfirmPackage: () -> Unit,
     onSkipOcr: () -> Unit,
     onRetryBarcode: () -> Unit,
+    onRetryOcr: () -> Unit,
     isSaving: Boolean,
     modifier: Modifier = Modifier
 ) {
+    var showCargoTypeDropdown by remember { mutableStateOf(false) }
+    var showPartnerDropdown by remember { mutableStateOf(false) }
+    val sortedPartners = remember(partners) { partners.sortedBy { it.fullName.lowercase() } }
+    val assignedPartnerName = sortedPartners.firstOrNull { it.id == selectedPartnerId }?.fullName
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceDark.copy(alpha = 0.98f)),
@@ -1061,7 +1070,7 @@ private fun OcrConfirmationCard(
                 }
             }
 
-            // Linha 2: Dados do OCR
+            // Linha 2: Dados do OCR com botão "Ler Novamente"
             Surface(
                 color = SurfaceDarkAlt,
                 shape = RoundedCornerShape(10.dp),
@@ -1075,6 +1084,39 @@ private fun OcrConfirmationCard(
                     val hasRecipient = !parsedAddress?.recipientName.isNullOrBlank()
                     val hasAddress = !parsedAddress?.fullFormattedAddress.isNullOrBlank()
                     val hasCep = !parsedAddress?.cep.isNullOrBlank()
+                    val hasReference = !parsedAddress?.reference.isNullOrBlank()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "ENDEREÇO DA ETIQUETA",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextSecondaryDark
+                        )
+
+                        TextButton(
+                            onClick = onRetryOcr,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Ler Novamente",
+                                tint = OrangeNeon,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Ler Novamente",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeNeon
+                            )
+                        }
+                    }
 
                     if (hasRecipient) {
                         Text(
@@ -1104,6 +1146,16 @@ private fun OcrConfirmationCard(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = GreenNeon
+                        )
+                    }
+
+                    if (hasReference) {
+                        Text(
+                            text = "📝 Ref: ${parsedAddress?.reference}",
+                            fontSize = 11.sp,
+                            color = YellowGold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -1220,87 +1272,160 @@ private fun OcrConfirmationCard(
                 }
             }
 
-            // Linha 4: Tipo de Pacote (50% / 50%)
-            val isPacotinho = currentPackageType == PackageType.PACOTINHO
-            val isVolumoso = currentPackageType == PackageType.VOLUMOSO
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // Linha 4: Combobox de Tipo de Carga (Dropdown com: Pacote, Volumoso, Documento, Comida, Farmácia)
+            Box(modifier = Modifier.fillMaxWidth()) {
                 Surface(
-                    color = if (isPacotinho) OrangeNeon else SurfaceDarkAlt,
+                    color = SurfaceDarkAlt,
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, if (isPacotinho) OrangeNeon else Color.White.copy(alpha = 0.15f)),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelectPackageType(PackageType.PACOTINHO) }
-                ) {
-                    Text(
-                        text = "📦 Pacote",
-                        color = if (isPacotinho) Color.White else TextSecondaryDark,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-
-                Surface(
-                    color = if (isVolumoso) YellowGold else SurfaceDarkAlt,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, if (isVolumoso) YellowGold else Color.White.copy(alpha = 0.15f)),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelectPackageType(PackageType.VOLUMOSO) }
-                ) {
-                    Text(
-                        text = "🏋️ Volumoso",
-                        color = if (isVolumoso) Color.Black else TextSecondaryDark,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-            }
-
-            // Se houver parceiros cadastrados (Prompt 6), oferece atalho de atribuição
-            if (partners.isNotEmpty()) {
-                val assignedPartnerName = partners.firstOrNull { it.id == selectedPartnerId }?.fullName
-                Surface(
-                    color = if (selectedPartnerId != null) OrangeNeon.copy(alpha = 0.15f) else Color.Transparent,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, if (selectedPartnerId != null) OrangeNeon else Color.White.copy(alpha = 0.15f)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            val nextPartner = when {
-                                selectedPartnerId == null -> partners.firstOrNull()?.id
-                                else -> {
-                                    val idx = partners.indexOfFirst { it.id == selectedPartnerId }
-                                    if (idx in 0 until partners.size - 1) partners[idx + 1].id else null
-                                }
-                            }
-                            onSelectPartner(nextPartner)
-                        }
+                        .clickable { showCargoTypeDropdown = true }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = if (selectedPartnerId != null) "👤 Atribuir a: ${assignedPartnerName ?: "Parceiro"}" else "👤 Destinado a: Master (Você)",
-                            fontSize = 11.sp,
-                            color = if (selectedPartnerId != null) OrangeNeon else TextSecondaryDark,
-                            fontWeight = if (selectedPartnerId != null) FontWeight.Bold else FontWeight.Normal
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "📦 Tipo de Carga:",
+                                fontSize = 11.sp,
+                                color = TextSecondaryDark
+                            )
+                            val cargoLabel = when (currentPackageType) {
+                                PackageType.PACOTINHO -> "📦 Pacote"
+                                PackageType.VOLUMOSO -> "🏋️ Volumoso"
+                                PackageType.DOCUMENTO -> "📄 Documento"
+                                PackageType.COMIDA -> "🍔 Comida"
+                                PackageType.FARMACIA -> "💊 Farmácia"
+                            }
+                            Text(
+                                text = cargoLabel,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimaryDark
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Selecionar Tipo",
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Text(
-                            text = "Alternar",
-                            fontSize = 10.sp,
-                            color = OrangeNeon,
-                            fontWeight = FontWeight.SemiBold
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showCargoTypeDropdown,
+                    onDismissRequest = { showCargoTypeDropdown = false }
+                ) {
+                    PackageType.entries.forEach { pkgType ->
+                        val itemLabel = when (pkgType) {
+                            PackageType.PACOTINHO -> "📦 Pacote"
+                            PackageType.VOLUMOSO -> "🏋️ Volumoso"
+                            PackageType.DOCUMENTO -> "📄 Documento"
+                            PackageType.COMIDA -> "🍔 Comida"
+                            PackageType.FARMACIA -> "💊 Farmácia"
+                        }
+                        val isSelected = pkgType == currentPackageType
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = itemLabel,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) OrangeNeon else TextPrimaryDark
+                                )
+                            },
+                            onClick = {
+                                showCargoTypeDropdown = false
+                                onSelectPackageType(pkgType)
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Linha 5: Combobox de Parceiros ('Atribuir a:') com opção 'Motorista Master (Você)' e ordem alfabética
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    color = if (selectedPartnerId != null) OrangeNeon.copy(alpha = 0.12f) else SurfaceDarkAlt,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, if (selectedPartnerId != null) OrangeNeon.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showPartnerDropdown = true }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
+                            Text(
+                                text = "👤 Atribuir a:",
+                                fontSize = 11.sp,
+                                color = TextSecondaryDark
+                            )
+                            Text(
+                                text = if (selectedPartnerId != null) (assignedPartnerName ?: "Parceiro") else "Motorista Master (Você)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (selectedPartnerId != null) OrangeNeon else TextPrimaryDark,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Selecionar Parceiro",
+                            tint = OrangeNeon,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showPartnerDropdown,
+                    onDismissRequest = { showPartnerDropdown = false }
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "👤 Motorista Master (Você)",
+                                fontSize = 12.sp,
+                                fontWeight = if (selectedPartnerId == null) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedPartnerId == null) OrangeNeon else TextPrimaryDark
+                            )
+                        },
+                        onClick = {
+                            showPartnerDropdown = false
+                            onSelectPartner(null)
+                        }
+                    )
+                    sortedPartners.forEach { partner ->
+                        val isSelected = partner.id == selectedPartnerId
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "🛵 ${partner.fullName}",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) OrangeNeon else TextPrimaryDark
+                                )
+                            },
+                            onClick = {
+                                showPartnerDropdown = false
+                                onSelectPartner(partner.id)
+                            }
                         )
                     }
                 }

@@ -2,6 +2,7 @@ package com.fernando.centraldomotorista.ui.screens.routes.master
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.AltRoute
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
@@ -42,13 +44,17 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -99,6 +105,8 @@ fun RouteCockpitScreen(
     var stopToRemove by remember { mutableStateOf<MasterRouteStop?>(null) }
     var stopToEdit by remember { mutableStateOf<MasterRouteStop?>(null) }
     var showSearchScannerDialog by remember { mutableStateOf(false) }
+    var draggedStopId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(routeId) {
         viewModel.loadCockpit(routeId)
@@ -566,6 +574,7 @@ fun RouteCockpitScreen(
                         }
                     } else {
                         items(activeStops, key = { it.id }) { stop ->
+                            val isDraggingThis = draggedStopId == stop.id
                             StopDeliveryCard(
                                 stop = stop,
                                 isNext = (stop.id == nextPendingStopId),
@@ -586,7 +595,68 @@ fun RouteCockpitScreen(
                                 },
                                 onEditStop = { stopToEdit = it },
                                 onDeleteStop = { stopToRemove = it },
-                                partners = uiState.deliveryPartners
+                                partners = uiState.deliveryPartners,
+                                dragHandle = {
+                                    Icon(
+                                        imageVector = Icons.Default.DragHandle,
+                                        contentDescription = "Arrastar para reordenar parada",
+                                        tint = if (isDraggingThis) OrangeNeon else TextSecondaryDark.copy(alpha = 0.5f),
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .pointerInput(stop.id) {
+                                                detectVerticalDragGestures(
+                                                    onDragStart = {
+                                                        draggedStopId = stop.id
+                                                        dragOffsetY = 0f
+                                                    },
+                                                    onDragEnd = {
+                                                        draggedStopId = null
+                                                        dragOffsetY = 0f
+                                                        viewModel.saveReorderedStops()
+                                                    },
+                                                    onDragCancel = {
+                                                        draggedStopId = null
+                                                        dragOffsetY = 0f
+                                                    },
+                                                    onVerticalDrag = { change, dragAmount ->
+                                                        change.consume()
+                                                        dragOffsetY += dragAmount
+                                                        val activeIndex = activeStops.indexOfFirst { it.id == stop.id }
+                                                        val thresholdPx = 130f
+                                                        if (dragOffsetY > thresholdPx && activeIndex in 0 until activeStops.size - 1) {
+                                                            val currentFullIndex = uiState.stops.indexOfFirst { it.id == stop.id }
+                                                            val targetStop = activeStops[activeIndex + 1]
+                                                            val targetFullIndex = uiState.stops.indexOfFirst { it.id == targetStop.id }
+                                                            if (currentFullIndex >= 0 && targetFullIndex >= 0) {
+                                                                viewModel.moveStop(currentFullIndex, targetFullIndex)
+                                                                dragOffsetY -= thresholdPx
+                                                            }
+                                                        } else if (dragOffsetY < -thresholdPx && activeIndex > 0) {
+                                                            val currentFullIndex = uiState.stops.indexOfFirst { it.id == stop.id }
+                                                            val targetStop = activeStops[activeIndex - 1]
+                                                            val targetFullIndex = uiState.stops.indexOfFirst { it.id == targetStop.id }
+                                                            if (currentFullIndex >= 0 && targetFullIndex >= 0) {
+                                                                viewModel.moveStop(currentFullIndex, targetFullIndex)
+                                                                dragOffsetY += thresholdPx
+                                                            }
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateItem()
+                                    .then(
+                                        if (isDraggingThis) {
+                                            Modifier
+                                                .zIndex(2f)
+                                                .graphicsLayer { translationY = dragOffsetY }
+                                        } else {
+                                            Modifier.zIndex(1f)
+                                        }
+                                    )
                             )
                         }
 

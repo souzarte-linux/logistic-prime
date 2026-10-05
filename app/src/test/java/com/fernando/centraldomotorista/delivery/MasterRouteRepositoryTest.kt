@@ -474,6 +474,62 @@ class MasterRouteRepositoryTest {
     }
 
     @Test
+    fun testUpdateStopTransferReassignToMasterWithNullPartner() = runBlocking {
+        val route = repository.createRoute(platformId = null, startLocation = "Hub")
+        val stop = repository.addStop(
+            routeId = route.id,
+            barcode = "TRANS-REASSIGN-01",
+            recipientName = "Destinatário",
+            fullAddress = "Av Paulista, 100",
+            cep = "01310-000",
+            assignedPartnerId = "partner-marcos",
+            transferStatus = TransferStatus.ATRIBUIDO_PENDENTE
+        )
+
+        val success = repository.updateStopTransfer(
+            stopId = stop.id,
+            partnerId = null,
+            status = null
+        )
+
+        assertTrue(success)
+        val stopAfter = fakeApi.stopsStorage[stop.id]
+        assertNull(stopAfter?.assignedPartnerId)
+        assertNull(stopAfter?.transferStatus)
+        assertNull(stopAfter?.transferredVia)
+        assertNull(stopAfter?.transferredAt)
+    }
+
+    @Test
+    fun testReassignStopToMaster() = runBlocking {
+        val route = repository.createRoute(platformId = null, startLocation = "Hub")
+        val stop = repository.addStop(
+            routeId = route.id,
+            barcode = "TRANS-REASSIGN-02",
+            recipientName = "Destinatário 2",
+            fullAddress = "Rua Augusta, 500",
+            cep = "01305-000",
+            assignedPartnerId = "partner-lucas",
+            transferStatus = TransferStatus.CONFIRMADO
+        )
+
+        val success = repository.reassignStopToMaster(stop.id)
+        assertTrue(success)
+
+        val stopAfter = fakeApi.stopsStorage[stop.id]
+        assertNull(stopAfter?.assignedPartnerId)
+        assertNull(stopAfter?.transferStatus)
+        assertNull(stopAfter?.transferredVia)
+        assertNull(stopAfter?.transferredAt)
+    }
+
+    @Test
+    fun testReassignStopToMasterWithBlankIdReturnsFalse() = runBlocking {
+        val success = repository.reassignStopToMaster("   ")
+        assertFalse(success)
+    }
+
+    @Test
     fun testImportMasterStopToPartnerSession() = runBlocking {
         val route = repository.createRoute(platformId = null, startLocation = "Galpão")
         val masterStop = repository.addStop(
@@ -794,8 +850,22 @@ class MasterRouteRepositoryTest {
         assertEquals(StopStatus.PENDENTE, StopStatus.fromValue("outro"))
 
         assertEquals(PackageType.PACOTINHO, PackageType.fromValue("pacotinho"))
+        assertEquals(PackageType.PACOTINHO, PackageType.fromValue("Pacote"))
         assertEquals(PackageType.VOLUMOSO, PackageType.fromValue("volumoso"))
+        assertEquals(PackageType.VOLUMOSO, PackageType.fromValue("Volumoso"))
+        assertEquals(PackageType.DOCUMENTO, PackageType.fromValue("documento"))
+        assertEquals(PackageType.DOCUMENTO, PackageType.fromValue("Documento"))
+        assertEquals(PackageType.COMIDA, PackageType.fromValue("comida"))
+        assertEquals(PackageType.COMIDA, PackageType.fromValue("Comida"))
+        assertEquals(PackageType.FARMACIA, PackageType.fromValue("farmacia"))
+        assertEquals(PackageType.FARMACIA, PackageType.fromValue("Farmácia"))
         assertEquals(PackageType.PACOTINHO, PackageType.fromValue("invalido"))
+        assertEquals(5, PackageType.all().size)
+        assertEquals("Pacote", PackageType.PACOTINHO.label)
+        assertEquals("Volumoso", PackageType.VOLUMOSO.label)
+        assertEquals("Documento", PackageType.DOCUMENTO.label)
+        assertEquals("Comida", PackageType.COMIDA.label)
+        assertEquals("Farmácia", PackageType.FARMACIA.label)
 
         assertEquals(TransferStatus.ATRIBUIDO_PENDENTE, TransferStatus.fromValue("atribuido_pendente"))
         assertEquals(TransferStatus.CONFIRMADO, TransferStatus.fromValue("confirmado"))

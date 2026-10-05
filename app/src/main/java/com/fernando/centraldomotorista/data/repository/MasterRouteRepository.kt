@@ -229,6 +229,8 @@ open class MasterRouteRepository(
 
     /**
      * Atualiza o status e detalhes de transferência de uma parada para um parceiro.
+     * Suporta partnerId = null (ou em branco) para desatribuir e reatribuir ao Master,
+     * limpando assignedPartnerId, transferStatus, transferredVia e transferredAt.
      */
     suspend fun updateStopTransfer(
         stopId: String,
@@ -236,12 +238,18 @@ open class MasterRouteRepository(
         status: TransferStatus?,
         via: String? = null
     ): Boolean = withContext(Dispatchers.IO) {
+        if (stopId.isBlank()) return@withContext false
         try {
-            val transferredAt = if (status != null) OffsetDateTime.now().toString() else null
+            val isReassigningToMaster = partnerId.isNullOrBlank()
+            val effectivePartnerId = if (isReassigningToMaster) null else partnerId
+            val effectiveStatus = if (isReassigningToMaster) null else status
+            val effectiveVia = if (isReassigningToMaster) null else via
+            val transferredAt = if (effectiveStatus != null) OffsetDateTime.now().toString() else null
+
             val body = UpdateStopTransferDto(
-                assignedPartnerId = partnerId,
-                transferStatus = status?.value,
-                transferredVia = via,
+                assignedPartnerId = effectivePartnerId,
+                transferStatus = effectiveStatus?.value,
+                transferredVia = effectiveVia,
                 transferredAt = transferredAt
             )
             val updated = masterRouteApi.updateStopTransfer("eq.$stopId", body)
@@ -254,6 +262,20 @@ open class MasterRouteRepository(
             Log.e(tag, "Erro ao atualizar transferência da parada $stopId: ${e.message}", e)
             false
         }
+    }
+
+    /**
+     * Reatribui uma parada de volta ao Master, desvinculando o entregador parceiro
+     * e limpando assignedPartnerId e transferStatus no Supabase.
+     */
+    suspend fun reassignStopToMaster(stopId: String): Boolean = withContext(Dispatchers.IO) {
+        if (stopId.isBlank()) return@withContext false
+        updateStopTransfer(
+            stopId = stopId,
+            partnerId = null,
+            status = null,
+            via = null
+        )
     }
 
     /**
