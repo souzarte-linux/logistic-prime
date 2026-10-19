@@ -54,6 +54,12 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState(loading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    val scrollToTopEvents = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    fun triggerScrollToTop() {
+        scrollToTopEvents.tryEmit(Unit)
+    }
+
     init {
         loadData()
         viewModelScope.launch {

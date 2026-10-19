@@ -64,7 +64,7 @@ class HomeRepository(
     private val expenseApi: ExpenseApi = RetrofitClient.expenseApi,
     private val dailyTotalApi: DailyTotalApi = RetrofitClient.dailyTotalApi,
     private val partMaintenanceApi: PartMaintenanceApi = RetrofitClient.partMaintenanceApi,
-    private val billingCycleApi: BillingCycleApi = RetrofitClient.billingCycleApi,
+    private val billingCycleRepository: BillingCycleRepository = BillingCycleRepository(),
     private val notificationApi: NotificationApi = RetrofitClient.notificationApi,
     private val platformApi: PlatformApi = RetrofitClient.platformApi
 ) {
@@ -116,9 +116,9 @@ class HomeRepository(
             }
             val billingCyclesDeferred = async {
                 try {
-                    billingCycleApi.getBillingCycles(userFilter, "eq.pending").map { it.toDomain() }
+                    billingCycleRepository.getBillingCyclesWithTotals(userId)
                 } catch (e: Exception) {
-                    Log.e("HomeRepository", "Erro ao buscar billing_cycles: ${e.message}", e)
+                    Log.e("HomeRepository", "Erro ao buscar billing_cycles com totais: ${e.message}", e)
                     emptyList()
                 }
             }
@@ -149,7 +149,7 @@ class HomeRepository(
             val allExpenses = expensesDeferred.await()
             val allDailyTotals = dailyTotalsDeferred.await()
             val allPartMaintenances = partMaintenancesDeferred.await()
-            val pendingCycles = billingCyclesDeferred.await()
+            val cyclesWithTotals = billingCyclesDeferred.await()
             val unreadNotifications = notificationsDeferred.await()
             val platforms = platformsDeferred.await()
             val platformsMap = platforms.associate { it.id to it.name }
@@ -187,40 +187,67 @@ class HomeRepository(
                 if (it.isOverdue) it.kmOverdue else it.kmRemaining
             } ?: BigDecimal.ZERO
 
-            // 4. Contas a Receber e Detalhamento de Itens
-            val pendingCycleIds = pendingCycles.map { it.id }.toSet()
-            val pendingRoutes = allRoutes.filter { it.billingCycleId != null && pendingCycleIds.contains(it.billingCycleId) }
-            val pendingDailyTotals = allDailyTotals.filter { it.billingCycleId != null && pendingCycleIds.contains(it.billingCycleId) }
+            // 4. Contas a Receber e Detalhamento de Itens (Aba "Ciclo A Vencer" de Contas a Receber)
+            val aVencerCycles = cyclesWithTotals.filter { it.cycle.status == "a_vencer" && it.totalAmount > BigDecimal.ZERO }
+            val contasAReceber = aVencerCycles.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
 
             val itensAReceber = mutableListOf<ReceivableItem>()
-            pendingRoutes.forEach { r ->
-                val origin = r.origin?.ifBlank { "Origem" } ?: "Rota"
-                val dest = r.destination?.ifBlank { "Destino" } ?: "Entregas"
-                itensAReceber.add(
-                    ReceivableItem(
-                        id = r.id,
-                        title = "$origin ➔ $dest",
-                        platformName = r.platformId?.let { platformsMap[it] },
-                        date = r.occurredAt,
-                        amount = r.amount,
-                        isDailyTotal = false
+            aVencerCycles.forEach { c ->
+                c.routes.forEach { r ->
+                    val origin = r.origin?.ifBlank { "Origem" } ?: "Rota"
+                    val dest = r.destination?.ifBlank { "Destino" } ?: "Entregas"
+                    itensAReceber.add(
+                        ReceivableItem(
+                            id = r.id,
+                            title = "$origin ➔ $dest",
+                            platformName = c.platformName,
+                            date = r.occurredAt,
+                            amount = r.amount,
+                            isDailyTotal = false
+                        )
                     )
-                )
-            }
-            pendingDailyTotals.forEach { dt ->
-                itensAReceber.add(
-                    ReceivableItem(
-                        id = dt.id,
-                        title = "Lançamento Total do Dia",
-                        platformName = dt.platformId?.let { platformsMap[it] },
-                        date = dt.occurredAt,
-                        amount = dt.amount,
-                        isDailyTotal = true
+                }
+                c.dailyTotals.forEach { dt ->
+                    itensAReceber.add(
+                        ReceivableItem(
+                            id = dt.id,
+                            title = "Lançamento Total do Dia",
+                            platformName = c.platformName,
+                            date = dt.occurredAt,
+                            amount = dt.amount,
+                            isDailyTotal = true
+                        )
                     )
-                )
+                }
+                c.sessions.forEach { s ->
+                    val sDate = (s.startTime ?: s.createdAt)
+                    if (sDate != null) {
+                        itensAReceber.add(
+                            ReceivableItem(
+                                id = s.id,
+                                title = "Sessão de Entregas",
+                                platformName = c.platformName,
+                                date = sDate,
+                                amount = s.amountPaid,
+                                isDailyTotal = false
+                            )
+                        )
+                    }
+                }
+                c.adjustments.forEach { adj ->
+                    itensAReceber.add(
+                        ReceivableItem(
+                            id = adj.id,
+                            title = adj.description?.ifBlank { "Ajuste Financeiro" } ?: "Ajuste Financeiro",
+                            platformName = c.platformName,
+                            date = adj.occurredAt.atStartOfDay(zone).toOffsetDateTime(),
+                            amount = adj.amount,
+                            isDailyTotal = false
+                        )
+                    )
+                }
             }
             val itensAReceberOrdenados = itensAReceber.sortedByDescending { it.date }
-            val contasAReceber = itensAReceberOrdenados.map { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add)
 
             // 5. Rotas Recentes (top 5)
             val rotasRecentes = allRoutes.take(5)

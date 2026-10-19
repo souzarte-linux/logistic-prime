@@ -184,11 +184,13 @@ fun CentralDoMotoristaApp(
                                 if (!isCurrentDestination(screen.route)) {
                                     navController.navigate(screen.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
+                                            saveState = (screen.route != Screen.Inicio.route)
                                         }
                                         launchSingleTop = true
-                                        restoreState = true
+                                        restoreState = (screen.route != Screen.Inicio.route)
                                     }
+                                } else if (screen.route == Screen.Inicio.route) {
+                                    homeViewModel.triggerScrollToTop()
                                 }
                             },
                             colors = NavigationBarItemDefaults.colors(
