@@ -105,9 +105,8 @@ object BillingCycleCalculator {
 
         return when (cycle) {
             "semanal" -> {
-                val closingDay = parseClosingDayOfWeek(platform.paymentDay)
-                val c0End = refDate.with(TemporalAdjusters.nextOrSame(closingDay))
-                val c0Start = c0End.minusDays(6)
+                val c0Start = refDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                val c0End = c0Start.plusDays(6)
                 val c0Pay = c0End.plusDays(payDelay)
 
                 val c1Start = c0Start.plusDays(7)

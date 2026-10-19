@@ -2,6 +2,7 @@ package com.fernando.centraldomotorista.data.repository
 
 import android.util.Log
 import com.fernando.centraldomotorista.data.billing.BillingCycleCalculator
+import com.fernando.centraldomotorista.data.billing.CycleInterval
 import com.fernando.centraldomotorista.data.model.BillingCycle
 import com.fernando.centraldomotorista.data.remote.RetrofitClient
 import com.fernando.centraldomotorista.data.remote.api.BillingCycleApi

@@ -719,31 +719,31 @@ class BillingCycleV2Test {
     }
 
     @Test
-    fun `test weekly cycle with custom closing day Wednesday (QUA)`() {
+    fun `test weekly cycle intervals standard from Monday to Sunday with pay delay`() {
         val platform = Platform(
             id = "plat-wed",
             userId = "user-1",
             name = "Shopee Quarta",
             cycle = "semanal",
             paymentDay = "QUA",
-            rules = PlatformRules(fixedPayDelay = 7)
+            rules = PlatformRules(fixedPayDelay = 3)
         )
 
-        // Quarta-feira, 20/05/2026: deve ser a data final de c0
+        // Quarta-feira, 20/05/2026: pertence à semana de 18/05 (segunda) a 24/05 (domingo)
         val refWed = LocalDate.of(2026, 5, 20)
         val intervalsWed = BillingCycleCalculator.getPlatformCycleIntervals(platform, refWed)
         assertEquals(2, intervalsWed.size)
 
         val c0 = intervalsWed[0]
-        assertEquals(LocalDate.of(2026, 5, 20), c0.periodEnd) // Encerra na quarta
-        assertEquals(LocalDate.of(2026, 5, 14), c0.periodStart) // Inicia 6 dias antes (quinta)
-        assertEquals(LocalDate.of(2026, 5, 27), c0.expectedPaymentDate) // 7 dias após o fechamento
+        assertEquals(LocalDate.of(2026, 5, 18), c0.periodStart) // Segunda-feira
+        assertEquals(LocalDate.of(2026, 5, 24), c0.periodEnd) // Domingo
+        assertEquals(LocalDate.of(2026, 5, 27), c0.expectedPaymentDate) // Domingo 24 + 3 dias = Quarta-feira 27/05
 
-        // Próximo ciclo c1: de quinta 21/05 a quarta 27/05
+        // Próximo ciclo c1: de segunda 25/05 a domingo 31/05
         val c1 = intervalsWed[1]
-        assertEquals(LocalDate.of(2026, 5, 21), c1.periodStart)
-        assertEquals(LocalDate.of(2026, 5, 27), c1.periodEnd)
-        assertEquals(LocalDate.of(2026, 6, 3), c1.expectedPaymentDate)
+        assertEquals(LocalDate.of(2026, 5, 25), c1.periodStart)
+        assertEquals(LocalDate.of(2026, 5, 31), c1.periodEnd)
+        assertEquals(LocalDate.of(2026, 6, 3), c1.expectedPaymentDate) // Domingo 31 + 3 dias = Quarta-feira 03/06
     }
 
     @Test
