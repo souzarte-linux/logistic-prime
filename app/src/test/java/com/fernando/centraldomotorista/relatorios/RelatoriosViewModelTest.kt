@@ -1,6 +1,7 @@
 package com.fernando.centraldomotorista.relatorios
 
 import com.fernando.centraldomotorista.data.model.*
+import com.fernando.centraldomotorista.data.repository.BillingCycleWithTotals
 import com.fernando.centraldomotorista.ui.common.period.PeriodPreset
 import com.fernando.centraldomotorista.ui.screens.relatorios.CategoryMetric
 import com.fernando.centraldomotorista.ui.screens.relatorios.MaintScheduleStatus
@@ -344,5 +345,172 @@ class RelatoriosViewModelTest {
         assertEquals(12, vm.uiState.value.timelineBuckets.size)
         assertEquals("Jan", vm.uiState.value.timelineBuckets.first().label)
         assertEquals("Dez", vm.uiState.value.timelineBuckets.last().label)
+    }
+
+    @Test
+    fun testFutureCashFlowPieChartWithAVencerCyclesComputesCorrectPlatformShares() {
+        val vm = createViewModel()
+
+        val platML = Platform(id = "p-ml", userId = "u1", name = "Mercado Livre", cycle = "semanal", paymentDay = "sexta")
+        val platShopee = Platform(id = "p-shopee", userId = "u1", name = "Shopee", cycle = "semanal", paymentDay = "sexta")
+
+        // 1. Ciclo a vencer do Mercado Livre (R$ 700.00)
+        val cycleML = BillingCycle(
+            id = "c-ml",
+            userId = "u1",
+            platformId = "p-ml",
+            periodStart = LocalDate.of(2026, 9, 1),
+            periodEnd = LocalDate.of(2026, 9, 7),
+            expectedPaymentDate = LocalDate.of(2026, 9, 18),
+            status = "a_vencer"
+        )
+        val cycleWithTotalsML = BillingCycleWithTotals(
+            cycle = cycleML,
+            platformName = "Mercado Livre",
+            totalAmount = BigDecimal("700.00")
+        )
+
+        // 2. Ciclo a vencer da Shopee (R$ 300.00)
+        val cycleShopee = BillingCycle(
+            id = "c-shopee",
+            userId = "u1",
+            platformId = "p-shopee",
+            periodStart = LocalDate.of(2026, 9, 1),
+            periodEnd = LocalDate.of(2026, 9, 7),
+            expectedPaymentDate = LocalDate.of(2026, 9, 20),
+            status = "a_vencer"
+        )
+        val cycleWithTotalsShopee = BillingCycleWithTotals(
+            cycle = cycleShopee,
+            platformName = "Shopee",
+            totalAmount = BigDecimal("300.00")
+        )
+
+        // 3. Ciclo já pago (não deve entrar no fluxo futuro)
+        val cyclePago = BillingCycle(
+            id = "c-pago",
+            userId = "u1",
+            platformId = "p-ml",
+            periodStart = LocalDate.of(2026, 8, 20),
+            periodEnd = LocalDate.of(2026, 8, 27),
+            expectedPaymentDate = LocalDate.of(2026, 9, 5),
+            status = "pago"
+        )
+        val cycleWithTotalsPago = BillingCycleWithTotals(
+            cycle = cyclePago,
+            platformName = "Mercado Livre",
+            totalAmount = BigDecimal("500.00")
+        )
+
+        // 4. Ciclo em aberto (aba Em Aberto, não A Vencer)
+        val cycleAberto = BillingCycle(
+            id = "c-aberto",
+            userId = "u1",
+            platformId = "p-shopee",
+            periodStart = LocalDate.of(2026, 9, 14),
+            periodEnd = LocalDate.of(2026, 9, 21),
+            expectedPaymentDate = LocalDate.of(2026, 9, 28),
+            status = "em_aberto"
+        )
+        val cycleWithTotalsAberto = BillingCycleWithTotals(
+            cycle = cycleAberto,
+            platformName = "Shopee",
+            totalAmount = BigDecimal("150.00")
+        )
+
+        vm.setTestData(
+            platforms = listOf(platML, platShopee),
+            cyclesWithTotals = listOf(cycleWithTotalsML, cycleWithTotalsShopee, cycleWithTotalsPago, cycleWithTotalsAberto)
+        )
+
+        val state = vm.uiState.value
+        // Total esperado: 700 + 300 = 1000.00
+        assertEquals(BigDecimal("1000.00"), state.futureCashFlowTotal)
+
+        // 2 plataformas na pizza
+        assertEquals(2, state.futureCashFlowPlatforms.size)
+
+        // 1ª Maior fatia: Mercado Livre (R$ 700.00 = 70.0%)
+        val firstShare = state.futureCashFlowPlatforms[0]
+        assertEquals("Mercado Livre", firstShare.platformName)
+        assertEquals(BigDecimal("700.00"), firstShare.amount)
+        assertEquals(70.0f, firstShare.percentage, 0.01f)
+
+        // 2ª Fatia: Shopee (R$ 300.00 = 30.0%)
+        val secondShare = state.futureCashFlowPlatforms[1]
+        assertEquals("Shopee", secondShare.platformName)
+        assertEquals(BigDecimal("300.00"), secondShare.amount)
+        assertEquals(30.0f, secondShare.percentage, 0.01f)
+    }
+
+    @Test
+    fun testFutureCashFlowFilterBySpecificPlatform() {
+        val vm = createViewModel()
+
+        val platML = Platform(id = "p-ml", userId = "u1", name = "Mercado Livre", cycle = "semanal", paymentDay = "sexta")
+        val platShopee = Platform(id = "p-shopee", userId = "u1", name = "Shopee", cycle = "semanal", paymentDay = "sexta")
+
+        val cycleML = BillingCycle(
+            id = "c-ml",
+            userId = "u1",
+            platformId = "p-ml",
+            periodStart = LocalDate.of(2026, 9, 1),
+            periodEnd = LocalDate.of(2026, 9, 7),
+            expectedPaymentDate = LocalDate.of(2026, 9, 18),
+            status = "a_vencer"
+        )
+        val cycleShopee = BillingCycle(
+            id = "c-shopee",
+            userId = "u1",
+            platformId = "p-shopee",
+            periodStart = LocalDate.of(2026, 9, 1),
+            periodEnd = LocalDate.of(2026, 9, 7),
+            expectedPaymentDate = LocalDate.of(2026, 9, 20),
+            status = "a_vencer"
+        )
+
+        vm.setTestData(
+            platforms = listOf(platML, platShopee),
+            cyclesWithTotals = listOf(
+                BillingCycleWithTotals(cycle = cycleML, platformName = "Mercado Livre", totalAmount = BigDecimal("700.00")),
+                BillingCycleWithTotals(cycle = cycleShopee, platformName = "Shopee", totalAmount = BigDecimal("300.00"))
+            )
+        )
+
+        // Filtra apenas por Shopee
+        vm.selectPlatform("p-shopee")
+
+        val state = vm.uiState.value
+        assertEquals(BigDecimal("300.00"), state.futureCashFlowTotal)
+        assertEquals(1, state.futureCashFlowPlatforms.size)
+        assertEquals("Shopee", state.futureCashFlowPlatforms.first().platformName)
+        assertEquals(100.0f, state.futureCashFlowPlatforms.first().percentage, 0.01f)
+    }
+
+    @Test
+    fun testFutureCashFlowZeroWhenNoAVencerInvoices() {
+        val vm = createViewModel()
+
+        val platML = Platform(id = "p-ml", userId = "u1", name = "Mercado Livre", cycle = "semanal", paymentDay = "sexta")
+        val cyclePago = BillingCycle(
+            id = "c-pago",
+            userId = "u1",
+            platformId = "p-ml",
+            periodStart = LocalDate.of(2026, 8, 20),
+            periodEnd = LocalDate.of(2026, 8, 27),
+            expectedPaymentDate = LocalDate.of(2026, 9, 5),
+            status = "pago"
+        )
+
+        vm.setTestData(
+            platforms = listOf(platML),
+            cyclesWithTotals = listOf(
+                BillingCycleWithTotals(cycle = cyclePago, platformName = "Mercado Livre", totalAmount = BigDecimal("500.00"))
+            )
+        )
+
+        val state = vm.uiState.value
+        assertEquals(BigDecimal.ZERO, state.futureCashFlowTotal)
+        assertTrue(state.futureCashFlowPlatforms.isEmpty())
     }
 }

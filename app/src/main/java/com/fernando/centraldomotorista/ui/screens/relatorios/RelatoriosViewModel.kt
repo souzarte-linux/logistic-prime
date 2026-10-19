@@ -59,6 +59,7 @@ class RelatoriosViewModel(
     private var cachedPlatforms: List<Platform> = emptyList()
     private var cachedParts: List<PartMaintenance> = emptyList()
     private var cachedBillingCycles: List<BillingCycle> = emptyList()
+    private var cachedBillingCyclesWithTotals: List<BillingCycleWithTotals> = emptyList()
     private var cachedAdjustments: List<FinancialAdjustment> = emptyList()
     private var cachedOilChanges: List<OilChange> = emptyList()
 
@@ -98,7 +99,19 @@ class RelatoriosViewModel(
                 val expenses = expenseRepository.getExpenses(userId)
                 val platforms = platformRepository.getPlatforms(userId)
                 val parts = partMaintenanceRepository.getPartMaintenances(userId)
-                val cycles = billingCycleRepository.getBillingCycles(userId)
+                val cyclesWithTotals = try {
+                    billingCycleRepository.getBillingCyclesWithTotals(userId)
+                } catch (e: Exception) {
+                    Log.w("RelatoriosVM", "Aviso ao carregar ciclos com totais: ${e.message}")
+                    emptyList()
+                }
+                val cycles = cyclesWithTotals.map { it.cycle }.ifEmpty {
+                    try {
+                        billingCycleRepository.getBillingCycles(userId)
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                }
                 val adjustments = financialAdjustmentRepository.getFinancialAdjustments(userId)
                 val oilChanges = oilChangeRepository.getOilChanges(userId)
 
@@ -108,6 +121,7 @@ class RelatoriosViewModel(
                 cachedPlatforms = platforms
                 cachedParts = parts
                 cachedBillingCycles = cycles
+                cachedBillingCyclesWithTotals = cyclesWithTotals
                 cachedAdjustments = adjustments
                 cachedOilChanges = oilChanges
 
@@ -136,7 +150,8 @@ class RelatoriosViewModel(
         cycles: List<BillingCycle> = emptyList(),
         adjustments: List<FinancialAdjustment> = emptyList(),
         oilChanges: List<OilChange> = emptyList(),
-        preset: PeriodPreset = PeriodPreset.SEMANA
+        preset: PeriodPreset = PeriodPreset.SEMANA,
+        cyclesWithTotals: List<BillingCycleWithTotals> = emptyList()
     ) {
         cachedRoutes = routes
         cachedDailyTotals = dailyTotals
@@ -144,6 +159,7 @@ class RelatoriosViewModel(
         cachedPlatforms = platforms
         cachedParts = parts
         cachedBillingCycles = cycles
+        cachedBillingCyclesWithTotals = cyclesWithTotals
         cachedAdjustments = adjustments
         cachedOilChanges = oilChanges
         _uiState.update { it.copy(periodFilter = it.periodFilter.copy(preset = preset)) }
@@ -511,29 +527,78 @@ class RelatoriosViewModel(
         }
 
         // 6. Fluxo de Caixa Futuro (Faturas a Receber)
-        val futureCycles = cachedBillingCycles.filter {
-            !it.expectedPaymentDate.isBefore(today) && it.status != "paid"
-        }
+        // Paridade estrita com a Aba "Ciclo A Vencer" da tela "Contas a Receber"
+        val platMap = cachedPlatforms.associateBy { it.id }
 
-        val cycleTotalsMap = mutableMapOf<String, BigDecimal>()
-        cachedRoutes.forEach { r ->
-            if (!r.billingCycleId.isNullOrBlank()) {
-                val sum = cycleTotalsMap.getOrDefault(r.billingCycleId, BigDecimal.ZERO)
-                cycleTotalsMap[r.billingCycleId] = sum.add(r.amount).add(r.tip)
+        val receivableCyclesWithTotals = if (cachedBillingCyclesWithTotals.isNotEmpty()) {
+            cachedBillingCyclesWithTotals.filter { c ->
+                val isReceivableStatus = c.cycle.status == "a_vencer" ||
+                    (c.cycle.status != "pago" && c.cycle.status != "cancelado" && c.cycle.status != "em_aberto")
+                val isSelectedPlatform = (selectedPlat == "all" || c.cycle.platformId == selectedPlat)
+                isReceivableStatus && isSelectedPlatform && c.totalAmount > BigDecimal.ZERO
             }
+        } else {
+            // Fallback para testes unitários ou ambientes legados
+            val futureCycles = cachedBillingCycles.filter {
+                (it.status == "a_vencer" || (!it.expectedPaymentDate.isBefore(today) && it.status != "pago" && it.status != "paid")) &&
+                (selectedPlat == "all" || it.platformId == selectedPlat)
+            }
+            val cycleTotalsMap = mutableMapOf<String, BigDecimal>()
+            cachedRoutes.forEach { r ->
+                if (!r.billingCycleId.isNullOrBlank()) {
+                    val sum = cycleTotalsMap.getOrDefault(r.billingCycleId, BigDecimal.ZERO)
+                    cycleTotalsMap[r.billingCycleId] = sum.add(r.amount).add(r.tip)
+                }
+            }
+            cachedDailyTotals.forEach { dt ->
+                if (!dt.billingCycleId.isNullOrBlank()) {
+                    val sum = cycleTotalsMap.getOrDefault(dt.billingCycleId, BigDecimal.ZERO)
+                    cycleTotalsMap[dt.billingCycleId] = sum.add(dt.amount)
+                }
+            }
+            futureCycles.map { cycle ->
+                val plat = platMap[cycle.platformId]
+                val amount = cycleTotalsMap.getOrDefault(cycle.id, BigDecimal.ZERO)
+                BillingCycleWithTotals(
+                    cycle = cycle,
+                    platformName = plat?.name ?: "Plataforma",
+                    totalAmount = amount
+                )
+            }.filter { it.totalAmount > BigDecimal.ZERO }
         }
 
-        val futureCashFlow = futureCycles
-            .groupBy { it.expectedPaymentDate }
+        val futureCashFlow = receivableCyclesWithTotals
+            .groupBy { it.cycle.expectedPaymentDate }
             .toSortedMap()
             .map { (date, cyclesForDate) ->
-                val amount = cyclesForDate.fold(BigDecimal.ZERO) { acc, c ->
-                    acc.add(cycleTotalsMap.getOrDefault(c.id, BigDecimal.ZERO))
-                }
+                val amount = cyclesForDate.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
                 val label = "${date.dayOfMonth.toString().padStart(2, '0')} ${monthLabels.getOrElse(date.monthValue - 1) { "" }.uppercase()}"
                 FutureCashFlowItem(date = date.toString(), label = label, amount = amount)
             }
             .filter { it.amount > BigDecimal.ZERO }
+
+        val totalFutureCashFlow = receivableCyclesWithTotals.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
+
+        val futureCashFlowPlatforms = receivableCyclesWithTotals
+            .groupBy { it.platformName.ifBlank { platMap[it.cycle.platformId]?.name ?: "Outra Plataforma" } }
+            .entries
+            .sortedByDescending { (_, cycles) -> cycles.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) } }
+            .mapIndexed { index, (platName, cycles) ->
+                val platAmount = cycles.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.totalAmount) }
+                val platId = cycles.firstOrNull()?.cycle?.platformId ?: ""
+                val sliceColor = RelatoriosChartColors[index % RelatoriosChartColors.size]
+                val pct = if (totalFutureCashFlow > BigDecimal.ZERO) {
+                    (platAmount.toDouble() / totalFutureCashFlow.toDouble() * 100.0).toFloat()
+                } else 0f
+
+                PlatformReceivableShare(
+                    platformId = platId,
+                    platformName = platName,
+                    amount = platAmount,
+                    percentage = pct,
+                    color = sliceColor
+                )
+            }
 
         // 7. Rentabilidade por Plataforma
         val platformMap = mutableMapOf<String, Triple<BigDecimal, BigDecimal, Long>>() // revenue, km, ms
@@ -710,6 +775,8 @@ class RelatoriosViewModel(
                 maintSchedule = maintSchedule,
                 timelineBuckets = timelineBuckets,
                 futureCashFlow = futureCashFlow,
+                futureCashFlowPlatforms = futureCashFlowPlatforms,
+                futureCashFlowTotal = totalFutureCashFlow,
                 platformProfitability = platformProfitability,
                 bonificacoes = bonificacoesByPlatform,
                 deliveredCategories = deliveredCategories,

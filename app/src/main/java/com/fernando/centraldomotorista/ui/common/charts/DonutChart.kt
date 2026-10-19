@@ -16,6 +16,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +40,7 @@ fun DonutChart(
     strokeWidth: Dp = 26.dp,
     centerLabel: String? = null,
     centerValue: String? = null,
+    selectedSliceKey: String? = null,
     onSliceClick: ((DonutSlice) -> Unit)? = null
 ) {
     val total = remember(slices) {
@@ -104,21 +108,61 @@ fun DonutChart(
                 var startAngle = -90f
                 val totalDouble = total.toDouble()
 
+                // Primeiro desenha as fatias não selecionadas
                 slices.forEach { slice ->
                     if (slice.value > BigDecimal.ZERO) {
                         val sliceFraction = (slice.value.toDouble() / totalDouble).toFloat()
                         val sweepAngle = sliceFraction * 360f * animationProgress.value
+                        val isSelected = slice.key == selectedSliceKey
 
-                        drawArc(
-                            color = slice.color,
-                            startAngle = startAngle,
-                            sweepAngle = sweepAngle,
-                            useCenter = false,
-                            topLeft = topLeft,
-                            size = arcSize,
-                            style = Stroke(width = strokePx, cap = StrokeCap.Butt)
-                        )
+                        if (!isSelected) {
+                            val alpha = if (selectedSliceKey != null) 0.45f else 1f
+                            drawArc(
+                                color = slice.color.copy(alpha = alpha),
+                                startAngle = startAngle,
+                                sweepAngle = sweepAngle,
+                                useCenter = false,
+                                topLeft = topLeft,
+                                size = arcSize,
+                                style = Stroke(width = strokePx, cap = StrokeCap.Butt)
+                            )
+                        }
                         startAngle += sliceFraction * 360f
+                    }
+                }
+
+                // Depois desenha a fatia selecionada por cima com borda de destaque
+                if (selectedSliceKey != null) {
+                    var selectedStartAngle = -90f
+                    slices.forEach { slice ->
+                        if (slice.value > BigDecimal.ZERO) {
+                            val sliceFraction = (slice.value.toDouble() / totalDouble).toFloat()
+                            val sweepAngle = sliceFraction * 360f * animationProgress.value
+
+                            if (slice.key == selectedSliceKey) {
+                                // 1. Borda externa destacada em branco
+                                drawArc(
+                                    color = Color.White,
+                                    startAngle = selectedStartAngle,
+                                    sweepAngle = sweepAngle,
+                                    useCenter = false,
+                                    topLeft = topLeft,
+                                    size = arcSize,
+                                    style = Stroke(width = strokePx + 6.dp.toPx(), cap = StrokeCap.Butt)
+                                )
+                                // 2. Corpo da fatia com a cor original em largura ressaltada
+                                drawArc(
+                                    color = slice.color,
+                                    startAngle = selectedStartAngle,
+                                    sweepAngle = sweepAngle,
+                                    useCenter = false,
+                                    topLeft = topLeft,
+                                    size = arcSize,
+                                    style = Stroke(width = strokePx + 2.dp.toPx(), cap = StrokeCap.Butt)
+                                )
+                            }
+                            selectedStartAngle += sliceFraction * 360f
+                        }
                     }
                 }
             }
@@ -127,6 +171,7 @@ fun DonutChart(
         // Conteúdo central opcional
         if (!centerLabel.isNullOrBlank() || !centerValue.isNullOrBlank()) {
             Column(
+                modifier = Modifier.padding(horizontal = (strokeWidth + 2.dp)),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -135,15 +180,30 @@ fun DonutChart(
                         text = centerLabel.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
                     )
                 }
                 if (!centerValue.isNullOrBlank()) {
+                    val adaptiveFontSize = when {
+                        centerValue.length > 12 -> 10.sp
+                        centerValue.length > 9 -> 11.5.sp
+                        else -> 13.sp
+                    }
                     Text(
                         text = centerValue,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 14.sp
+                        fontWeight = FontWeight.Black,
+                        fontSize = adaptiveFontSize,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
                     )
                 }
             }

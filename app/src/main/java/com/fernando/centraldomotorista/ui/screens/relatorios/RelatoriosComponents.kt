@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,13 +61,6 @@ fun RelatoriosKpiCard(
         KpiTone.DEFAULT -> MaterialTheme.colorScheme.onSurface
     }
 
-    val iconColor = when (tone) {
-        KpiTone.PRIMARY -> OrangeNeon
-        KpiTone.SUCCESS -> GreenNeon
-        KpiTone.DESTRUCTIVE -> MaterialTheme.colorScheme.error
-        KpiTone.DEFAULT -> OrangeNeon
-    }
-
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -79,39 +73,38 @@ fun RelatoriosKpiCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = label.uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.5.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 0.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = OrangeNeon,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = label.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.5.sp,
+                    color = OrangeNeon,
+                    letterSpacing = 0.5.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
                 if (!hint.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.width(4.dp))
                     Surface(
                         modifier = Modifier
-                            .size(18.dp)
+                            .size(16.dp)
                             .clip(CircleShape)
                             .clickable { showHintDialog = true },
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -121,7 +114,7 @@ fun RelatoriosKpiCard(
                             Text(
                                 text = "?",
                                 style = MaterialTheme.typography.labelSmall,
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -137,7 +130,10 @@ fun RelatoriosKpiCard(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 color = valueColor,
-                letterSpacing = (-0.5).sp
+                letterSpacing = (-0.5).sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -172,6 +168,7 @@ fun RelatoriosKpiCard(
 fun RelatoriosSectionCard(
     title: String,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     action: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -185,21 +182,45 @@ fun RelatoriosSectionCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Título no topo e ao centro, na cor laranja neon e em maiúsculo, com ícone alinhado ao início da primeira linha
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.Top
             ) {
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = OrangeNeon,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .padding(top = 1.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 Text(
                     text = title.uppercase(),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 0.8.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = OrangeNeon,
+                    textAlign = TextAlign.Center
                 )
-                action?.invoke()
+            }
+
+            // Qualquer outro elemento (como botões de ação ou filtros específicos) deve estar ABAIXO
+            if (action != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    action()
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -216,7 +237,7 @@ fun PlacesRankingCard(
     icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
-    RelatoriosSectionCard(title = title, modifier = modifier) {
+    RelatoriosSectionCard(title = title, icon = icon, modifier = modifier) {
         if (items.isEmpty()) {
             Text(
                 text = "Lance rotas com origem/destino.",
@@ -307,9 +328,10 @@ fun PlacesRankingCard(
 @Composable
 fun MaintenanceScheduleCard(
     item: MaintScheduleItem,
-    onEditExpense: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    var showTooltipDialog by remember { mutableStateOf(false) }
+
     val (statusLabel, statusColor, statusBg, statusIcon) = when (item.status) {
         MaintScheduleStatus.CRITICAL -> Quadruple(
             "Atrasado",
@@ -330,6 +352,8 @@ fun MaintenanceScheduleCard(
             Icons.Default.CheckCircle
         )
     }
+
+    val isAlert = item.status == MaintScheduleStatus.CRITICAL || item.status == MaintScheduleStatus.WARN
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -354,47 +378,33 @@ fun MaintenanceScheduleCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
+                // Modo exclusivamente exibição: sem botão de edição.
+                // Ícone de alerta com tooltip dialog ao clicar
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = if (isAlert) {
+                        Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { showTooltipDialog = true }
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    } else {
+                        Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    }
                 ) {
-                    if (item.expenseId != null && onEditExpense != null) {
-                        Surface(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { onEditExpense(item.expenseId) },
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Editar despesa",
-                                    tint = OrangeNeon,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = statusIcon,
-                            contentDescription = null,
-                            tint = statusColor,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = statusLabel.uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = statusColor
-                        )
-                    }
+                    Icon(
+                        imageVector = statusIcon,
+                        contentDescription = if (isAlert) "Toque para ver aviso de manutenção" else null,
+                        tint = statusColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = statusLabel.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = statusColor
+                    )
                 }
             }
 
@@ -454,6 +464,61 @@ fun MaintenanceScheduleCard(
             }
         }
     }
+
+    if (showTooltipDialog) {
+        val alertTitle = when (item.status) {
+            MaintScheduleStatus.CRITICAL -> "Atenção: Manutenção Atrasada"
+            MaintScheduleStatus.WARN -> "Alerta: Manutenção Próxima"
+            MaintScheduleStatus.OK -> "Manutenção em Dia"
+        }
+        val alertMessage = when (item.status) {
+            MaintScheduleStatus.CRITICAL ->
+                "A vida útil recomendada para \"${item.name}\" foi ultrapassada!\n\n" +
+                "• Próxima troca prevista: ${item.nextKm.toInt()} km\n" +
+                "• Situação: Atrasado em ${(-item.remainingKm.toInt()).coerceAtLeast(0)} km\n\n" +
+                "É necessária a realização da manutenção preventiva desta peça/serviço para segurança e bom funcionamento do veículo."
+            MaintScheduleStatus.WARN ->
+                "A vida útil recomendada para \"${item.name}\" está próxima do limite.\n\n" +
+                "• Próxima troca prevista: ${item.nextKm.toInt()} km\n" +
+                "• Restam apenas: ${item.remainingKm.toInt()} km\n\n" +
+                "Programe a manutenção preventiva desta peça/serviço em breve."
+            MaintScheduleStatus.OK ->
+                "O item \"${item.name}\" está dentro do período regular de uso.\n\n" +
+                "• Próxima troca prevista: ${item.nextKm.toInt()} km\n" +
+                "• Restam: ${item.remainingKm.toInt()} km"
+        }
+
+        AlertDialog(
+            onDismissRequest = { showTooltipDialog = false },
+            icon = {
+                Icon(
+                    imageVector = statusIcon,
+                    contentDescription = null,
+                    tint = statusColor,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = alertTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = alertMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showTooltipDialog = false }) {
+                    Text("OK, ENTENDI", color = OrangeNeon, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 }
 
 private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
@@ -484,7 +549,10 @@ fun BonificacoesCard(
                     text = group.name,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
 
                 Row(

@@ -25,14 +25,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.ui.common.charts.DonutChart
 import com.fernando.centraldomotorista.ui.common.charts.DonutSlice
 import com.fernando.centraldomotorista.ui.common.charts.FutureCashFlowChart
+import com.fernando.centraldomotorista.ui.common.charts.FutureCashFlowPieChart
 import com.fernando.centraldomotorista.ui.common.charts.HorizontalPlatformBars
 import com.fernando.centraldomotorista.ui.common.charts.MultiLineTimelineChart
+import com.fernando.centraldomotorista.ui.common.period.PeriodFilter
 import com.fernando.centraldomotorista.ui.common.period.PeriodSelector
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
@@ -42,7 +45,7 @@ import java.math.BigDecimal
 @Composable
 fun RelatoriosScreen(
     viewModel: RelatoriosViewModel,
-    onNavigateToHistoricoCategory: ((String) -> Unit)? = null,
+    onNavigateToHistoricoCategory: ((String, PeriodFilter) -> Unit)? = null,
     onNavigateToEditMaintenance: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -157,7 +160,8 @@ fun RelatoriosScreen(
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f, fill = false)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Smartphone,
@@ -170,7 +174,9 @@ fun RelatoriosScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 0.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -471,7 +477,10 @@ fun RelatoriosScreen(
 
             // ================= 3. CUSTOS DE MANUTENÇÃO (PERÍODO) =================
             val mb = uiState.maintCostBreakdown
-            RelatoriosSectionCard(title = "CUSTOS DE MANUTENÇÃO (PERÍODO)") {
+            RelatoriosSectionCard(
+                title = "CUSTOS DE MANUTENÇÃO (PERÍODO)",
+                icon = Icons.Default.Build
+            ) {
                 if (mb.total <= BigDecimal.ZERO) {
                     Text(
                         text = "Sem despesas de combustível ou manutenção no período.",
@@ -489,14 +498,14 @@ fun RelatoriosScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .clickable { onNavigateToHistoricoCategory?.invoke("combustivel") },
+                                .clickable { onNavigateToHistoricoCategory?.invoke("combustivel", uiState.periodFilter) },
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text(text = "Combustível", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = "Combustível", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(text = mb.fuel.formatCurrency(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = OrangeNeon)
+                                Text(text = mb.fuel.formatCurrency(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = OrangeNeon, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
 
@@ -504,14 +513,14 @@ fun RelatoriosScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .clickable { onNavigateToHistoricoCategory?.invoke("oleo") },
+                                .clickable { onNavigateToHistoricoCategory?.invoke("oleo", uiState.periodFilter) },
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text(text = "Óleo / Filtro", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = "Óleo / Filtro", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(text = mb.oil.formatCurrency(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF2979FF))
+                                Text(text = mb.oil.formatCurrency(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF2979FF), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
 
@@ -519,14 +528,14 @@ fun RelatoriosScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .clickable { onNavigateToHistoricoCategory?.invoke("pecas") },
+                                .clickable { onNavigateToHistoricoCategory?.invoke("pecas", uiState.periodFilter) },
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text(text = "Peças / Outros", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = "Peças / Outros", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(text = mb.parts.formatCurrency(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                Text(text = mb.parts.formatCurrency(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -554,7 +563,7 @@ fun RelatoriosScreen(
                             modifier = Modifier.size(140.dp),
                             centerLabel = "TOTAL",
                             centerValue = mb.total.formatCurrency(),
-                            onSliceClick = { slice -> onNavigateToHistoricoCategory?.invoke(slice.key) }
+                            onSliceClick = { slice -> onNavigateToHistoricoCategory?.invoke(slice.key, uiState.periodFilter) }
                         )
                     }
 
@@ -571,7 +580,10 @@ fun RelatoriosScreen(
             }
 
             // ================= 4. MANUTENÇÃO PREVENTIVA =================
-            RelatoriosSectionCard(title = "MANUTENÇÃO PREVENTIVA") {
+            RelatoriosSectionCard(
+                title = "MANUTENÇÃO PREVENTIVA",
+                icon = Icons.Default.Engineering
+            ) {
                 // Odômetro estimado
                 Row(
                     modifier = Modifier
@@ -607,8 +619,7 @@ fun RelatoriosScreen(
                     ) {
                         uiState.maintSchedule.forEach { item ->
                             MaintenanceScheduleCard(
-                                item = item,
-                                onEditExpense = onNavigateToEditMaintenance
+                                item = item
                             )
                         }
                     }
@@ -616,7 +627,10 @@ fun RelatoriosScreen(
             }
 
             // ================= 5. DESEMPENHO NO PERÍODO (TIMELINE) =================
-            RelatoriosSectionCard(title = "DESEMPENHO NO PERÍODO") {
+            RelatoriosSectionCard(
+                title = "DESEMPENHO NO PERÍODO",
+                icon = Icons.AutoMirrored.Filled.TrendingUp
+            ) {
                 MultiLineTimelineChart(
                     buckets = uiState.timelineBuckets,
                     selectedBucket = uiState.selectedTimelineBucket,
@@ -625,17 +639,29 @@ fun RelatoriosScreen(
             }
 
             // ================= 6. FLUXO DE CAIXA FUTURO (FATURAS A RECEBER) =================
-            RelatoriosSectionCard(title = "FLUXO DE CAIXA FUTURO (FATURAS A RECEBER)") {
-                FutureCashFlowChart(items = uiState.futureCashFlow)
+            RelatoriosSectionCard(
+                title = "FLUXO DE CAIXA FUTURO (FATURAS A RECEBER)",
+                icon = Icons.Default.PieChart
+            ) {
+                FutureCashFlowPieChart(
+                    platforms = uiState.futureCashFlowPlatforms,
+                    totalAmount = uiState.futureCashFlowTotal
+                )
             }
 
             // ================= 7. POR PLATAFORMA (RENTABILIDADE) =================
-            RelatoriosSectionCard(title = "POR PLATAFORMA (RENTABILIDADE)") {
+            RelatoriosSectionCard(
+                title = "POR PLATAFORMA (RENTABILIDADE)",
+                icon = Icons.Default.Leaderboard
+            ) {
                 HorizontalPlatformBars(items = uiState.platformProfitability)
             }
 
             // ================= 8. BONIFICAÇÕES E DESCONTOS =================
-            RelatoriosSectionCard(title = "BONIFICAÇÕES E DESCONTOS") {
+            RelatoriosSectionCard(
+                title = "BONIFICAÇÕES E DESCONTOS",
+                icon = Icons.AutoMirrored.Filled.ReceiptLong
+            ) {
                 if (uiState.bonificacoes.isEmpty()) {
                     Text(
                         text = "Nenhum desconto ou acréscimo neste período.",
@@ -658,6 +684,7 @@ fun RelatoriosScreen(
             // ================= 9. CATEGORIAS ENTREGUES =================
             RelatoriosSectionCard(
                 title = "CATEGORIAS ENTREGUES",
+                icon = Icons.Default.Category,
                 action = {
                     // Segmented control [R$ Valor] / [Qtd Entregue]
                     Surface(
@@ -708,17 +735,45 @@ fun RelatoriosScreen(
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 } else {
+                    var selectedCategoryKey by remember { mutableStateOf<String?>(null) }
+                    val isAmount = uiState.categoryMetric == CategoryMetric.AMOUNT
+
+                    val totalCategoryAmount = remember(uiState.deliveredCategories) {
+                        uiState.deliveredCategories.fold(BigDecimal.ZERO) { acc, c -> acc.add(c.amount) }
+                    }
+                    val totalCategoryCount = remember(uiState.deliveredCategories) {
+                        uiState.deliveredCategories.sumOf { it.count }
+                    }
+
                     val slices = remember(uiState.deliveredCategories, uiState.categoryMetric) {
                         uiState.deliveredCategories.map { c ->
-                            val valBd = if (uiState.categoryMetric == CategoryMetric.AMOUNT) c.amount else BigDecimal(c.count)
+                            val valBd = if (isAmount) c.amount else BigDecimal(c.count)
                             DonutSlice(
                                 key = c.productType,
                                 name = c.name,
                                 value = valBd,
                                 color = c.color,
-                                formattedValue = if (uiState.categoryMetric == CategoryMetric.AMOUNT) c.amount.formatCurrency() else "${c.count} un"
+                                formattedValue = if (isAmount) c.amount.formatCurrency() else "${c.count} un"
                             )
                         }
+                    }
+
+                    val selectedCategory = remember(selectedCategoryKey, uiState.deliveredCategories) {
+                        uiState.deliveredCategories.find { it.productType == selectedCategoryKey }
+                    }
+
+                    val centerLabelText = if (selectedCategory != null) {
+                        "CATEGORIA"
+                    } else if (isAmount) {
+                        "TOTAL R$"
+                    } else {
+                        "TOTAL QTD"
+                    }
+
+                    val centerValueText = if (selectedCategory != null) {
+                        if (isAmount) selectedCategory.amount.formatCurrency() else "${selectedCategory.count} un"
+                    } else {
+                        if (isAmount) totalCategoryAmount.formatCurrency() else "$totalCategoryCount un"
                     }
 
                     Row(
@@ -726,23 +781,40 @@ fun RelatoriosScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Gráfico Donut de Categorias
+                        // Gráfico Donut de Categorias com destaque de fatia ao tocar
                         DonutChart(
                             slices = slices,
-                            modifier = Modifier.size(130.dp)
+                            modifier = Modifier.size(130.dp),
+                            strokeWidth = 20.dp,
+                            selectedSliceKey = selectedCategoryKey,
+                            onSliceClick = { slice ->
+                                selectedCategoryKey = if (selectedCategoryKey == slice.key) null else slice.key
+                            },
+                            centerLabel = centerLabelText,
+                            centerValue = centerValueText
                         )
 
-                        // Lista detalhada com legendas
+                        // Lista detalhada com legendas e realce sincronizado
                         Column(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             uiState.deliveredCategories.forEach { c ->
+                                val isSelected = selectedCategoryKey == c.productType
+
                                 Surface(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedCategoryKey = if (isSelected) null else c.productType
+                                        },
                                     shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                    color = if (isSelected) c.color.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = if (isSelected) {
+                                        BorderStroke(1.5.dp, c.color)
+                                    } else {
+                                        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                    }
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -751,9 +823,11 @@ fun RelatoriosScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        // Nome da categoria truncado para nunca espremer os valores
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.weight(1f, fill = false)
                                         ) {
                                             Box(
                                                 modifier = Modifier
@@ -764,23 +838,57 @@ fun RelatoriosScreen(
                                                 text = c.name,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = MaterialTheme.colorScheme.onSurface
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
 
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        // Hierarquia de valores: inverte destaque quando métrica for Qtd Entregue
                                         Column(horizontalAlignment = Alignment.End) {
-                                            Text(
-                                                text = c.amount.formatCurrency(),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = OrangeNeon
-                                            )
-                                            Text(
-                                                text = "${c.count} ${if (c.count == 1) "entregue" else "entregues"}",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontSize = 9.5.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                            if (isAmount) {
+                                                // Modo R$ Valor:
+                                                // 1. Valor monetário em cima em destaque
+                                                Text(
+                                                    text = c.amount.formatCurrency(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = OrangeNeon,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                                // 2. Quantidade embaixo com menor destaque (truncada como "entr." para economizar espaço)
+                                                Text(
+                                                    text = "${c.count} entr.",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 9.5.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                            } else {
+                                                // Modo Qtd Entregue:
+                                                // 1. Quantidade entregue em cima em destaque (truncada como "entr." para não espremer os nomes)
+                                                Text(
+                                                    text = "${c.count} entr.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = OrangeNeon,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                                // 2. Valor monetário embaixo com menor destaque
+                                                Text(
+                                                    text = c.amount.formatCurrency(),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 9.5.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                            }
                                         }
                                     }
                                 }

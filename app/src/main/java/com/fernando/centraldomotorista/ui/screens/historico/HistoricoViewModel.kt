@@ -227,10 +227,120 @@ class HistoricoViewModel(
                         expandedWeeks = currentExpandedWeeks
                     )
                 }
+
+                if (pendingExternalFilter != null) {
+                    val pending = pendingExternalFilter
+                    pendingExternalFilter = null
+                    applyExternalFilter(
+                        categoryKey = pending?.categoryKey,
+                        presetStr = pending?.presetStr,
+                        startDateStr = pending?.startDateStr,
+                        endDateStr = pending?.endDateStr
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = "Erro ao carregar histórico: ${e.message}") }
             }
         }
+    }
+
+    private data class PendingExternalFilter(
+        val categoryKey: String?,
+        val presetStr: String?,
+        val startDateStr: String?,
+        val endDateStr: String?
+    )
+
+    private var pendingExternalFilter: PendingExternalFilter? = null
+
+    fun applyExternalFilter(
+        categoryKey: String?,
+        presetStr: String?,
+        startDateStr: String?,
+        endDateStr: String?
+    ) {
+        if (_uiState.value.isLoading || _uiState.value.allTransactions.isEmpty()) {
+            pendingExternalFilter = PendingExternalFilter(categoryKey, presetStr, startDateStr, endDateStr)
+            return
+        }
+
+        val preset = presetStr?.let {
+            try {
+                PeriodPreset.valueOf(it)
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        val newFilter = if (preset != null) {
+            if (preset == PeriodPreset.PERSONALIZADO && !startDateStr.isNullOrBlank() && !endDateStr.isNullOrBlank()) {
+                val start = try { LocalDate.parse(startDateStr) } catch (_: Exception) { null }
+                val end = try { LocalDate.parse(endDateStr) } catch (_: Exception) { null }
+                if (start != null && end != null) {
+                    PeriodFilter(preset = PeriodPreset.PERSONALIZADO, customStart = start, customEnd = end)
+                } else {
+                    PeriodFilter(preset = PeriodPreset.PERSONALIZADO)
+                }
+            } else {
+                PeriodFilter(preset = preset)
+            }
+        } else {
+            _uiState.value.periodFilter
+        }
+
+        // Mapeia categoryKey ("combustivel", "oleo", "pecas") para as chaves reais de transação
+        val categoryKeysToSelect: Set<String> = if (!categoryKey.isNullOrBlank()) {
+            val allTx = _uiState.value.allTransactions
+            val matchingKeys = mutableSetOf<String>()
+            val catNormalized = categoryKey.lowercase(Locale.ROOT)
+
+            allTx.forEach { item ->
+                val opt = resolveTransactionCategoryFilter(item)
+                val isMatch = when (catNormalized) {
+                    "combustivel" -> {
+                        opt.group.equals("Abastecimento", ignoreCase = true) ||
+                        opt.key.startsWith("COMBUSTIVEL_", ignoreCase = true) ||
+                        item.category.contains("combust", ignoreCase = true) ||
+                        item.category.contains("abastec", ignoreCase = true)
+                    }
+                    "oleo" -> {
+                        opt.key.equals("MANUTENCAO_OLEO", ignoreCase = true) ||
+                        item.title.contains("oleo", ignoreCase = true) ||
+                        item.title.contains("óleo", ignoreCase = true) ||
+                        item.subtitle.contains("oleo", ignoreCase = true) ||
+                        item.subtitle.contains("óleo", ignoreCase = true)
+                    }
+                    "pecas" -> {
+                        (opt.group.equals("Manutenção", ignoreCase = true) && !opt.key.equals("MANUTENCAO_OLEO", ignoreCase = true)) ||
+                        opt.key in setOf("MANUTENCAO_PECA", "MANUTENCAO_SERVICO", "MANUTENCAO_OUTROS")
+                    }
+                    else -> {
+                        opt.key.contains(categoryKey, ignoreCase = true)
+                    }
+                }
+                if (isMatch) {
+                    matchingKeys.add(opt.key)
+                }
+            }
+            if (matchingKeys.isEmpty()) {
+                setOf("EMPTY_FILTER_${catNormalized.uppercase(Locale.ROOT)}")
+            } else {
+                matchingKeys
+            }
+        } else {
+            emptySet()
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                selectedTab = HistoricoTab.DESPESAS,
+                periodFilter = newFilter,
+                selectedCategoryFilters = categoryKeysToSelect,
+                searchQuery = "",
+                isPeriodDropdownExpanded = false
+            )
+        }
+        rebuildGroupsAndMetrics(expandAllInPeriod = true)
     }
 
     fun applyPeriodPreset(preset: PeriodPreset) {

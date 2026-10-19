@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.fernando.centraldomotorista.auth.BiometricAuthHelper
+import com.fernando.centraldomotorista.ui.common.period.PeriodFilter
 import io.github.jan.supabase.auth.auth
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
@@ -999,8 +1000,11 @@ fun CentralDoMotoristaApp(
                 val relatoriosViewModel: com.fernando.centraldomotorista.ui.screens.relatorios.RelatoriosViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.relatorios.RelatoriosScreen(
                     viewModel = relatoriosViewModel,
-                    onNavigateToHistoricoCategory = { _ ->
-                        navController.navigate(Screen.Historico.route)
+                    onNavigateToHistoricoCategory = { category, periodFilter ->
+                        val presetStr = periodFilter.preset.name
+                        val startStr = periodFilter.customStart?.toString() ?: ""
+                        val endStr = periodFilter.customEnd?.toString() ?: ""
+                        navController.navigate("${Screen.Historico.route}?category=$category&preset=$presetStr&startDate=$startStr&endDate=$endStr")
                     },
                     onNavigateToEditMaintenance = { expenseId ->
                         navController.navigate("${Screen.LancarManutencao.route}?itemId=$expenseId")
@@ -1008,8 +1012,49 @@ fun CentralDoMotoristaApp(
                 )
             }
 
-            composable(Screen.Historico.route) {
+            composable(
+                route = "${Screen.Historico.route}?category={category}&preset={preset}&startDate={startDate}&endDate={endDate}",
+                arguments = listOf(
+                    navArgument("category") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("preset") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("startDate") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("endDate") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val category = backStackEntry.arguments?.getString("category")
+                val presetStr = backStackEntry.arguments?.getString("preset")
+                val startDateStr = backStackEntry.arguments?.getString("startDate")
+                val endDateStr = backStackEntry.arguments?.getString("endDate")
+
                 val historicoViewModel: com.fernando.centraldomotorista.ui.screens.historico.HistoricoViewModel = viewModel()
+
+                LaunchedEffect(category, presetStr, startDateStr, endDateStr) {
+                    if (!category.isNullOrBlank() || !presetStr.isNullOrBlank()) {
+                        historicoViewModel.applyExternalFilter(
+                            categoryKey = category,
+                            presetStr = presetStr,
+                            startDateStr = startDateStr,
+                            endDateStr = endDateStr
+                        )
+                    }
+                }
+
                 com.fernando.centraldomotorista.ui.screens.historico.HistoricoScreen(
                     viewModel = historicoViewModel,
                     onNavigateToEdit = { editRoute ->
