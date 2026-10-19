@@ -233,4 +233,61 @@ class FaturasUiStateTest {
         assertEquals("Dezembro de 2025", monthGroups[1].monthLabel)
         assertEquals(BigDecimal("1200.00"), monthGroups[1].totalAmount)
     }
+
+    @Test
+    fun `test zero amount cycles are strictly excluded from emAberto, aVencer and pago tabs`() {
+        val cycles = listOf(
+            createDummyCycle("1", "plat_1", "em_aberto", BigDecimal.ZERO),
+            createDummyCycle("2", "plat_1", "em_aberto", BigDecimal("120.00")),
+            createDummyCycle("3", "plat_1", "a_vencer", BigDecimal.ZERO),
+            createDummyCycle("4", "plat_1", "a_vencer", BigDecimal("350.00")),
+            createDummyCycle("5", "plat_1", "pago", BigDecimal.ZERO),
+            createDummyCycle("6", "plat_1", "pago", BigDecimal("500.00"))
+        )
+
+        val state = FaturasUiState(cycles = cycles)
+
+        // Somente ciclos com valor > 0 devem estar presentes em cada aba
+        assertEquals(1, state.emAbertoCycles.size)
+        assertEquals("2", state.emAbertoCycles.first().cycle.id)
+        assertEquals(BigDecimal("120.00"), state.totalEmAberto)
+
+        assertEquals(1, state.aVencerCycles.size)
+        assertEquals("4", state.aVencerCycles.first().cycle.id)
+        assertEquals(BigDecimal("350.00"), state.totalAVencer)
+
+        assertEquals(1, state.pagoCycles.size)
+        assertEquals("6", state.pagoCycles.first().cycle.id)
+        assertEquals(BigDecimal("500.00"), state.totalPago)
+    }
+
+    @Test
+    fun `test aVencer cycle isOverdue correctly detects vencendo vs vencido`() {
+        val today = LocalDate.now()
+
+        val vencendoCycle = BillingCycleWithTotals(
+            cycle = BillingCycle(
+                id = "c_vencendo", userId = "u1", platformId = "p1",
+                periodStart = today.minusDays(15), periodEnd = today.minusDays(1),
+                expectedPaymentDate = today.plusDays(5),
+                status = "a_vencer"
+            ),
+            platformName = "Ashser",
+            totalAmount = BigDecimal("800.00")
+        )
+
+        val vencidoCycle = BillingCycleWithTotals(
+            cycle = BillingCycle(
+                id = "c_vencido", userId = "u1", platformId = "p1",
+                periodStart = today.minusDays(30), periodEnd = today.minusDays(16),
+                expectedPaymentDate = today.minusDays(2),
+                status = "a_vencer"
+            ),
+            platformName = "Ashser",
+            totalAmount = BigDecimal("950.00")
+        )
+
+        assertTrue("Fatura com vencimento futuro não deve estar vencida (Estado Vencendo)", !vencendoCycle.isOverdue)
+        assertTrue("Fatura com vencimento no passado deve estar vencida (Estado Vencido)", vencidoCycle.isOverdue)
+    }
 }

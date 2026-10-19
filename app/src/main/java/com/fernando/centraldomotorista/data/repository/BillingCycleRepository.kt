@@ -136,9 +136,12 @@ class BillingCycleRepository(
 
                     val closedIntervals = mutableMapOf<String, CycleInterval>()
 
-                    // Ciclo anterior da plataforma que já encerrou (ex: 01 a 15/10 quando hoje é 19/10)
+                    // Ciclo anterior da plataforma que já encerrou (apenas se houver transações desvinculadas para ele)
                     val prevIntv = BillingCycleCalculator.getPreviousPlatformCycleInterval(platform, today)
-                    if (BillingCycleCalculator.isCycleClosed(prevIntv, today)) {
+                    val hasTransactionsInPrev = unlinkedDates.any { d ->
+                        BillingCycleCalculator.isDateInCycle(d, prevIntv.periodStart, prevIntv.periodEnd, prevIntv.includeEndDate)
+                    }
+                    if (hasTransactionsInPrev && BillingCycleCalculator.isCycleClosed(prevIntv, today)) {
                         val key = "${prevIntv.periodStart}_${prevIntv.periodEnd}_${prevIntv.includeEndDate}"
                         closedIntervals[key] = prevIntv
                     }
@@ -177,34 +180,6 @@ class BillingCycleRepository(
                             newlyCreatedCycles.add(unbilledCycle)
                             savedActiveCycles.add(unbilledCycle)
                             savedActiveCycleIds.add(unbilledCycle.id)
-
-                            // Tenta persistir no Supabase sem bloquear a renderização imediata da tela
-                            try {
-                                val created = createBillingCycle(
-                                    BillingCycle(
-                                        id = "",
-                                        userId = userId,
-                                        platformId = platform.id,
-                                        periodStart = intv.periodStart,
-                                        periodEnd = intv.periodEnd,
-                                        expectedPaymentDate = intv.expectedPaymentDate,
-                                        status = "a_vencer",
-                                        includeEndDate = intv.includeEndDate
-                                    )
-                                )
-                                if (created != null) {
-                                    linkCycleTransactions(
-                                        cycleId = created.id,
-                                        platformId = platform.id,
-                                        periodStart = intv.periodStart,
-                                        periodEnd = intv.periodEnd,
-                                        includeEndDate = intv.includeEndDate,
-                                        userId = userId
-                                    )
-                                }
-                            } catch (e: Exception) {
-                                Log.w("BillingCycleRepository", "Persistência em background da fatura a vencer postergada: ${e.message}")
-                            }
                         }
                     }
                 }
@@ -243,7 +218,7 @@ class BillingCycleRepository(
 
                 val allCycles = savedCycles + newlyCreatedCycles + dynamicCycles
 
-                allCycles.map { cycle ->
+                val withTotals = allCycles.map { cycle ->
                     val platform = platformsMap[cycle.platformId]
                     val platName = platform?.name ?: "Plataforma"
                     val platPartnerId = platform?.partnerId
@@ -341,6 +316,53 @@ class BillingCycleRepository(
                         sessions = cycleSessions
                     )
                 }
+
+                val (validCycles, zeroCycles) = withTotals.partition { it.totalAmount > BigDecimal.ZERO }
+
+                // Limpeza preventiva em background: se uma fatura salva no banco tem valor R$ 0,00 e nenhum registro vinculado, remove do banco
+                for (zero in zeroCycles) {
+                    if (zero.cycle.id.isNotEmpty() && !zero.cycle.id.startsWith("unbilled_") && !zero.cycle.id.startsWith("dynamic_")) {
+                        try {
+                            api.deleteBillingCycle("eq.${zero.cycle.id}")
+                        } catch (e: Exception) {
+                            Log.w("BillingCycleRepository", "Ignorando limpeza de fatura zerada: ${e.message}")
+                        }
+                    }
+                }
+
+                // Persistência em background das faturas fechadas (a vencer) projetadas que possuem valores legítimos
+                for (valid in validCycles) {
+                    if (valid.cycle.id.startsWith("unbilled_")) {
+                        try {
+                            val created = createBillingCycle(
+                                BillingCycle(
+                                    id = "",
+                                    userId = userId,
+                                    platformId = valid.cycle.platformId,
+                                    periodStart = valid.cycle.periodStart,
+                                    periodEnd = valid.cycle.periodEnd,
+                                    expectedPaymentDate = valid.cycle.expectedPaymentDate,
+                                    status = "a_vencer",
+                                    includeEndDate = valid.cycle.includeEndDate
+                                )
+                            )
+                            if (created != null) {
+                                linkCycleTransactions(
+                                    cycleId = created.id,
+                                    platformId = valid.cycle.platformId,
+                                    periodStart = valid.cycle.periodStart,
+                                    periodEnd = valid.cycle.periodEnd,
+                                    includeEndDate = valid.cycle.includeEndDate,
+                                    userId = userId
+                                )
+                            }
+                        } catch (e: Exception) {
+                            Log.w("BillingCycleRepository", "Persistência em background da fatura a vencer postergada: ${e.message}")
+                        }
+                    }
+                }
+
+                validCycles
             } catch (e: Exception) {
                 Log.e("BillingCycleRepository", "Erro ao carregar faturas com totais: ${e.message}", e)
                 emptyList()

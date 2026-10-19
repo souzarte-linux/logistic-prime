@@ -620,12 +620,12 @@ fun FaturaCardItem(
 
     val statusBadgeColor = when {
         isPaid -> GreenNeon
-        isAVencer -> OrangeNeon
+        isAVencer -> if (item.isOverdue) RedAlert else GreenNeon
         else -> BlueInfo
     }
     val statusLabel = when (status) {
         "pago" -> "Pago / Recebido"
-        "a_vencer" -> "A Vencer"
+        "a_vencer" -> if (item.isOverdue) "Vencido" else "No Prazo"
         "em_aberto" -> "Em Aberto"
         "atrasado" -> "Atrasado"
         else -> status.replaceFirstChar { it.uppercase() }
@@ -638,10 +638,15 @@ fun FaturaCardItem(
             .clickable { onViewDetails() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (item.isOverdue) RedAlert else MaterialTheme.colorScheme.outlineVariant
-        )
+        border = when {
+            isAVencer -> if (item.isOverdue) {
+                BorderStroke(1.5.dp, RedAlert)
+            } else {
+                BorderStroke(1.5.dp, GreenNeon)
+            }
+            item.isOverdue -> BorderStroke(1.dp, RedAlert)
+            else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        }
     ) {
         Column(
             modifier = Modifier
@@ -759,6 +764,26 @@ fun FaturaCardItem(
                         fontWeight = FontWeight.Bold,
                         color = GreenNeon
                     )
+                } else if (isAVencer) {
+                    val vencColor = if (item.isOverdue) RedAlert else GreenNeon
+                    val vencIcon = if (item.isOverdue) Icons.Default.ErrorOutline else Icons.Default.Schedule
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = vencIcon,
+                            contentDescription = if (item.isOverdue) "Atrasado / Vencido" else "No prazo / Vencendo",
+                            tint = vencColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Text(
+                            text = "Previsão: ${item.cycle.expectedPaymentDate.format(dateFormatter)}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = vencColor
+                        )
+                    }
                 } else {
                     Text(
                         text = "Previsão: ${item.cycle.expectedPaymentDate.format(dateFormatter)}",
@@ -771,7 +796,7 @@ fun FaturaCardItem(
                 Surface(
                     color = statusBadgeColor.copy(alpha = 0.15f),
                     shape = RoundedCornerShape(6.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, statusBadgeColor.copy(alpha = 0.5f))
+                    border = BorderStroke(1.dp, statusBadgeColor.copy(alpha = 0.5f))
                 ) {
                     Text(
                         text = statusLabel,

@@ -76,15 +76,21 @@ data class FaturasUiState(
         }
 
     val aVencerCycles: List<BillingCycleWithTotals>
-        get() = cycles.filter {
-            it.cycle.status == "a_vencer" &&
-            (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId))
+        get() {
+            val activePlatformIds = platforms.filter { it.active }.flatMap { listOfNotNull(it.id, it.partnerId) }.toSet()
+            return cycles.filter {
+                it.cycle.status == "a_vencer" &&
+                (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId)) &&
+                (activePlatformIds.isEmpty() || activePlatformIds.contains(it.cycle.platformId)) &&
+                it.totalAmount > BigDecimal.ZERO
+            }
         }
 
     val pagoCycles: List<BillingCycleWithTotals>
         get() = cycles.filter {
             it.cycle.status == "pago" &&
-            (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId))
+            (selectedPlatformIds.contains("all") || selectedPlatformIds.contains(it.cycle.platformId)) &&
+            it.totalAmount > BigDecimal.ZERO
         }
 
     val totalEmAberto: BigDecimal
