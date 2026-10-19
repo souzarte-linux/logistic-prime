@@ -62,6 +62,36 @@ object BillingCycleCalculator {
     }
 
     /**
+     * Converte a representação textual do dia de pagamento/fechamento ("SEG", "QUA", "DOM", etc.)
+     * para o respectivo DayOfWeek. Padrão: DayOfWeek.SUNDAY.
+     */
+    fun parseClosingDayOfWeek(day: String?): DayOfWeek {
+        if (day.isNullOrBlank()) return DayOfWeek.SUNDAY
+        val norm = day.trim().uppercase()
+        return when {
+            norm.startsWith("SEG") -> DayOfWeek.MONDAY
+            norm.startsWith("TER") -> DayOfWeek.TUESDAY
+            norm.startsWith("QUA") -> DayOfWeek.WEDNESDAY
+            norm.startsWith("QUI") -> DayOfWeek.THURSDAY
+            norm.startsWith("SEX") -> DayOfWeek.FRIDAY
+            norm.startsWith("SAB") || norm.startsWith("SÁB") -> DayOfWeek.SATURDAY
+            norm.startsWith("DOM") -> DayOfWeek.SUNDAY
+            else -> DayOfWeek.SUNDAY
+        }
+    }
+
+    /**
+     * Verifica se um ciclo de faturamento já encerrou (atingiu/passou da data de fechamento).
+     */
+    fun isCycleClosed(interval: CycleInterval, refDate: LocalDate = LocalDate.now()): Boolean {
+        return if (interval.includeEndDate) {
+            refDate.isAfter(interval.periodEnd)
+        } else {
+            !refDate.isBefore(interval.periodEnd)
+        }
+    }
+
+    /**
      * Retorna os intervalos do ciclo ATUAL (c0) e do PRÓXIMO ciclo (c1) para uma plataforma,
      * baseando-se na data de referência fornecida (padrão: hoje).
      */
@@ -75,8 +105,9 @@ object BillingCycleCalculator {
 
         return when (cycle) {
             "semanal" -> {
-                val c0Start = refDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                val c0End = c0Start.plusDays(6)
+                val closingDay = parseClosingDayOfWeek(platform.paymentDay)
+                val c0End = refDate.with(TemporalAdjusters.nextOrSame(closingDay))
+                val c0Start = c0End.minusDays(6)
                 val c0Pay = c0End.plusDays(payDelay)
 
                 val c1Start = c0Start.plusDays(7)

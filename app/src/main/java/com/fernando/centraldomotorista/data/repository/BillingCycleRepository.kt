@@ -85,12 +85,103 @@ class BillingCycleRepository(
                 val sessions = sessionsDeferred.await()
                 val adjustments = adjustmentsDeferred.await()
 
-                val savedActiveCycles = savedCycles.filter { it.status != "cancelado" }
-                val savedActiveCycleIds = savedActiveCycles.map { it.id }.toSet()
+                val savedActiveCycles = savedCycles.filter { it.status != "cancelado" }.toMutableList()
+                val savedActiveCycleIds = savedActiveCycles.map { it.id }.toMutableSet()
                 val systemZone = ZoneId.systemDefault()
                 val today = LocalDate.now()
 
+                fun isEffectivelyUnlinked(bcId: String?): Boolean {
+                    if (bcId.isNullOrBlank()) return true
+                    return bcId !in savedActiveCycleIds && !bcId.startsWith("dynamic_")
+                }
+
                 val activePlatforms = platforms.filter { it.active }
+                val newlyCreatedCycles = mutableListOf<BillingCycle>()
+
+                // 1. Varredura automática retrospectiva de transações órfãs e auto-criação de faturas fechadas
+                for (platform in activePlatforms) {
+                    val platPartnerId = platform.partnerId
+
+                    val unlinkedDates = mutableSetOf<LocalDate>()
+
+                    routes.forEach { r ->
+                        val isMatching = (r.platformId == platform.id) || (platPartnerId != null && platPartnerId == r.platformId)
+                        if (isMatching && isEffectivelyUnlinked(r.billingCycleId)) {
+                            unlinkedDates.add(r.occurredAt.atZoneSameInstant(systemZone).toLocalDate())
+                        }
+                    }
+
+                    dailyTotals.forEach { dt ->
+                        val isMatching = (dt.platformId == platform.id) || (platPartnerId != null && platPartnerId == dt.platformId)
+                        if (isMatching && isEffectivelyUnlinked(dt.billingCycleId)) {
+                            unlinkedDates.add(dt.occurredAt.atZoneSameInstant(systemZone).toLocalDate())
+                        }
+                    }
+
+                    sessions.forEach { s ->
+                        val isMatching = (s.platformId == platform.id) || (platPartnerId != null && platPartnerId == s.partnerId)
+                        val sDate = (s.startTime ?: s.createdAt)?.atZoneSameInstant(systemZone)?.toLocalDate()
+                        if (isMatching && sDate != null && isEffectivelyUnlinked(s.billingCycleId)) {
+                            unlinkedDates.add(sDate)
+                        }
+                    }
+
+                    adjustments.forEach { adj ->
+                        val isMatching = (adj.platformId == platform.id) || (platPartnerId != null && platPartnerId == adj.platformId)
+                        if (isMatching && isEffectivelyUnlinked(adj.billingCycleId)) {
+                            unlinkedDates.add(adj.occurredAt)
+                        }
+                    }
+
+                    val closedIntervals = mutableMapOf<String, CycleInterval>()
+                    for (d in unlinkedDates) {
+                        val intervals = BillingCycleCalculator.getPlatformCycleIntervals(platform, d)
+                        val intv = intervals.firstOrNull() ?: continue
+                        if (BillingCycleCalculator.isCycleClosed(intv, today)) {
+                            val key = "${intv.periodStart}_${intv.periodEnd}_${intv.includeEndDate}"
+                            closedIntervals[key] = intv
+                        }
+                    }
+
+                    for ((_, intv) in closedIntervals) {
+                        val hasSaved = savedActiveCycles.any { c ->
+                            val isMatching = (c.platformId == platform.id) || (platPartnerId != null && platPartnerId == c.platformId)
+                            isMatching && BillingCycleCalculator.checkOverlap(
+                                intv.periodStart, intv.periodEnd, intv.includeEndDate,
+                                c.periodStart, c.periodEnd, c.includeEndDate
+                            )
+                        }
+
+                        if (!hasSaved) {
+                            val newCycle = BillingCycle(
+                                id = "",
+                                userId = userId,
+                                platformId = platform.id,
+                                periodStart = intv.periodStart,
+                                periodEnd = intv.periodEnd,
+                                expectedPaymentDate = intv.expectedPaymentDate,
+                                status = "a_vencer",
+                                includeEndDate = intv.includeEndDate
+                            )
+                            val created = createBillingCycle(newCycle)
+                            if (created != null) {
+                                linkCycleTransactions(
+                                    cycleId = created.id,
+                                    platformId = platform.id,
+                                    periodStart = intv.periodStart,
+                                    periodEnd = intv.periodEnd,
+                                    includeEndDate = intv.includeEndDate,
+                                    userId = userId
+                                )
+                                newlyCreatedCycles.add(created)
+                                savedActiveCycles.add(created)
+                                savedActiveCycleIds.add(created.id)
+                            }
+                        }
+                    }
+                }
+
+                // 2. Projeção dinâmica dos ciclos abertos atuais (c0)
                 val dynamicCycles = mutableListOf<BillingCycle>()
 
                 for (platform in activePlatforms) {
@@ -122,12 +213,7 @@ class BillingCycleRepository(
                     }
                 }
 
-                val allCycles = savedCycles + dynamicCycles
-
-                fun isEffectivelyUnlinked(bcId: String?): Boolean {
-                    if (bcId.isNullOrBlank()) return true
-                    return bcId !in savedActiveCycleIds && !bcId.startsWith("dynamic_")
-                }
+                val allCycles = savedCycles + newlyCreatedCycles + dynamicCycles
 
                 allCycles.map { cycle ->
                     val platform = platformsMap[cycle.platformId]

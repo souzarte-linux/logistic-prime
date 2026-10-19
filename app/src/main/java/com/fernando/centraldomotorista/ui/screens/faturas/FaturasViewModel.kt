@@ -460,6 +460,44 @@ class FaturasViewModel(
         }
     }
 
+    // Fechar Ciclo Manualmente (Persistir e Mover para "A Vencer")
+    fun closeCycleToPending(cycle: BillingCycleWithTotals) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            val success = if (cycle.cycle.id.startsWith("dynamic_")) {
+                val created = billingCycleRepository.createBillingCycle(
+                    cycle.cycle.copy(id = "", status = "a_vencer")
+                )
+                if (created != null) {
+                    billingCycleRepository.linkCycleTransactions(
+                        cycleId = created.id,
+                        platformId = cycle.cycle.platformId,
+                        periodStart = cycle.cycle.periodStart,
+                        periodEnd = cycle.cycle.periodEnd,
+                        includeEndDate = cycle.cycle.includeEndDate,
+                        userId = currentUserId
+                    )
+                    true
+                } else false
+            } else {
+                billingCycleRepository.updateStatus(cycle.cycle.id, "a_vencer")
+            }
+            if (success) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        actionMessage = "Ciclo fechado com sucesso e transferido para 'Ciclo A Vencer'!"
+                    )
+                }
+                loadData()
+            } else {
+                _uiState.update {
+                    it.copy(isSaving = false, errorMessage = "Erro ao fechar ciclo. Tente novamente.")
+                }
+            }
+        }
+    }
+
     // Modal de Detalhes
     fun openDetailsModal(cycle: BillingCycleWithTotals) {
         _uiState.update { it.copy(viewingCycle = cycle) }

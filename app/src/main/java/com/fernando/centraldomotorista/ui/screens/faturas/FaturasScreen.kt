@@ -502,6 +502,7 @@ fun FaturasScreen(
                         FaturaCardItem(
                             item = cycleItem,
                             onPay = { viewModel.openPayModal(cycleItem) },
+                            onFecharCiclo = { viewModel.closeCycleToPending(cycleItem) },
                             onEditItems = { viewModel.openEditCycleModal(cycleItem) },
                             onAdjustments = { viewModel.openAdjustmentModal(cycleItem) },
                             onViewDetails = { viewModel.openDetailsModal(cycleItem) },
@@ -619,6 +620,7 @@ fun FaturasScreen(
 fun FaturaCardItem(
     item: BillingCycleWithTotals,
     onPay: () -> Unit,
+    onFecharCiclo: () -> Unit = {},
     onEditItems: () -> Unit,
     onAdjustments: () -> Unit,
     onViewDetails: () -> Unit,
@@ -943,31 +945,69 @@ fun FaturaCardItem(
                     }
                 }
             } else if (isEmAberto) {
-                // Aba "Em Aberto": Botão primário full-width [ Liquidar / Baixar Ciclo ] em OrangeNeon
-                Button(
-                    onClick = onPay,
+                // Aba "Em Aberto": Botões padronizados [ Fechar Ciclo ] e [ Liquidar Ciclo ]
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(46.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangeNeon,
-                        contentColor = Color.Black
-                    )
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.PriceCheck,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = Color.Black
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Liquidar / Baixar Ciclo",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Color.Black
-                    )
+                    OutlinedButton(
+                        onClick = onFecharCiclo,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.5.dp, OrangeNeon),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = OrangeNeon
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = OrangeNeon
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Fechar Ciclo",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = OrangeNeon,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Button(
+                        onClick = onPay,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OrangeNeon,
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PriceCheck,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.Black
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Liquidar Ciclo",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = Color.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

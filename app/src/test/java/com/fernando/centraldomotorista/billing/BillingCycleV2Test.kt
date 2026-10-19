@@ -6,6 +6,7 @@ import com.fernando.centraldomotorista.data.model.*
 import org.junit.Assert.*
 import org.junit.Test
 import java.math.BigDecimal
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -695,6 +696,122 @@ class BillingCycleV2Test {
         assertEquals(1, totals.routesCount)
         assertEquals(100, totals.packagesCount) // 30 (route) + 45 + 25 (sessions)
         assertEquals(BigDecimal("435.50"), totals.netTotalAmount) // 200.00 + 235.50
+    }
+
+    // =========================================================================
+    // CRITÉRIO 5: Fechamento semanal personalizado e varredura de ciclos encerrados
+    // =========================================================================
+
+    @Test
+    fun `test parseClosingDayOfWeek parses all days and defaults safely to Sunday`() {
+        assertEquals(DayOfWeek.MONDAY, BillingCycleCalculator.parseClosingDayOfWeek("SEG"))
+        assertEquals(DayOfWeek.MONDAY, BillingCycleCalculator.parseClosingDayOfWeek("segunda"))
+        assertEquals(DayOfWeek.TUESDAY, BillingCycleCalculator.parseClosingDayOfWeek("TER"))
+        assertEquals(DayOfWeek.WEDNESDAY, BillingCycleCalculator.parseClosingDayOfWeek("QUA"))
+        assertEquals(DayOfWeek.THURSDAY, BillingCycleCalculator.parseClosingDayOfWeek("QUI"))
+        assertEquals(DayOfWeek.FRIDAY, BillingCycleCalculator.parseClosingDayOfWeek("SEX"))
+        assertEquals(DayOfWeek.SATURDAY, BillingCycleCalculator.parseClosingDayOfWeek("SAB"))
+        assertEquals(DayOfWeek.SATURDAY, BillingCycleCalculator.parseClosingDayOfWeek("SÁB"))
+        assertEquals(DayOfWeek.SUNDAY, BillingCycleCalculator.parseClosingDayOfWeek("DOM"))
+        assertEquals(DayOfWeek.SUNDAY, BillingCycleCalculator.parseClosingDayOfWeek(null))
+        assertEquals(DayOfWeek.SUNDAY, BillingCycleCalculator.parseClosingDayOfWeek(""))
+        assertEquals(DayOfWeek.SUNDAY, BillingCycleCalculator.parseClosingDayOfWeek("desconhecido"))
+    }
+
+    @Test
+    fun `test weekly cycle with custom closing day Wednesday (QUA)`() {
+        val platform = Platform(
+            id = "plat-wed",
+            userId = "user-1",
+            name = "Shopee Quarta",
+            cycle = "semanal",
+            paymentDay = "QUA",
+            rules = PlatformRules(fixedPayDelay = 7)
+        )
+
+        // Quarta-feira, 20/05/2026: deve ser a data final de c0
+        val refWed = LocalDate.of(2026, 5, 20)
+        val intervalsWed = BillingCycleCalculator.getPlatformCycleIntervals(platform, refWed)
+        assertEquals(2, intervalsWed.size)
+
+        val c0 = intervalsWed[0]
+        assertEquals(LocalDate.of(2026, 5, 20), c0.periodEnd) // Encerra na quarta
+        assertEquals(LocalDate.of(2026, 5, 14), c0.periodStart) // Inicia 6 dias antes (quinta)
+        assertEquals(LocalDate.of(2026, 5, 27), c0.expectedPaymentDate) // 7 dias após o fechamento
+
+        // Próximo ciclo c1: de quinta 21/05 a quarta 27/05
+        val c1 = intervalsWed[1]
+        assertEquals(LocalDate.of(2026, 5, 21), c1.periodStart)
+        assertEquals(LocalDate.of(2026, 5, 27), c1.periodEnd)
+        assertEquals(LocalDate.of(2026, 6, 3), c1.expectedPaymentDate)
+    }
+
+    @Test
+    fun `test isCycleClosed detects ended cycles accurately`() {
+        val interval = CycleInterval(
+            periodStart = LocalDate.of(2026, 5, 1),
+            periodEnd = LocalDate.of(2026, 5, 15),
+            expectedPaymentDate = LocalDate.of(2026, 5, 22),
+            includeEndDate = true
+        )
+
+        // No dia do fechamento (15/05): ainda está em andamento (não fechou)
+        assertFalse(BillingCycleCalculator.isCycleClosed(interval, LocalDate.of(2026, 5, 15)))
+
+        // No dia anterior (14/05): em andamento
+        assertFalse(BillingCycleCalculator.isCycleClosed(interval, LocalDate.of(2026, 5, 14)))
+
+        // No dia seguinte ao fechamento (16/05): ciclo encerrado!
+        assertTrue(BillingCycleCalculator.isCycleClosed(interval, LocalDate.of(2026, 5, 16)))
+
+        // Vários dias após o fechamento: ciclo encerrado!
+        assertTrue(BillingCycleCalculator.isCycleClosed(interval, LocalDate.of(2026, 5, 25)))
+    }
+
+    @Test
+    fun `test sweep groups orphan transaction dates into their corresponding closed intervals`() {
+        val platform = Platform(
+            id = "plat-sweep",
+            userId = "user-1",
+            name = "Loggi Fechamento Dom",
+            cycle = "semanal",
+            paymentDay = "DOM",
+            rules = PlatformRules(fixedPayDelay = 5)
+        )
+
+        // Hoje é Segunda-feira 25/05/2026
+        val today = LocalDate.of(2026, 5, 25)
+
+        // Corridas órfãs de duas semanas atrás: 12/05 (terça) e 15/05 (sexta)
+        // Corridas órfãs da semana passada: 19/05 (terça) e 23/05 (sábado)
+        // Corrida de hoje (semana atual): 25/05 (segunda)
+        val dates = listOf(
+            LocalDate.of(2026, 5, 12),
+            LocalDate.of(2026, 5, 15),
+            LocalDate.of(2026, 5, 19),
+            LocalDate.of(2026, 5, 23),
+            LocalDate.of(2026, 5, 25)
+        )
+
+        val closedIntervals = mutableMapOf<String, CycleInterval>()
+        for (d in dates) {
+            val intervals = BillingCycleCalculator.getPlatformCycleIntervals(platform, d)
+            val intv = intervals.firstOrNull() ?: continue
+            if (BillingCycleCalculator.isCycleClosed(intv, today)) {
+                val key = "${intv.periodStart}_${intv.periodEnd}"
+                closedIntervals[key] = intv
+            }
+        }
+
+        // Devem existir exatamente 2 ciclos encerrados identificados:
+        // 1) 11/05/2026 a 17/05/2026 (semana retrasada)
+        // 2) 18/05/2026 a 24/05/2026 (semana passada)
+        // O dia 25/05 pertence ao ciclo atual (25/05 a 31/05), que ainda NÃO encerrou.
+        assertEquals(2, closedIntervals.size)
+
+        val keys = closedIntervals.keys
+        assertTrue(keys.contains("2026-05-11_2026-05-17"))
+        assertTrue(keys.contains("2026-05-18_2026-05-24"))
     }
 }
 
