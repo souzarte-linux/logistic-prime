@@ -78,7 +78,15 @@ class GoogleAuthClient(
             SignInResult.Cancelled
         } catch (e: Exception) {
             Log.e("SupabaseAuth", "Erro ao autenticar com o Google via Supabase: ${e.message}", e)
-            SignInResult.Error(e.localizedMessage ?: "Erro desconhecido ao autenticar com o Google.")
+            val msg = e.message ?: ""
+            val userFriendlyMessage = when {
+                msg.contains("No credentials available", ignoreCase = true) ->
+                    "Nenhuma credencial Google vinculada a esta assinatura (SHA-1). Por favor, entre usando seu E-mail e Senha."
+                msg.contains("16:", ignoreCase = true) ->
+                    "Falha na validação do Google OAuth (SHA-1 não registrado). Entre usando seu E-mail e Senha."
+                else -> e.localizedMessage ?: "Erro desconhecido ao autenticar com o Google."
+            }
+            SignInResult.Error(userFriendlyMessage)
         }
     }
 
