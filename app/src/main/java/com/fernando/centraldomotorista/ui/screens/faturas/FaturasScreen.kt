@@ -122,12 +122,22 @@ fun FaturasScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.openNewCycleModal() }) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Nova Fatura",
-                            tint = OrangeNeon
-                        )
+                    TooltipBox(
+                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                        tooltip = {
+                            PlainTooltip {
+                                Text("Criar nova fatura avulsa ou fechar ciclo antecipadamente")
+                            }
+                        },
+                        state = rememberTooltipState()
+                    ) {
+                        IconButton(onClick = { viewModel.openNewCycleModal() }) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Criar nova fatura avulsa ou fechar ciclo antecipadamente",
+                                tint = OrangeNeon
+                            )
+                        }
                     }
                     IconButton(onClick = { viewModel.loadData() }) {
                         Icon(
@@ -322,8 +332,14 @@ fun FaturasScreen(
                     }
                 }
 
-                // 3. 3 Abas Nativas (TabRow)
+                // 3. 3 Abas Nativas (TabRow com cores sincronizadas aos cards superiores)
                 item {
+                    val activeTabColor = when (uiState.activeTab) {
+                        FaturasTab.EM_ABERTO -> BlueInfo
+                        FaturasTab.A_VENCER -> OrangeNeon
+                        FaturasTab.PAGO -> GreenNeon
+                    }
+
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
@@ -333,11 +349,11 @@ fun FaturasScreen(
                         PrimaryTabRow(
                             selectedTabIndex = uiState.activeTab.ordinal,
                             containerColor = Color.Transparent,
-                            contentColor = OrangeNeon,
+                            contentColor = activeTabColor,
                             indicator = {
                                 TabRowDefaults.PrimaryIndicator(
                                     modifier = Modifier.tabIndicatorOffset(uiState.activeTab.ordinal),
-                                    color = OrangeNeon
+                                    color = activeTabColor
                                 )
                             },
                             divider = {}
@@ -349,6 +365,11 @@ fun FaturasScreen(
                                     FaturasTab.A_VENCER -> uiState.aVencerCycles.size
                                     FaturasTab.PAGO -> uiState.pagoCycles.size
                                 }
+                                val tabColor = when (tab) {
+                                    FaturasTab.EM_ABERTO -> BlueInfo
+                                    FaturasTab.A_VENCER -> OrangeNeon
+                                    FaturasTab.PAGO -> GreenNeon
+                                }
                                 Tab(
                                     selected = isSelected,
                                     onClick = { viewModel.onTabChanged(tab) },
@@ -357,7 +378,7 @@ fun FaturasScreen(
                                             text = "${tab.label} ($count)",
                                             fontSize = 11.sp,
                                             fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                                            color = if (isSelected) OrangeNeon else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = if (isSelected) tabColor else MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -508,42 +529,6 @@ fun FaturasScreen(
                             onViewDetails = { viewModel.openDetailsModal(cycleItem) },
                             onDelete = { viewModel.deleteCycle(cycleItem) }
                         )
-                    }
-                }
-
-                // 5. Botão "+ Nova Fatura" inferior
-                item {
-                    Surface(
-                        onClick = { viewModel.openNewCycleModal() },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.Transparent,
-                        border = androidx.compose.foundation.BorderStroke(2.dp, OrangeNeon.copy(alpha = 0.5f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                                tint = OrangeNeon,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "FECHAR CICLO / NOVA FATURA",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 13.sp,
-                                letterSpacing = 1.sp,
-                                color = OrangeNeon
-                            )
-                        }
                     }
                 }
             }

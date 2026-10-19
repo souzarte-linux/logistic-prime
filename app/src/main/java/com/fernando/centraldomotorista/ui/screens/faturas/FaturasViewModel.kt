@@ -425,7 +425,7 @@ class FaturasViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            val success = if (cycle.cycle.id.startsWith("dynamic_")) {
+            val success = if (cycle.cycle.id.startsWith("dynamic_") || cycle.cycle.id.startsWith("unbilled_")) {
                 val created = billingCycleRepository.createBillingCycle(
                     cycle.cycle.copy(id = "", status = "pago", paymentReceivedDate = date)
                 )
@@ -464,7 +464,7 @@ class FaturasViewModel(
     fun closeCycleToPending(cycle: BillingCycleWithTotals) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            val success = if (cycle.cycle.id.startsWith("dynamic_")) {
+            val success = if (cycle.cycle.id.startsWith("dynamic_") || cycle.cycle.id.startsWith("unbilled_")) {
                 val created = billingCycleRepository.createBillingCycle(
                     cycle.cycle.copy(id = "", status = "a_vencer")
                 )

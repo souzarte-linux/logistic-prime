@@ -93,13 +93,13 @@ class BillingCycleRepository(
 
                 fun isEffectivelyUnlinked(bcId: String?): Boolean {
                     if (bcId.isNullOrBlank()) return true
-                    return bcId !in savedActiveCycleIds && !bcId.startsWith("dynamic_")
+                    return bcId !in savedActiveCycleIds && !bcId.startsWith("dynamic_") && !bcId.startsWith("unbilled_")
                 }
 
                 val activePlatforms = platforms.filter { it.active }
                 val newlyCreatedCycles = mutableListOf<BillingCycle>()
 
-                // 1. Varredura automática retrospectiva de transações órfãs e auto-criação de faturas fechadas
+                // 1. Projeção de ciclos fechados (a_vencer) para plataformas ativas e transações órfãs
                 for (platform in activePlatforms) {
                     val platPartnerId = platform.partnerId
 
@@ -135,6 +135,15 @@ class BillingCycleRepository(
                     }
 
                     val closedIntervals = mutableMapOf<String, CycleInterval>()
+
+                    // Ciclo anterior da plataforma que já encerrou (ex: 01 a 15/10 quando hoje é 19/10)
+                    val prevIntv = BillingCycleCalculator.getPreviousPlatformCycleInterval(platform, today)
+                    if (BillingCycleCalculator.isCycleClosed(prevIntv, today)) {
+                        val key = "${prevIntv.periodStart}_${prevIntv.periodEnd}_${prevIntv.includeEndDate}"
+                        closedIntervals[key] = prevIntv
+                    }
+
+                    // Intervalos fechados derivados de transações passadas
                     for (d in unlinkedDates) {
                         val intervals = BillingCycleCalculator.getPlatformCycleIntervals(platform, d)
                         val intv = intervals.firstOrNull() ?: continue
@@ -154,8 +163,9 @@ class BillingCycleRepository(
                         }
 
                         if (!hasSaved) {
-                            val newCycle = BillingCycle(
-                                id = "",
+                            // Projeta instantaneamente na memória para a aba "Ciclo A Vencer"
+                            val unbilledCycle = BillingCycle(
+                                id = "unbilled_${platform.id}_${intv.periodStart}_${intv.periodEnd}",
                                 userId = userId,
                                 platformId = platform.id,
                                 periodStart = intv.periodStart,
@@ -164,25 +174,42 @@ class BillingCycleRepository(
                                 status = "a_vencer",
                                 includeEndDate = intv.includeEndDate
                             )
-                            val created = createBillingCycle(newCycle)
-                            if (created != null) {
-                                linkCycleTransactions(
-                                    cycleId = created.id,
-                                    platformId = platform.id,
-                                    periodStart = intv.periodStart,
-                                    periodEnd = intv.periodEnd,
-                                    includeEndDate = intv.includeEndDate,
-                                    userId = userId
+                            newlyCreatedCycles.add(unbilledCycle)
+                            savedActiveCycles.add(unbilledCycle)
+                            savedActiveCycleIds.add(unbilledCycle.id)
+
+                            // Tenta persistir no Supabase sem bloquear a renderização imediata da tela
+                            try {
+                                val created = createBillingCycle(
+                                    BillingCycle(
+                                        id = "",
+                                        userId = userId,
+                                        platformId = platform.id,
+                                        periodStart = intv.periodStart,
+                                        periodEnd = intv.periodEnd,
+                                        expectedPaymentDate = intv.expectedPaymentDate,
+                                        status = "a_vencer",
+                                        includeEndDate = intv.includeEndDate
+                                    )
                                 )
-                                newlyCreatedCycles.add(created)
-                                savedActiveCycles.add(created)
-                                savedActiveCycleIds.add(created.id)
+                                if (created != null) {
+                                    linkCycleTransactions(
+                                        cycleId = created.id,
+                                        platformId = platform.id,
+                                        periodStart = intv.periodStart,
+                                        periodEnd = intv.periodEnd,
+                                        includeEndDate = intv.includeEndDate,
+                                        userId = userId
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                Log.w("BillingCycleRepository", "Persistência em background da fatura a vencer postergada: ${e.message}")
                             }
                         }
                     }
                 }
 
-                // 2. Projeção dinâmica dos ciclos abertos atuais (c0)
+                // 2. Projeção dinâmica dos ciclos abertos atuais (c0) para a aba "Ciclo em Aberto"
                 val dynamicCycles = mutableListOf<BillingCycle>()
 
                 for (platform in activePlatforms) {

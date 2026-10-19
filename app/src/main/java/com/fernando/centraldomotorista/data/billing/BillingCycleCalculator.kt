@@ -255,6 +255,78 @@ object BillingCycleCalculator {
     }
 
     /**
+     * Retorna o intervalo do ciclo IMEDIATAMENTE ANTERIOR (c_prev) para uma plataforma,
+     * baseando-se na data de referência fornecida (padrão: hoje).
+     * Se hoje passou da data de término de c_prev, este ciclo já se encontra encerrado (status 'a_vencer' se não pago).
+     */
+    fun getPreviousPlatformCycleInterval(
+        platform: Platform,
+        refDate: LocalDate = LocalDate.now()
+    ): CycleInterval {
+        val rules = platform.rules
+        val payDelay = rules.fixedPayDelay.toLong().coerceAtLeast(0L)
+        val cycle = platform.cycle.lowercase().trim()
+
+        return when (cycle) {
+            "semanal" -> {
+                val currentMonday = refDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                val prevMonday = currentMonday.minusWeeks(1)
+                val prevSunday = prevMonday.plusDays(6)
+                val prevPay = prevSunday.plusDays(payDelay)
+                CycleInterval(prevMonday, prevSunday, prevPay, true)
+            }
+            "quinzenal" -> {
+                val dom = refDate.dayOfMonth
+                val prevStart: LocalDate
+                val prevEnd: LocalDate
+
+                if (dom <= 15) {
+                    val prevMonth = refDate.minusMonths(1)
+                    prevStart = prevMonth.withDayOfMonth(16)
+                    prevEnd = prevMonth.with(TemporalAdjusters.lastDayOfMonth())
+                } else {
+                    prevStart = refDate.withDayOfMonth(1)
+                    prevEnd = refDate.withDayOfMonth(15)
+                }
+                val prevPay = prevEnd.plusDays(payDelay)
+                CycleInterval(prevStart, prevEnd, prevPay, true)
+            }
+            "mensal" -> {
+                val prevMonth = refDate.minusMonths(1)
+                val prevStart = prevMonth.withDayOfMonth(1)
+                val prevEnd = prevMonth.with(TemporalAdjusters.lastDayOfMonth())
+                val prevPay = prevEnd.plusDays(payDelay)
+                CycleInterval(prevStart, prevEnd, prevPay, true)
+            }
+            "misto", "variavel" -> {
+                val explicitDateEntries = rules.cycleEntries.filter { it.startDate != null && it.endDate != null }
+                    .sortedBy { it.startDate }
+                if (explicitDateEntries.isNotEmpty()) {
+                    val matchingIndex = explicitDateEntries.indexOfFirst { entry ->
+                        isDateInCycle(refDate, entry.startDate!!, entry.endDate!!, entry.includeEndDate)
+                    }
+                    val prevIndex = if (matchingIndex > 0) matchingIndex - 1 else 0
+                    val e = explicitDateEntries[prevIndex]
+                    val s = e.startDate!!
+                    val end = e.endDate!!
+                    val pay = e.paymentDate ?: end.plusDays(e.payDelayDays.toLong())
+                    CycleInterval(s, end, pay, e.includeEndDate)
+                } else {
+                    val prevStart = refDate.minusDays(15).withDayOfMonth(1)
+                    val prevEnd = prevStart.with(TemporalAdjusters.lastDayOfMonth())
+                    CycleInterval(prevStart, prevEnd, prevEnd.plusDays(payDelay), true)
+                }
+            }
+            else -> {
+                val currentMonday = refDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                val prevMonday = currentMonday.minusWeeks(1)
+                val prevSunday = prevMonday.plusDays(6)
+                CycleInterval(prevMonday, prevSunday, prevSunday.plusDays(payDelay), true)
+            }
+        }
+    }
+
+    /**
      * Verifica sobreposição temporal considerando se a data final é inclusiva ou semi-aberta.
      */
     fun checkOverlap(

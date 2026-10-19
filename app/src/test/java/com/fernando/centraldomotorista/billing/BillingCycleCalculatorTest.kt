@@ -194,4 +194,96 @@ class BillingCycleCalculatorTest {
         assertEquals("VARIÁVEL", BillingCycleCalculator.getCycleDisplayLabel("misto", null))
         assertEquals("VARIÁVEL", BillingCycleCalculator.getCycleDisplayLabel("variavel", null))
     }
+
+    @Test
+    fun testAsherQuinzenalOctober19Scenario() {
+        // Cenário exato reportado: 19 de outubro de 2026, Plataforma Asher com pagamento quinzenal e delay de 15 dias
+        val asher = Platform(
+            id = "asher-1",
+            userId = "user-1",
+            name = "Asher - Entrega Cartão",
+            cycle = "quinzenal",
+            paymentDay = null,
+            rules = PlatformRules(fixedPayDelay = 15)
+        )
+
+        val today = LocalDate.of(2026, 10, 19)
+
+        // 1. Ciclo Atual (c0): 16/10 a 31/10 -> EM ABERTO
+        val intervals = BillingCycleCalculator.getPlatformCycleIntervals(asher, today)
+        assertEquals(2, intervals.size)
+        val c0 = intervals[0]
+        assertEquals(LocalDate.of(2026, 10, 16), c0.periodStart)
+        assertEquals(LocalDate.of(2026, 10, 31), c0.periodEnd)
+        assertEquals(LocalDate.of(2026, 11, 15), c0.expectedPaymentDate)
+        // O ciclo corrente NÃO está fechado em 19/10
+        assertFalse(BillingCycleCalculator.isCycleClosed(c0, today))
+
+        // 2. Ciclo Anterior (c_prev): 01/10 a 15/10 -> A VENCER
+        val cPrev = BillingCycleCalculator.getPreviousPlatformCycleInterval(asher, today)
+        assertEquals(LocalDate.of(2026, 10, 1), cPrev.periodStart)
+        assertEquals(LocalDate.of(2026, 10, 15), cPrev.periodEnd)
+        // Pagamento 15 dias após o término da 1ª quinzena (15 + 15 = 30 de outubro)
+        assertEquals(LocalDate.of(2026, 10, 30), cPrev.expectedPaymentDate)
+        // O ciclo de 01 a 15/10 JÁ está fechado em 19/10 (19 > 15)
+        assertTrue(BillingCycleCalculator.isCycleClosed(cPrev, today))
+    }
+
+    @Test
+    fun testQuinzenalFirstHalfScenario() {
+        val platform = Platform(
+            id = "plat-quinzenal",
+            userId = "user-1",
+            name = "Asher",
+            cycle = "quinzenal",
+            paymentDay = null,
+            rules = PlatformRules(fixedPayDelay = 15)
+        )
+
+        // Dia 05 de novembro de 2026 (primeira quinzena)
+        val today = LocalDate.of(2026, 11, 5)
+
+        // Ciclo anterior foi 16/10 a 31/10 com pagamento em 15/11
+        val cPrev = BillingCycleCalculator.getPreviousPlatformCycleInterval(platform, today)
+        assertEquals(LocalDate.of(2026, 10, 16), cPrev.periodStart)
+        assertEquals(LocalDate.of(2026, 10, 31), cPrev.periodEnd)
+        assertEquals(LocalDate.of(2026, 11, 15), cPrev.expectedPaymentDate)
+        assertTrue(BillingCycleCalculator.isCycleClosed(cPrev, today))
+
+        // Ciclo atual é 01/11 a 15/11 com pagamento em 30/11
+        val c0 = BillingCycleCalculator.getPlatformCycleIntervals(platform, today)[0]
+        assertEquals(LocalDate.of(2026, 11, 1), c0.periodStart)
+        assertEquals(LocalDate.of(2026, 11, 15), c0.periodEnd)
+        assertEquals(LocalDate.of(2026, 11, 30), c0.expectedPaymentDate)
+        assertFalse(BillingCycleCalculator.isCycleClosed(c0, today))
+    }
+
+    @Test
+    fun testWeeklyPreviousCycleClosed() {
+        val platform = Platform(
+            id = "plat-semanal",
+            userId = "user-1",
+            name = "Loggi",
+            cycle = "semanal",
+            paymentDay = null,
+            rules = PlatformRules(fixedPayDelay = 3)
+        )
+
+        // Segunda-feira, 19 de outubro de 2026
+        val today = LocalDate.of(2026, 10, 19)
+
+        // Ciclo anterior foi de segunda 12/10 a domingo 18/10
+        val cPrev = BillingCycleCalculator.getPreviousPlatformCycleInterval(platform, today)
+        assertEquals(LocalDate.of(2026, 10, 12), cPrev.periodStart)
+        assertEquals(LocalDate.of(2026, 10, 18), cPrev.periodEnd)
+        assertEquals(LocalDate.of(2026, 10, 21), cPrev.expectedPaymentDate)
+        // Fechou domingo (18/10), hoje é 19/10 -> fechado (A Vencer)
+        assertTrue(BillingCycleCalculator.isCycleClosed(cPrev, today))
+
+        // Ciclo atual de 19/10 a 25/10 -> Em aberto
+        val c0 = BillingCycleCalculator.getPlatformCycleIntervals(platform, today)[0]
+        assertEquals(LocalDate.of(2026, 10, 19), c0.periodStart)
+        assertEquals(LocalDate.of(2026, 10, 25), c0.periodEnd)
+        assertFalse(BillingCycleCalculator.isCycleClosed(c0, today))
+    }
 }
