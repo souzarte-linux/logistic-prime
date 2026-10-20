@@ -47,6 +47,7 @@ fun RelatoriosScreen(
     viewModel: RelatoriosViewModel,
     onNavigateToHistoricoCategory: ((String, PeriodFilter) -> Unit)? = null,
     onNavigateToEditMaintenance: ((String) -> Unit)? = null,
+    onOpenDrawer: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -69,6 +70,15 @@ fun RelatoriosScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menu",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },

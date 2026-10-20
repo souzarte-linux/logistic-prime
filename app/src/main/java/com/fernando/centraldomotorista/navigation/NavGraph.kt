@@ -38,7 +38,10 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.fernando.centraldomotorista.auth.BiometricAuthHelper
 import com.fernando.centraldomotorista.ui.common.period.PeriodFilter
+import com.fernando.centraldomotorista.ui.components.AppDrawerContent
+import com.fernando.centraldomotorista.ui.theme.RedAlert
 import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Login : Screen("login", "Login", Icons.Default.Lock)
@@ -154,7 +157,100 @@ fun CentralDoMotoristaApp(
     }
     val showBottomBar = bottomNavItems.any { isCurrentDestination(it.route) }
 
-    Scaffold(
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val coroutineScope = rememberCoroutineScope()
+    val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
+
+    if (showLogoutConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirmation = false },
+            title = {
+                Text(
+                    text = "Sair da Conta",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Text(
+                    text = "Tem certeza de que deseja sair da sua conta? Será necessário fazer login novamente.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutConfirmation = false
+                        authViewModel.signOut(googleAuthClient)
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RedAlert,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Sair", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirmation = false }) {
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurface)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = showBottomBar,
+        drawerContent = {
+            AppDrawerContent(
+                profile = homeUiState.profile,
+                currentRoute = currentRoute,
+                isDarkMode = isDarkMode,
+                onThemeToggle = onThemeToggle,
+                onNavigateToRoute = { route ->
+                    coroutineScope.launch {
+                        drawerState.close()
+                        if (route == Screen.Inicio.route) {
+                            if (!isCurrentDestination(Screen.Inicio.route)) {
+                                navController.navigate(Screen.Inicio.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = false
+                                    }
+                                    launchSingleTop = true
+                                }
+                            }
+                        } else if (route == Screen.Relatorios.route) {
+                            if (!isCurrentDestination(Screen.Relatorios.route)) {
+                                navController.navigate(Screen.Relatorios.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        } else {
+                            navController.navigate(route)
+                        }
+                    }
+                },
+                onSignOutClick = {
+                    coroutineScope.launch {
+                        drawerState.close()
+                        showLogoutConfirmation = true
+                    }
+                }
+            )
+        }
+    ) {
+        Scaffold(
         bottomBar = {
             if (showBottomBar) {
                 val bottomNavContainerColor = if (isDarkMode) BottomNavDark else BottomNavLight
@@ -229,6 +325,9 @@ fun CentralDoMotoristaApp(
                     viewModel = homeViewModel,
                     isDarkMode = isDarkMode,
                     onThemeToggle = onThemeToggle,
+                    onOpenDrawer = {
+                        coroutineScope.launch { drawerState.open() }
+                    },
                     onNavigateToCreateRoute = {
                         navController.navigate(Screen.LancarRota.route)
                     },
@@ -907,6 +1006,9 @@ fun CentralDoMotoristaApp(
                 val painelViewModel: com.fernando.centraldomotorista.ui.screens.painel.PainelViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.painel.PainelScreen(
                     viewModel = painelViewModel,
+                    onOpenDrawer = {
+                        coroutineScope.launch { drawerState.open() }
+                    },
                     onNavigateToCreateRoute = {
                         navController.navigate(Screen.LancarRota.route)
                     },
@@ -940,6 +1042,9 @@ fun CentralDoMotoristaApp(
                 val routeHomeViewModel: com.fernando.centraldomotorista.ui.screens.routes.master.RouteHomeViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.routes.master.RouteHomeScreen(
                     viewModel = routeHomeViewModel,
+                    onOpenDrawer = {
+                        coroutineScope.launch { drawerState.open() }
+                    },
                     onNavigateToScanner = { routeId ->
                         navController.navigate("route_scanner/$routeId")
                     },
@@ -1000,6 +1105,9 @@ fun CentralDoMotoristaApp(
                 val relatoriosViewModel: com.fernando.centraldomotorista.ui.screens.relatorios.RelatoriosViewModel = viewModel()
                 com.fernando.centraldomotorista.ui.screens.relatorios.RelatoriosScreen(
                     viewModel = relatoriosViewModel,
+                    onOpenDrawer = {
+                        coroutineScope.launch { drawerState.open() }
+                    },
                     onNavigateToHistoricoCategory = { category, periodFilter ->
                         val presetStr = periodFilter.preset.name
                         val startStr = periodFilter.customStart?.toString() ?: ""
@@ -1057,6 +1165,9 @@ fun CentralDoMotoristaApp(
 
                 com.fernando.centraldomotorista.ui.screens.historico.HistoricoScreen(
                     viewModel = historicoViewModel,
+                    onOpenDrawer = {
+                        coroutineScope.launch { drawerState.open() }
+                    },
                     onNavigateToEdit = { editRoute ->
                         navController.navigate(editRoute)
                     }
@@ -1064,6 +1175,7 @@ fun CentralDoMotoristaApp(
             }
         }
     }
+}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
