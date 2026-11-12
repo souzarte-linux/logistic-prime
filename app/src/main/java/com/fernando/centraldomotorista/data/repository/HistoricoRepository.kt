@@ -16,7 +16,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-class HistoricoRepository(
+open class HistoricoRepository(
     private val routeRepository: RouteRepository = RouteRepository(),
     private val expenseRepository: ExpenseRepository = ExpenseRepository(),
     private val dailyTotalRepository: DailyTotalRepository = DailyTotalRepository(),
@@ -28,7 +28,33 @@ class HistoricoRepository(
 ) {
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale("pt", "BR"))
 
-    suspend fun loadHistoricoData(userId: String): Pair<Profile, List<TransactionItem>> = withContext(Dispatchers.IO) {
+    open suspend fun loadHistoricoData(userId: String): Pair<Profile, List<TransactionItem>> = withContext(Dispatchers.IO) {
+        if (userId.isBlank() || userId.equals("anonymous", ignoreCase = true)) {
+            val emptyProfile = Profile(
+                id = userId.ifBlank { "anonymous" },
+                fullName = null,
+                email = null,
+                phone = null,
+                vehicle = "moto",
+                plate = null,
+                avatarUrl = null,
+                dailyGoal = BigDecimal("200"),
+                weeklyGoal = BigDecimal("1000"),
+                monthlyGoal = BigDecimal("3450"),
+                vehicleBrand = null,
+                vehicleModel = null,
+                vehicleYear = null,
+                tankSizeL = null,
+                avgConsumptionKml = null,
+                oilChangeKm = null,
+                tireSizeFront = null,
+                tireSizeRear = null,
+                hasBag = false,
+                lastOilChangeAt = null
+            )
+            return@withContext Pair(emptyProfile, emptyList())
+        }
+
         coroutineScope {
             val userFilter = "eq.$userId"
 

@@ -80,7 +80,9 @@ fun HistoricoScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                viewModel.loadData()
+                if (uiState.allTransactions.isEmpty() && !uiState.isLoading) {
+                    viewModel.loadData()
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
