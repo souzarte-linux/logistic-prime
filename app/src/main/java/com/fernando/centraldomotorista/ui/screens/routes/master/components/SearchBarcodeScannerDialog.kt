@@ -13,6 +13,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlin.OptIn
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -83,6 +84,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Diálogo modal de escaneamento rápido de código de barras para o campo de busca do Cockpit.
  * Permite localizar e auto-expandir instantaneamente a parada correspondente na rota.
  */
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchBarcodeScannerDialog(
