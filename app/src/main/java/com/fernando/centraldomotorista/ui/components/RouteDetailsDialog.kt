@@ -264,15 +264,14 @@ fun RouteDetailsDialog(
 
                 // =========================================================================
                 // SEÇÃO: DISTÂNCIA PERCORRIDA (RIGOROSAMENTE NA ORDEM ESPECIFICADA)
-                // - Linha 1: ODÔMETRO INICIAL: XX.XXX "KM"
-                // - Linha 2: ODÔMETRO FINAL: XX.XXX "KM"
-                // - Linha 3: DIST. PERCORRIDO: XX.XXX "KM"
-                // Título do card: "DISTÂNCIA PERCORRIDA" com ícone de carro
+                // - Linha 1: Odômetro Inicial: XX.XXX "KM"
+                // - Linha 2: Odômetro Final: XX.XXX "KM"
+                // - Linha 3: Dist. Percorrido: XX.XXX "KM"
                 // =========================================================================
-                DetailSection(title = "DISTÂNCIA PERCORRIDA", icon = Icons.Default.DirectionsCar) {
-                    DetailRow(label = "ODÔMETRO INICIAL", value = "${route.startKm} KM")
-                    DetailRow(label = "ODÔMETRO FINAL", value = "${route.endKm} KM")
-                    DetailRow(label = "DIST. PERCORRIDO", value = "${route.distanceKm} KM")
+                DetailSection(title = "Distância Percorrida", icon = Icons.Default.DirectionsCar) {
+                    DetailRow(label = "Odômetro Inicial", value = "${route.startKm} KM")
+                    DetailRow(label = "Odômetro Final", value = "${route.endKm} KM")
+                    DetailRow(label = "Dist. Percorrido", value = "${route.distanceKm} KM")
                 }
 
                 // Observações (se houver)

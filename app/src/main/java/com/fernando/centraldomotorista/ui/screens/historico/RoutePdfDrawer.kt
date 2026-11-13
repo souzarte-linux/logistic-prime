@@ -255,17 +255,17 @@ object RoutePdfDrawer {
         currentY += pkgsHeight + 16f
 
         // Seção: DISTÂNCIA PERCORRIDA (RIGOROSAMENTE NA ORDEM ESPECIFICADA)
-        // Linha 1: ODÔMETRO INICIAL: XX.XXX "KM"
-        // Linha 2: ODÔMETRO FINAL: XX.XXX "KM"
-        // Linha 3: DIST. PERCORRIDO: XX.XXX "KM"
+        // Linha 1: Odômetro Inicial: XX.XXX "KM"
+        // Linha 2: Odômetro Final: XX.XXX "KM"
+        // Linha 3: Dist. Percorrido: XX.XXX "KM"
         val distHeight = 85f
-        drawPdfSection(canvas, margin, currentY, contentWidth, distHeight, "DISTÂNCIA PERCORRIDA")
+        drawPdfSection(canvas, margin, currentY, contentWidth, distHeight, "Distância Percorrida")
         rowPdfY = currentY + 40f
-        drawPdfRow(canvas, margin + 14f, margin + contentWidth - 14f, rowPdfY, "ODÔMETRO INICIAL", "${route.startKm} KM")
+        drawPdfRow(canvas, margin + 14f, margin + contentWidth - 14f, rowPdfY, "Odômetro Inicial", "${route.startKm} KM")
         rowPdfY += 18f
-        drawPdfRow(canvas, margin + 14f, margin + contentWidth - 14f, rowPdfY, "ODÔMETRO FINAL", "${route.endKm} KM")
+        drawPdfRow(canvas, margin + 14f, margin + contentWidth - 14f, rowPdfY, "Odômetro Final", "${route.endKm} KM")
         rowPdfY += 18f
-        drawPdfRow(canvas, margin + 14f, margin + contentWidth - 14f, rowPdfY, "DIST. PERCORRIDO", "${route.distanceKm} KM")
+        drawPdfRow(canvas, margin + 14f, margin + contentWidth - 14f, rowPdfY, "Dist. Percorrido", "${route.distanceKm} KM")
 
         currentY += distHeight + 16f
 

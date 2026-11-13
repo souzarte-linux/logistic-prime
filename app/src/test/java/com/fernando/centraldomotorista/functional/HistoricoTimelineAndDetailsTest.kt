@@ -239,11 +239,11 @@ class HistoricoTimelineAndDetailsTest {
 
     private fun extractDistanceCardContract(route: Route): DistanceCardData {
         return DistanceCardData(
-            sectionTitle = "DISTÂNCIA PERCORRIDA",
+            sectionTitle = "Distância Percorrida",
             rows = listOf(
-                "ODÔMETRO INICIAL" to "${route.startKm} KM",
-                "ODÔMETRO FINAL" to "${route.endKm} KM",
-                "DIST. PERCORRIDO" to "${route.distanceKm} KM"
+                "Odômetro Inicial" to "${route.startKm} KM",
+                "Odômetro Final" to "${route.endKm} KM",
+                "Dist. Percorrido" to "${route.distanceKm} KM"
             )
         )
     }
@@ -264,19 +264,19 @@ class HistoricoTimelineAndDetailsTest {
 
         val card = extractDistanceCardContract(route)
 
-        assertEquals("Título exato da seção", "DISTÂNCIA PERCORRIDA", card.sectionTitle)
+        assertEquals("Título exato da seção", "Distância Percorrida", card.sectionTitle)
         assertEquals("Deve conter rigorosamente 3 linhas", 3, card.rows.size)
 
-        // Linha 1: ODÔMETRO INICIAL
-        assertEquals("Rótulo Linha 1", "ODÔMETRO INICIAL", card.rows[0].first)
+        // Linha 1: Odômetro Inicial
+        assertEquals("Rótulo Linha 1", "Odômetro Inicial", card.rows[0].first)
         assertEquals("Valor Linha 1 com KM", "45100.5 KM", card.rows[0].second)
 
-        // Linha 2: ODÔMETRO FINAL
-        assertEquals("Rótulo Linha 2", "ODÔMETRO FINAL", card.rows[1].first)
+        // Linha 2: Odômetro Final
+        assertEquals("Rótulo Linha 2", "Odômetro Final", card.rows[1].first)
         assertEquals("Valor Linha 2 com KM", "45220.8 KM", card.rows[1].second)
 
-        // Linha 3: DIST. PERCORRIDO
-        assertEquals("Rótulo Linha 3", "DIST. PERCORRIDO", card.rows[2].first)
+        // Linha 3: Dist. Percorrido
+        assertEquals("Rótulo Linha 3", "Dist. Percorrido", card.rows[2].first)
         assertEquals("Valor Linha 3 com KM", "120.3 KM", card.rows[2].second)
     }
 
@@ -296,9 +296,9 @@ class HistoricoTimelineAndDetailsTest {
         val card = extractDistanceCardContract(route)
 
         // Garante que o odômetro final NÃO está na primeira linha
-        assertNotEquals("Odômetro final não pode ser o primeiro", "ODÔMETRO FINAL", card.rows[0].first)
+        assertNotEquals("Odômetro final não pode ser o primeiro", "Odômetro Final", card.rows[0].first)
         // Garante que a distância percorrida NÃO está no topo
-        assertNotEquals("Dist. percorrido não pode ser o primeiro", "DIST. PERCORRIDO", card.rows[0].first)
+        assertNotEquals("Dist. percorrido não pode ser o primeiro", "Dist. Percorrido", card.rows[0].first)
         // Garante o sufixo "KM" em todos os valores
         assertTrue(card.rows.all { it.second.endsWith(" KM") })
     }

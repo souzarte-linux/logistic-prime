@@ -428,18 +428,18 @@ object RouteShareHelper {
 
         // =========================================================================
         // SEÇÃO: DISTÂNCIA PERCORRIDA (RIGOROSAMENTE NA ORDEM ESPECIFICADA)
-        // Linha 1: ODÔMETRO INICIAL: XX.XXX "KM"
-        // Linha 2: ODÔMETRO FINAL: XX.XXX "KM"
-        // Linha 3: DIST. PERCORRIDO: XX.XXX "KM"
+        // Linha 1: Odômetro Inicial: XX.XXX "KM"
+        // Linha 2: Odômetro Final: XX.XXX "KM"
+        // Linha 3: Dist. Percorrido: XX.XXX "KM"
         // =========================================================================
         val distCardHeight = 115f
-        drawSectionBox(canvas, leftX, currentY, rightX, currentY + distCardHeight, "DISTÂNCIA PERCORRIDA")
+        drawSectionBox(canvas, leftX, currentY, rightX, currentY + distCardHeight, "Distância Percorrida")
         rowY = currentY + 54f
-        drawRow(canvas, leftX + 20f, rightX - 20f, rowY, "ODÔMETRO INICIAL", "${route.startKm} KM")
+        drawRow(canvas, leftX + 20f, rightX - 20f, rowY, "Odômetro Inicial", "${route.startKm} KM")
         rowY += 26f
-        drawRow(canvas, leftX + 20f, rightX - 20f, rowY, "ODÔMETRO FINAL", "${route.endKm} KM")
+        drawRow(canvas, leftX + 20f, rightX - 20f, rowY, "Odômetro Final", "${route.endKm} KM")
         rowY += 26f
-        drawRow(canvas, leftX + 20f, rightX - 20f, rowY, "DIST. PERCORRIDO", "${route.distanceKm} KM")
+        drawRow(canvas, leftX + 20f, rightX - 20f, rowY, "Dist. Percorrido", "${route.distanceKm} KM")
 
         currentY += distCardHeight + 20f
 
