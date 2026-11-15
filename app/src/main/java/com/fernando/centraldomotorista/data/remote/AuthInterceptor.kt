@@ -7,6 +7,10 @@ import okhttp3.Interceptor
 import okhttp3.Response
 
 class AuthInterceptor : Interceptor {
+    companion object {
+        private val refreshLock = Any()
+    }
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val requestBuilder = chain.request().newBuilder()
             .header("Accept", "application/json")
@@ -14,16 +18,18 @@ class AuthInterceptor : Interceptor {
             .header("apikey", SUPABASE_ANON_KEY)
 
         try {
-            val session = runBlocking {
-                try {
-                    val current = supabase.auth.currentSessionOrNull()
-                    if (current != null && current.expiresAt <= kotlinx.datetime.Clock.System.now()) {
-                        supabase.auth.refreshCurrentSession()
+            val session = synchronized(refreshLock) {
+                runBlocking {
+                    try {
+                        val current = supabase.auth.currentSessionOrNull()
+                        if (current != null && current.expiresAt <= kotlinx.datetime.Clock.System.now()) {
+                            supabase.auth.refreshCurrentSession()
+                        }
+                        supabase.auth.currentSessionOrNull()
+                    } catch (e: Exception) {
+                        Log.w("AuthInterceptor", "Erro ao verificar/renovar sessão Supabase: ${e.message}")
+                        supabase.auth.currentSessionOrNull()
                     }
-                    supabase.auth.currentSessionOrNull()
-                } catch (e: Exception) {
-                    Log.w("AuthInterceptor", "Erro ao verificar/renovar sessão Supabase: ${e.message}")
-                    supabase.auth.currentSessionOrNull()
                 }
             }
 

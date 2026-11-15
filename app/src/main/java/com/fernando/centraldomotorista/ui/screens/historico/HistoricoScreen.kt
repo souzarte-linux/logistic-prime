@@ -53,6 +53,8 @@ import com.fernando.centraldomotorista.ui.common.period.PeriodFilter
 import com.fernando.centraldomotorista.ui.common.period.PeriodPreset
 import com.fernando.centraldomotorista.ui.common.period.PeriodSelector
 import com.fernando.centraldomotorista.ui.components.RouteDetailsDialog
+import com.fernando.centraldomotorista.ui.components.TransactionDetailsDialog
+import com.fernando.centraldomotorista.ui.screens.historico.components.TimelineDayItem
 import com.fernando.centraldomotorista.ui.theme.*
 import java.math.BigDecimal
 import java.text.NumberFormat
@@ -76,11 +78,14 @@ fun HistoricoScreen(
 
     var selectedRouteForDetails by remember { mutableStateOf<Route?>(null) }
     var selectedRoutePlatformName by remember { mutableStateOf<String?>(null) }
+    var selectedTransactionForDetails by remember { mutableStateOf<TransactionItem?>(null) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                viewModel.loadData()
+                if (uiState.allTransactions.isEmpty() && !uiState.isLoading) {
+                    viewModel.loadData()
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -292,11 +297,8 @@ fun HistoricoScreen(
                                     if (tx.sourceType == TransactionSourceType.ROUTE && tx.rawRoute != null) {
                                         selectedRouteForDetails = tx.rawRoute
                                         selectedRoutePlatformName = tx.establishment
-                                    } else if (tx.rawPartnerSession != null) {
-                                        onNavigateToEdit("session_route?sessionId=${tx.rawPartnerSession.id}&readOnly=true")
-                                    } else if (tx.sourceType == TransactionSourceType.EXPENSE &&
-                                        (tx.rawExpense?.category?.lowercase()?.contains("equipe") == true || tx.category.contains("EQUIPE", ignoreCase = true))) {
-                                        onNavigateToEdit("session_route?expenseId=${tx.id}&readOnly=true")
+                                    } else {
+                                        selectedTransactionForDetails = tx
                                     }
                                 }
                             )
@@ -408,6 +410,19 @@ fun HistoricoScreen(
             onEdit = { r ->
                 selectedRouteForDetails = null
                 onNavigateToEdit("lancar_rota?itemId=${r.id}")
+            }
+        )
+    }
+
+    // Modal de Detalhes de Transações Gerais (EXPENSE, DAILY_TOTAL)
+    selectedTransactionForDetails?.let { item ->
+        TransactionDetailsDialog(
+            transaction = item,
+            onDismiss = { selectedTransactionForDetails = null },
+            onEdit = { tx ->
+                selectedTransactionForDetails = null
+                val editRoute = viewModel.getEditRoute(tx)
+                onNavigateToEdit(editRoute)
             }
         )
     }
@@ -1178,11 +1193,13 @@ fun WeekAccordionItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 6.dp, end = 2.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                week.days.forEach { day ->
-                    DaySection(
+                week.days.forEachIndexed { index, day ->
+                    TimelineDayItem(
                         day = day,
+                        isFirst = index == 0,
+                        isLast = index == week.days.lastIndex,
                         onEditTransaction = onEditTransaction,
                         onDeleteTransaction = onDeleteTransaction,
                         onClickTransaction = onClickTransaction

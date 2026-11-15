@@ -1,29 +1,30 @@
 package com.fernando.centraldomotorista.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.fernando.centraldomotorista.data.model.Route
-import com.fernando.centraldomotorista.ui.theme.OrangeNeon
+import com.fernando.centraldomotorista.ui.screens.historico.RouteShareHelper
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
+import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.time.ZoneId
@@ -42,6 +43,9 @@ fun RouteDetailsDialog(
     onDismiss: () -> Unit,
     onEdit: (Route) -> Unit
 ) {
+    val context = LocalContext.current
+    var showShareDialog by remember { mutableStateOf(false) }
+
     val zone = ZoneId.systemDefault()
     val localOccurred = route.occurredAt.atZoneSameInstant(zone)
     val localStarted = route.startedAt?.atZoneSameInstant(zone)
@@ -78,124 +82,145 @@ fun RouteDetailsDialog(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // 1. Cabeçalho com Título, Tag de Plataforma e Botão de Editar no Topo Direito
-                Row(
+                // =========================================================================
+                // TOPO DA TELA REESTRUTURADO
+                // I) Na 1ª linha, centralizado o nome da empresa envolto em retângulo,
+                //    seguido dos botões sem texto: Compartilhar (Share) e Editar (Edit).
+                // II) Nome da rota (origem e destino) na 2ª linha.
+                // =========================================================================
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    // Linha 1: Nome da empresa centralizado em retângulo + botões Compartilhar e Editar
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        // Nome da empresa centralizado envolto em retângulo
+                        Surface(
+                            color = OrangeNeon.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, OrangeNeon.copy(alpha = 0.5f)),
+                            modifier = Modifier.align(Alignment.Center)
                         ) {
-                            Surface(
-                                color = OrangeNeon.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(6.dp)
+                            Text(
+                                text = (platformName ?: "ROTA").uppercase(),
+                                color = OrangeNeon,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                letterSpacing = 0.8.sp,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+
+                        // Botões Compartilhar e Editar sem texto no canto direito
+                        Row(
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Botão Compartilhar (sem texto)
+                            IconButton(
+                                onClick = { showShareDialog = true },
+                                modifier = Modifier.size(34.dp)
                             ) {
-                                Text(
-                                    text = (platformName ?: "ROTA").uppercase(),
-                                    color = OrangeNeon,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = "Compartilhar",
+                                            tint = OrangeNeon,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+                                }
                             }
 
-                            val origin = route.origin?.ifBlank { "Origem" } ?: "Origem"
-                            val destination = route.destination?.ifBlank { "Destino" } ?: "Destino"
-                            Text(
-                                text = "$origin ➔ $destination",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            // Botão Editar (sem texto)
+                            IconButton(
+                                onClick = {
+                                    onDismiss()
+                                    onEdit(route)
+                                },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = OrangeNeon,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Editar",
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    // Botão "EDITAR" na parte direita superior
-                    Button(
-                        onClick = {
-                            onDismiss()
-                            onEdit(route)
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = OrangeNeon,
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.height(34.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Editar",
-                            tint = Color.Black,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "EDITAR",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 11.sp,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
+                    // Linha 2: Origem ➔ Destino
+                    val origin = route.origin?.ifBlank { "Origem" } ?: "Origem"
+                    val destination = route.destination?.ifBlank { "Destino" } ?: "Destino"
+                    Text(
+                        text = "$origin ➔ $destination",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                    )
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
-                // 2. Card de Valor Total
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            text = "VALOR TOTAL DA ROTA",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = route.amount.formatCurrency(),
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Black,
-                            color = OrangeNeon
-                        )
+                // =========================================================================
+                // CARD: VALOR TOTAL DA ROTA (Padrão DetailSection com Ícone + Título, Linha, Conteúdo)
+                // =========================================================================
+                DetailSection(title = "VALOR TOTAL DA ROTA", icon = Icons.Default.Payments) {
+                    Text(
+                        text = route.amount.formatCurrency(),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Black,
+                        color = OrangeNeon
+                    )
 
-                        // Discriminativo de adicionais
-                        if (route.tip > BigDecimal.ZERO || route.bonus > BigDecimal.ZERO) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                if (route.tip > BigDecimal.ZERO) {
-                                    Text(
-                                        text = "+ Gorjeta: ${route.tip.formatCurrency()}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GreenNeon
-                                    )
-                                }
-                                if (route.bonus > BigDecimal.ZERO) {
-                                    Text(
-                                        text = "+ Bônus: ${route.bonus.formatCurrency()}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GreenNeon
-                                    )
-                                }
+                    // Discriminativo de adicionais se houver
+                    if (route.tip > BigDecimal.ZERO || route.bonus > BigDecimal.ZERO) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (route.tip > BigDecimal.ZERO) {
+                                Text(
+                                    text = "+ Gorjeta: ${route.tip.formatCurrency()}",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GreenNeon
+                                )
+                            }
+                            if (route.bonus > BigDecimal.ZERO) {
+                                Text(
+                                    text = "+ Bônus: ${route.bonus.formatCurrency()}",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GreenNeon
+                                )
                             }
                         }
                     }
                 }
 
-                // 3. Seção: Data e Horários
+                // =========================================================================
+                // SEÇÃO: DATA & HORÁRIOS
+                // =========================================================================
                 DetailSection(title = "DATA & HORÁRIOS", icon = Icons.Default.CalendarToday) {
                     DetailRow(label = "Data da Rota", value = localOccurred.format(dateFormatter))
                     DetailRow(
@@ -212,7 +237,9 @@ fun RouteDetailsDialog(
                     }
                 }
 
-                // 4. Seção: Pacotes e Entregas
+                // =========================================================================
+                // SEÇÃO: PACOTES & VOLUMES
+                // =========================================================================
                 val totalPkgs = (route.smallPackagesCount + route.largePackagesCount).let {
                     if (it > 0) it else route.packageCount
                 }
@@ -235,18 +262,19 @@ fun RouteDetailsDialog(
                     DetailRow(label = "Tipo de Produto", value = route.productType.replaceFirstChar { it.uppercase() })
                 }
 
-                // 5. Seção: Deslocamento e Odômetro
-                DetailSection(title = "DISTÂNCIA & ODÔMETRO", icon = Icons.Default.DirectionsCar) {
-                    DetailRow(label = "Distância Percorrida", value = "${route.distanceKm} KM")
-                    if (route.startKm > BigDecimal.ZERO || route.endKm > BigDecimal.ZERO) {
-                        DetailRow(
-                            label = "Odômetro",
-                            value = "${route.startKm} KM (Inicial) ➔ ${route.endKm} KM (Final)"
-                        )
-                    }
+                // =========================================================================
+                // SEÇÃO: DISTÂNCIA PERCORRIDA (RIGOROSAMENTE NA ORDEM ESPECIFICADA)
+                // - Linha 1: Odômetro Inicial: XX.XXX "KM"
+                // - Linha 2: Odômetro Final: XX.XXX "KM"
+                // - Linha 3: Dist. Percorrido: XX.XXX "KM"
+                // =========================================================================
+                DetailSection(title = "Distância Percorrida", icon = Icons.Default.DirectionsCar) {
+                    DetailRow(label = "Odômetro Inicial", value = "${route.startKm} KM")
+                    DetailRow(label = "Odômetro Final", value = "${route.endKm} KM")
+                    DetailRow(label = "Dist. Percorrido", value = "${route.distanceKm} KM")
                 }
 
-                // 6. Observações (se houver)
+                // Observações (se houver)
                 if (!route.notes.isNullOrBlank()) {
                     DetailSection(title = "OBSERVAÇÕES", icon = Icons.AutoMirrored.Filled.Notes) {
                         Text(
@@ -271,6 +299,19 @@ fun RouteDetailsDialog(
                 }
             }
         }
+    }
+
+    // Diálogo para escolha do formato de compartilhamento (PNG ou PDF)
+    if (showShareDialog) {
+        RouteShareFormatDialog(
+            onDismiss = { showShareDialog = false },
+            onSelectFormat = { format ->
+                when (format) {
+                    RouteShareFormat.PNG -> RouteShareHelper.shareRouteImage(context, route, platformName)
+                    RouteShareFormat.PDF -> RouteShareHelper.shareRoutePdf(context, route, platformName)
+                }
+            }
+        )
     }
 }
 

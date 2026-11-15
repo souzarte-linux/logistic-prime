@@ -130,7 +130,8 @@ class HistoricoViewModel(
     private val historicoRepository: HistoricoRepository = HistoricoRepository(),
     private val externalScope: CoroutineScope? = null,
     observeDataSync: Boolean = true,
-    autoLoad: Boolean = true
+    autoLoad: Boolean = true,
+    private val userIdProvider: () -> String? = { supabase.auth.currentUserOrNull()?.id }
 ) : ViewModel() {
 
     private val scope: CoroutineScope
@@ -144,8 +145,8 @@ class HistoricoViewModel(
     private val ddMMFormatter = DateTimeFormatter.ofPattern("dd/MM", ptLocale)
     private val monthNameFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", ptLocale)
 
-    private val currentUserId: String
-        get() = supabase.auth.currentUserOrNull()?.id ?: "anonymous"
+    private val currentUserId: String?
+        get() = try { userIdProvider() } catch (e: Throwable) { null }
 
     init {
         if (autoLoad) {
@@ -160,27 +161,49 @@ class HistoricoViewModel(
         }
     }
 
-    fun loadData() {
+    fun loadData(forceOverwriteEmpty: Boolean = false) {
         scope.launch {
+            val hasExistingData = _uiState.value.allTransactions.isNotEmpty()
             _uiState.update { it.copy(isLoading = true, error = null) }
+
+            val userId = currentUserId
+            if (userId.isNullOrBlank() || userId.equals("anonymous", ignoreCase = true)) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = if (hasExistingData) null else "Usuário não autenticado."
+                    )
+                }
+                return@launch
+            }
+
             try {
-                val (profile, items) = historicoRepository.loadHistoricoData(currentUserId)
+                val (profile, items) = historicoRepository.loadHistoricoData(userId)
+
+                // PROTEÇÃO CRÍTICA: Se a resposta veio vazia, mas já existiam transações em tela
+                // e não foi exclusão explícita, preserva as transações anteriores em vez de zerar a tela
+                val effectiveItems = if (items.isEmpty() && hasExistingData && !forceOverwriteEmpty) {
+                    _uiState.value.allTransactions
+                } else {
+                    items
+                }
+
                 val today = LocalDate.now()
-                val metaDiaria = profile.dailyGoal ?: BigDecimal("320.00")
+                val metaDiaria = profile.dailyGoal ?: _uiState.value.metaDiaria
                 val currentFilter = _uiState.value.periodFilter
 
                 val periodMetrics = calculatePeriodMetrics(
-                    items = items,
+                    items = effectiveItems,
                     periodFilter = currentFilter,
                     dailyGoal = metaDiaria,
                     today = today
                 )
 
-                val availableFilters = deriveAvailableCategoryFilters(items)
+                val availableFilters = deriveAvailableCategoryFilters(effectiveItems)
 
                 val (monthGroups, filteredList) = withContext(Dispatchers.Default) {
                     buildGroups(
-                        items = items,
+                        items = effectiveItems,
                         tab = _uiState.value.selectedTab,
                         query = _uiState.value.searchQuery,
                         periodFilter = currentFilter,
@@ -208,7 +231,7 @@ class HistoricoViewModel(
                     it.copy(
                         isLoading = false,
                         profile = profile,
-                        allTransactions = items,
+                        allTransactions = effectiveItems,
                         availableCategoryFilters = availableFilters,
                         filteredTransactions = filteredList,
                         saldoCardTitle = periodMetrics.cardTitle,
@@ -239,7 +262,12 @@ class HistoricoViewModel(
                     )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = "Erro ao carregar histórico: ${e.message}") }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = if (hasExistingData) null else "Erro ao carregar histórico: ${e.message}"
+                    )
+                }
             }
         }
     }
@@ -448,7 +476,7 @@ class HistoricoViewModel(
             val ok = historicoRepository.deleteTransaction(item)
             if (ok) {
                 _uiState.update { it.copy(message = "Transação excluída com sucesso!") }
-                loadData()
+                loadData(forceOverwriteEmpty = true)
             } else {
                 _uiState.update { it.copy(isLoading = false, error = "Não foi possível excluir a transação.") }
             }
@@ -464,9 +492,14 @@ class HistoricoViewModel(
     }
 
     fun saveDailyGoal(newGoal: BigDecimal) {
+        val uid = currentUserId ?: _uiState.value.profile?.id
+        if (uid.isNullOrBlank()) {
+            _uiState.update { it.copy(error = "Usuário não autenticado para salvar meta.") }
+            return
+        }
         scope.launch {
             _uiState.update { it.copy(isEditGoalDialogOpen = false, isLoading = true) }
-            val ok = historicoRepository.updateDailyGoal(currentUserId, newGoal)
+            val ok = historicoRepository.updateDailyGoal(uid, newGoal)
             if (ok) {
                 _uiState.update { it.copy(message = "Meta diária atualizada com sucesso!") }
                 loadData()
