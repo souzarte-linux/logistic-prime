@@ -331,7 +331,7 @@ class BillingCycleRepository(
                 }
 
                 // Persistência em background das faturas fechadas (a vencer) projetadas que possuem valores legítimos
-                for (valid in validCycles) {
+                val mappedValidCycles = validCycles.map { valid ->
                     if (valid.cycle.id.startsWith("unbilled_")) {
                         try {
                             val created = createBillingCycle(
@@ -346,23 +346,42 @@ class BillingCycleRepository(
                                     includeEndDate = valid.cycle.includeEndDate
                                 )
                             )
-                            if (created != null) {
+                            val actual = created ?: checkOverlap(
+                                platformId = valid.cycle.platformId,
+                                periodStart = valid.cycle.periodStart,
+                                periodEnd = valid.cycle.periodEnd,
+                                includeEndDate = valid.cycle.includeEndDate,
+                                userId = userId
+                            )
+                            if (actual != null) {
                                 linkCycleTransactions(
-                                    cycleId = created.id,
-                                    platformId = valid.cycle.platformId,
-                                    periodStart = valid.cycle.periodStart,
-                                    periodEnd = valid.cycle.periodEnd,
-                                    includeEndDate = valid.cycle.includeEndDate,
+                                    cycleId = actual.id,
+                                    platformId = actual.platformId,
+                                    periodStart = actual.periodStart,
+                                    periodEnd = actual.periodEnd,
+                                    includeEndDate = actual.includeEndDate,
                                     userId = userId
                                 )
+                                valid.copy(
+                                    cycle = actual,
+                                    routes = valid.routes.map { it.copy(billingCycleId = actual.id) },
+                                    dailyTotals = valid.dailyTotals.map { it.copy(billingCycleId = actual.id) },
+                                    sessions = valid.sessions.map { it.copy(billingCycleId = actual.id) },
+                                    adjustments = valid.adjustments.map { it.copy(billingCycleId = actual.id) }
+                                )
+                            } else {
+                                valid
                             }
                         } catch (e: Exception) {
                             Log.w("BillingCycleRepository", "Persistência em background da fatura a vencer postergada: ${e.message}")
+                            valid
                         }
+                    } else {
+                        valid
                     }
                 }
 
-                validCycles
+                mappedValidCycles
             } catch (e: Exception) {
                 Log.e("BillingCycleRepository", "Erro ao carregar faturas com totais: ${e.message}", e)
                 emptyList()
@@ -391,6 +410,198 @@ class BillingCycleRepository(
             true
         } catch (e: Exception) {
             Log.e("BillingCycleRepository", "Erro ao atualizar status da fatura: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun liquidateCycle(
+        cycle: BillingCycle,
+        paymentReceivedDate: LocalDate,
+        userId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val isDynamicOrUnbilled = cycle.id.isBlank() || cycle.id.startsWith("dynamic_") || cycle.id.startsWith("unbilled_")
+            if (!isDynamicOrUnbilled) {
+                val updated = updateStatus(cycle.id, "pago", paymentReceivedDate)
+                if (updated) {
+                    linkCycleTransactions(
+                        cycleId = cycle.id,
+                        platformId = cycle.platformId,
+                        periodStart = cycle.periodStart,
+                        periodEnd = cycle.periodEnd,
+                        includeEndDate = cycle.includeEndDate,
+                        userId = userId
+                    )
+                    true
+                } else {
+                    false
+                }
+            } else {
+                val existing = checkOverlap(
+                    platformId = cycle.platformId,
+                    periodStart = cycle.periodStart,
+                    periodEnd = cycle.periodEnd,
+                    includeEndDate = cycle.includeEndDate,
+                    userId = userId
+                )
+                if (existing != null) {
+                    val updated = updateStatus(existing.id, "pago", paymentReceivedDate)
+                    if (updated) {
+                        linkCycleTransactions(
+                            cycleId = existing.id,
+                            platformId = existing.platformId,
+                            periodStart = existing.periodStart,
+                            periodEnd = existing.periodEnd,
+                            includeEndDate = existing.includeEndDate,
+                            userId = userId
+                        )
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    val created = createBillingCycle(
+                        cycle.copy(
+                            id = "",
+                            userId = userId,
+                            status = "pago",
+                            paymentReceivedDate = paymentReceivedDate
+                        )
+                    )
+                    if (created != null) {
+                        linkCycleTransactions(
+                            cycleId = created.id,
+                            platformId = created.platformId,
+                            periodStart = created.periodStart,
+                            periodEnd = created.periodEnd,
+                            includeEndDate = created.includeEndDate,
+                            userId = userId
+                        )
+                        true
+                    } else {
+                        val fallback = checkOverlap(
+                            platformId = cycle.platformId,
+                            periodStart = cycle.periodStart,
+                            periodEnd = cycle.periodEnd,
+                            includeEndDate = cycle.includeEndDate,
+                            userId = userId
+                        )
+                        if (fallback != null) {
+                            val fallbackUpdated = updateStatus(fallback.id, "pago", paymentReceivedDate)
+                            if (fallbackUpdated) {
+                                linkCycleTransactions(
+                                    cycleId = fallback.id,
+                                    platformId = fallback.platformId,
+                                    periodStart = fallback.periodStart,
+                                    periodEnd = fallback.periodEnd,
+                                    includeEndDate = fallback.includeEndDate,
+                                    userId = userId
+                                )
+                                true
+                            } else false
+                        } else {
+                            false
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("BillingCycleRepository", "Erro ao liquidar ciclo: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun closeCycleToPending(
+        cycle: BillingCycle,
+        userId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val isDynamicOrUnbilled = cycle.id.isBlank() || cycle.id.startsWith("dynamic_") || cycle.id.startsWith("unbilled_")
+            if (!isDynamicOrUnbilled) {
+                val updated = updateStatus(cycle.id, "a_vencer")
+                if (updated) {
+                    linkCycleTransactions(
+                        cycleId = cycle.id,
+                        platformId = cycle.platformId,
+                        periodStart = cycle.periodStart,
+                        periodEnd = cycle.periodEnd,
+                        includeEndDate = cycle.includeEndDate,
+                        userId = userId
+                    )
+                    true
+                } else {
+                    false
+                }
+            } else {
+                val existing = checkOverlap(
+                    platformId = cycle.platformId,
+                    periodStart = cycle.periodStart,
+                    periodEnd = cycle.periodEnd,
+                    includeEndDate = cycle.includeEndDate,
+                    userId = userId
+                )
+                if (existing != null) {
+                    val updated = updateStatus(existing.id, "a_vencer")
+                    if (updated) {
+                        linkCycleTransactions(
+                            cycleId = existing.id,
+                            platformId = existing.platformId,
+                            periodStart = existing.periodStart,
+                            periodEnd = existing.periodEnd,
+                            includeEndDate = existing.includeEndDate,
+                            userId = userId
+                        )
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    val created = createBillingCycle(
+                        cycle.copy(
+                            id = "",
+                            userId = userId,
+                            status = "a_vencer"
+                        )
+                    )
+                    if (created != null) {
+                        linkCycleTransactions(
+                            cycleId = created.id,
+                            platformId = created.platformId,
+                            periodStart = created.periodStart,
+                            periodEnd = created.periodEnd,
+                            includeEndDate = created.includeEndDate,
+                            userId = userId
+                        )
+                        true
+                    } else {
+                        val fallback = checkOverlap(
+                            platformId = cycle.platformId,
+                            periodStart = cycle.periodStart,
+                            periodEnd = cycle.periodEnd,
+                            includeEndDate = cycle.includeEndDate,
+                            userId = userId
+                        )
+                        if (fallback != null) {
+                            val fallbackUpdated = updateStatus(fallback.id, "a_vencer")
+                            if (fallbackUpdated) {
+                                linkCycleTransactions(
+                                    cycleId = fallback.id,
+                                    platformId = fallback.platformId,
+                                    periodStart = fallback.periodStart,
+                                    periodEnd = fallback.periodEnd,
+                                    includeEndDate = fallback.includeEndDate,
+                                    userId = userId
+                                )
+                                true
+                            } else false
+                        } else {
+                            false
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("BillingCycleRepository", "Erro ao fechar ciclo para pendente: ${e.message}", e)
             false
         }
     }

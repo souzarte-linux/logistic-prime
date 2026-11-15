@@ -83,6 +83,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Diálogo modal de escaneamento rápido de código de barras para o campo de busca do Cockpit.
  * Permite localizar e auto-expandir instantaneamente a parada correspondente na rota.
  */
+@androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchBarcodeScannerDialog(

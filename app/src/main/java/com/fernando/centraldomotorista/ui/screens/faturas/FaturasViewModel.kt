@@ -431,24 +431,11 @@ class FaturasViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            val success = if (cycle.cycle.id.startsWith("dynamic_") || cycle.cycle.id.startsWith("unbilled_")) {
-                val created = billingCycleRepository.createBillingCycle(
-                    cycle.cycle.copy(id = "", status = "pago", paymentReceivedDate = date)
-                )
-                if (created != null) {
-                    billingCycleRepository.linkCycleTransactions(
-                        cycleId = created.id,
-                        platformId = cycle.cycle.platformId,
-                        periodStart = cycle.cycle.periodStart,
-                        periodEnd = cycle.cycle.periodEnd,
-                        includeEndDate = cycle.cycle.includeEndDate,
-                        userId = currentUserId
-                    )
-                    true
-                } else false
-            } else {
-                billingCycleRepository.updateStatus(cycle.cycle.id, "pago", date)
-            }
+            val success = billingCycleRepository.liquidateCycle(
+                cycle = cycle.cycle,
+                paymentReceivedDate = date,
+                userId = currentUserId
+            )
             if (success) {
                 _uiState.update {
                     it.copy(
@@ -470,24 +457,10 @@ class FaturasViewModel(
     fun closeCycleToPending(cycle: BillingCycleWithTotals) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-            val success = if (cycle.cycle.id.startsWith("dynamic_") || cycle.cycle.id.startsWith("unbilled_")) {
-                val created = billingCycleRepository.createBillingCycle(
-                    cycle.cycle.copy(id = "", status = "a_vencer")
-                )
-                if (created != null) {
-                    billingCycleRepository.linkCycleTransactions(
-                        cycleId = created.id,
-                        platformId = cycle.cycle.platformId,
-                        periodStart = cycle.cycle.periodStart,
-                        periodEnd = cycle.cycle.periodEnd,
-                        includeEndDate = cycle.cycle.includeEndDate,
-                        userId = currentUserId
-                    )
-                    true
-                } else false
-            } else {
-                billingCycleRepository.updateStatus(cycle.cycle.id, "a_vencer")
-            }
+            val success = billingCycleRepository.closeCycleToPending(
+                cycle = cycle.cycle,
+                userId = currentUserId
+            )
             if (success) {
                 _uiState.update {
                     it.copy(
