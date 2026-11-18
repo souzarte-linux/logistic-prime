@@ -2,7 +2,7 @@
 trigger: always_on
 ---
 
-# Equipe de Agentes (GiroCusto): Orquestrador e Protocolo
+# Equipe de Agentes (Central do Motorista): Orquestrador e Protocolo
 
 Produto: app Android nativo (Kotlin, Jetpack Compose, MVVM, Room) com sincronização opcional via Supabase (Retrofit/OkHttp). Usuário final: entregador/motorista de aplicativo, que usa o app na rua, com uma mão, sob sol forte, com internet instável e aparelho modesto.
 
