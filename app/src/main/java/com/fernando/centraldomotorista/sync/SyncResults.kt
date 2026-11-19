@@ -4,7 +4,7 @@ import java.time.Instant
 
 sealed class PushResult {
     data object Success : PushResult()
-    data class Conflict409(val message: String = "409 Conflict") : PushResult()
+    data object AlreadyApplied : PushResult()
     data class Failure(val cause: Throwable) : PushResult()
 }
 

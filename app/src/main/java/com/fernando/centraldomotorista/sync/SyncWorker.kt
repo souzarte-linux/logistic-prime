@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.fernando.centraldomotorista.auth.UserSession
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
@@ -24,8 +25,18 @@ class SyncWorker @AssistedInject constructor(
         }
 
         return try {
-            syncEngine.syncAll()
-            Result.success()
+            val syncResult = syncEngine.syncAll()
+            if (syncResult.push.errorCount > 0 || syncResult.pull.failedTablesCount > 0) {
+                if (runAttemptCount < 3) {
+                    Result.retry()
+                } else {
+                    Result.success()
+                }
+            } else {
+                Result.success()
+            }
+        } catch (c: CancellationException) {
+            throw c
         } catch (e: Exception) {
             if (runAttemptCount < 3) {
                 Result.retry()

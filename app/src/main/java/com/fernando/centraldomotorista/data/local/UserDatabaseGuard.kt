@@ -1,6 +1,8 @@
 package com.fernando.centraldomotorista.data.local
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.util.Log
 import androidx.room.Room
 import com.fernando.centraldomotorista.auth.UserSession
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,21 +19,32 @@ class UserDatabaseGuard @Inject constructor(
     private val lock = Any()
 
     fun getDatabaseName(userId: String?): String {
-        val safeId = if (userId.isNullOrBlank()) "anonymous" else userId.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+        if (userId.isNullOrBlank()) {
+            throw IllegalStateException("Sem sessão ativa")
+        }
+        val safeId = userId.replace(Regex("[^a-zA-Z0-9_-]"), "_")
         return "cost_center_${safeId}.db"
     }
 
     fun getOrCreateDatabase(forcedUserId: String? = null): CostCenterDatabase {
         synchronized(lock) {
-            val targetUserId = forcedUserId ?: userSession.currentUserId() ?: "anonymous"
+            val targetUserId = forcedUserId ?: userSession.currentUserId()
+            if (targetUserId.isNullOrBlank()) {
+                throw IllegalStateException("Sem sessão ativa")
+            }
             val currentDb = activeDatabase
             if (currentDb != null && activeUserId == targetUserId && currentDb.isOpen) {
                 return currentDb
             }
 
-            // Se mudou de usuário e havia um aberto anterior, fecha e apaga o anterior
+            // Se mudou de usuário e havia um aberto anterior, apenas fecha o anterior (NÃO apaga o arquivo ali)
             if (activeDatabase != null && !activeUserId.isNullOrBlank() && activeUserId != targetUserId) {
-                closeAndDeleteDatabase(activeUserId!!)
+                try {
+                    activeDatabase?.close()
+                } catch (_: Exception) {
+                }
+                activeDatabase = null
+                activeUserId = null
             }
 
             val dbName = getDatabaseName(targetUserId)
@@ -39,7 +52,9 @@ class UserDatabaseGuard @Inject constructor(
                 context,
                 CostCenterDatabase::class.java,
                 dbName
-            ).build()
+            )
+                .addMigrations(CostCenterDatabase.MIGRATION_1_2)
+                .build()
 
             activeDatabase = db
             activeUserId = targetUserId
@@ -50,7 +65,14 @@ class UserDatabaseGuard @Inject constructor(
     fun onUserChanged(oldUserId: String?, newUserId: String?) {
         synchronized(lock) {
             if (!oldUserId.isNullOrBlank() && oldUserId != newUserId) {
-                closeAndDeleteDatabase(oldUserId)
+                if (activeUserId == oldUserId) {
+                    try {
+                        activeDatabase?.close()
+                    } catch (_: Exception) {
+                    }
+                    activeDatabase = null
+                    activeUserId = null
+                }
             }
         }
     }
@@ -75,4 +97,47 @@ class UserDatabaseGuard @Inject constructor(
     fun getActiveUserId(): String? = synchronized(lock) { activeUserId }
 
     fun getActiveDatabase(): CostCenterDatabase? = synchronized(lock) { activeDatabase }
+
+    fun sweepOtherUsers(currentUserId: String) {
+        val currentDbName = getDatabaseName(currentUserId)
+        val dbRegex = Regex("""^cost_center_.+\.db$""")
+        val databases = context.databaseList() ?: return
+
+        for (name in databases) {
+            if (!dbRegex.matches(name) || name == currentDbName) {
+                continue
+            }
+            val dbFile = context.getDatabasePath(name)
+            if (!dbFile.exists()) continue
+
+            var sqliteDb: SQLiteDatabase? = null
+            try {
+                sqliteDb = SQLiteDatabase.openDatabase(
+                    dbFile.absolutePath,
+                    null,
+                    SQLiteDatabase.OPEN_READONLY
+                )
+                val pendingCount = sqliteDb.rawQuery("SELECT COUNT(*) FROM outbox", null).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getInt(0) else 0
+                }
+                if (pendingCount == 0) {
+                    try {
+                        sqliteDb.close()
+                    } catch (_: Exception) {
+                    }
+                    sqliteDb = null
+                    context.deleteDatabase(name)
+                } else {
+                    Log.w("UserDatabaseGuard", "Banco $name preservado com $pendingCount registros pendentes no outbox")
+                }
+            } catch (e: Exception) {
+                Log.w("UserDatabaseGuard", "Falha ao verificar banco $name, não será apagado: ${e.message}")
+            } finally {
+                try {
+                    sqliteDb?.close()
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
 }

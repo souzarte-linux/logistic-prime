@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.fernando.centraldomotorista.data.local.CostCenterDatabase
+import com.fernando.centraldomotorista.data.local.LocalDatabaseProvider
 import com.fernando.centraldomotorista.data.local.dao.OutboxDao
 import com.fernando.centraldomotorista.data.local.dao.SyncCursorDao
 import com.fernando.centraldomotorista.data.local.entity.OutboxEntity
@@ -21,6 +22,7 @@ import org.robolectric.RobolectricTestRunner
 import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(application = android.app.Application::class)
 class SyncEngineTest {
 
     private lateinit var context: Context
@@ -29,6 +31,10 @@ class SyncEngineTest {
     private lateinit var syncCursorDao: SyncCursorDao
     private lateinit var registry: SyncHandlerRegistry
     private lateinit var syncEngine: SyncEngine
+
+    class FakeLocalDatabaseProvider(private val db: CostCenterDatabase) : LocalDatabaseProvider {
+        override fun current(): CostCenterDatabase = db
+    }
 
     @Before
     fun setup() {
@@ -39,7 +45,8 @@ class SyncEngineTest {
         outboxDao = database.outboxDao()
         syncCursorDao = database.syncCursorDao()
         registry = SyncHandlerRegistry()
-        syncEngine = SyncEngine(outboxDao, syncCursorDao, registry)
+        val provider = FakeLocalDatabaseProvider(database)
+        syncEngine = SyncEngine(provider, registry)
     }
 
     @After
@@ -125,8 +132,9 @@ class SyncEngineTest {
         assertNotNull(updated)
         assertEquals(1, updated!!.attempts)
         assertEquals("Conexão instável", updated.lastError)
+        assertEquals(1000L, updated.lastAttemptAt)
 
-        // Com attempts = 1, o backoff requerido é 1000ms a partir de createdAt (1000 + 1000 = 2000)
+        // Com attempts = 1 e lastAttemptAt = 1000L, o backoff requerido é 1000ms a partir de lastAttemptAt (1000 + 1000 = 2000)
         assertFalse(syncEngine.isBackoffElapsed(OutboxItem.fromEntity(updated), now = 1500L))
         assertTrue(syncEngine.isBackoffElapsed(OutboxItem.fromEntity(updated), now = 2000L))
 
@@ -140,6 +148,7 @@ class SyncEngineTest {
         val summary2 = syncEngine.processOutbox(currentTime = 2050L)
         assertEquals(1, summary2.errorCount)
         assertEquals(2, outboxDao.getById("retry-item")!!.attempts)
+        assertEquals(2050L, outboxDao.getById("retry-item")!!.lastAttemptAt)
     }
 
     @Test
@@ -158,7 +167,7 @@ class SyncEngineTest {
         val conflictHandler = object : TableSyncHandler {
             override val table: String = "vaults"
             override suspend fun push(item: OutboxItem): PushResult {
-                return PushResult.Conflict409("Registro já existente no Supabase")
+                return PushResult.AlreadyApplied
             }
             override suspend fun pull(since: Instant?): PullResult = PullResult.Success(null, 0)
         }
@@ -174,6 +183,7 @@ class SyncEngineTest {
 
     @Test
     fun resposta409ViaExcecaoTambemContaComoSucesso() = runTest {
+        // Reescrito para afirmar o oposto: exceção com "409" no texto conta como falha e o item permanece
         val itemEx = OutboxEntity(
             id = "item-ex-409",
             tableName = "vaults",
@@ -195,8 +205,155 @@ class SyncEngineTest {
         registry.register(exceptionConflictHandler)
 
         val summary = syncEngine.processOutbox(currentTime = 1000L)
+        assertEquals(0, summary.successCount)
+        assertEquals(1, summary.errorCount)
+        assertNotNull("Item deve permanecer no outbox após falha por exceção", outboxDao.getById("item-ex-409"))
+    }
+
+    @Test
+    fun alreadyAppliedApagaOItem() = runTest {
+        // 7.2 (a) AlreadyApplied apaga o item
+        val item = OutboxEntity(
+            id = "item-already-applied",
+            tableName = "fixed_costs",
+            rowId = "row-applied",
+            operation = "INSERT",
+            payloadJson = "{}",
+            attempts = 0,
+            createdAt = 1000L
+        )
+        outboxDao.insert(item)
+
+        registry.register(object : TableSyncHandler {
+            override val table: String = "fixed_costs"
+            override suspend fun push(item: OutboxItem): PushResult = PushResult.AlreadyApplied
+            override suspend fun pull(since: Instant?): PullResult = PullResult.Success(null, 0)
+        })
+
+        val summary = syncEngine.processOutbox(currentTime = 1000L)
         assertEquals(1, summary.successCount)
-        assertNull(outboxDao.getById("item-ex-409"))
+        assertEquals(0, summary.errorCount)
+        assertNull(outboxDao.getById("item-already-applied"))
+    }
+
+    @Test
+    fun failureDoItem1ImpedeOEnvioDoItem2NaMesmaExecucao() = runTest {
+        // 7.2 (c) Failure do item 1 impede o envio do item 2 na mesma execução
+        val item1 = OutboxEntity(
+            id = "item-1",
+            tableName = "fixed_costs",
+            rowId = "r1",
+            operation = "INSERT",
+            payloadJson = "{}",
+            attempts = 0,
+            createdAt = 100L
+        )
+        val item2 = OutboxEntity(
+            id = "item-2",
+            tableName = "fixed_costs",
+            rowId = "r2",
+            operation = "INSERT",
+            payloadJson = "{}",
+            attempts = 0,
+            createdAt = 200L
+        )
+        outboxDao.insert(item1)
+        outboxDao.insert(item2)
+
+        var item2Called = false
+        registry.register(object : TableSyncHandler {
+            override val table: String = "fixed_costs"
+            override suspend fun push(item: OutboxItem): PushResult {
+                return if (item.id == "item-1") {
+                    PushResult.Failure(RuntimeException("Falha temporária de rede"))
+                } else {
+                    item2Called = true
+                    PushResult.Success
+                }
+            }
+            override suspend fun pull(since: Instant?): PullResult = PullResult.Success(null, 0)
+        })
+
+        val summary = syncEngine.processOutbox(currentTime = 1000L)
+        assertEquals(0, summary.successCount)
+        assertEquals(1, summary.errorCount)
+        assertFalse("Item 2 não deve ser enviado se o Item 1 falhou nesta execução", item2Called)
+        assertEquals(0, outboxDao.getById("item-2")?.attempts)
+    }
+
+    @Test
+    fun itemEmBackoffImpedeOsPosteriores() = runTest {
+        // 7.2 (d) item em backoff impede os posteriores
+        val item1 = OutboxEntity(
+            id = "item-1-backoff",
+            tableName = "fixed_costs",
+            rowId = "r1",
+            operation = "INSERT",
+            payloadJson = "{}",
+            attempts = 1,
+            createdAt = 1000L,
+            lastAttemptAt = 1000L // attempts = 1 -> delay 1000ms -> pronto em t = 2000L
+        )
+        val item2 = OutboxEntity(
+            id = "item-2-ready",
+            tableName = "fixed_costs",
+            rowId = "r2",
+            operation = "INSERT",
+            payloadJson = "{}",
+            attempts = 0,
+            createdAt = 1100L
+        )
+        outboxDao.insert(item1)
+        outboxDao.insert(item2)
+
+        var item2Called = false
+        registry.register(object : TableSyncHandler {
+            override val table: String = "fixed_costs"
+            override suspend fun push(item: OutboxItem): PushResult {
+                if (item.id == "item-2-ready") item2Called = true
+                return PushResult.Success
+            }
+            override suspend fun pull(since: Instant?): PullResult = PullResult.Success(null, 0)
+        })
+
+        val summary = syncEngine.processOutbox(currentTime = 1500L)
+        assertEquals(0, summary.successCount)
+        assertEquals(0, summary.errorCount)
+        assertFalse("Item 2 não pode ser enviado enquanto Item 1 estiver em backoff", item2Called)
+        assertEquals(0, outboxDao.getById("item-2-ready")?.attempts)
+    }
+
+    @Test
+    fun backoffContaAPartirDeLastAttemptAt() = runTest {
+        // 7.2 (e) backoff conta a partir de lastAttemptAt (item criado há 1 h com tentativa há 0,5 s NÃO é reenviado)
+        val now = 10_000_000L
+        val item = OutboxEntity(
+            id = "item-last-attempt",
+            tableName = "fixed_costs",
+            rowId = "r1",
+            operation = "INSERT",
+            payloadJson = "{}",
+            attempts = 1, // backoff = 1000ms
+            createdAt = now - 3600_000L, // criado há 1 hora
+            lastAttemptAt = now - 500L // tentativa há 0,5s
+        )
+        outboxDao.insert(item)
+
+        var handlerCalled = false
+        registry.register(object : TableSyncHandler {
+            override val table: String = "fixed_costs"
+            override suspend fun push(item: OutboxItem): PushResult {
+                handlerCalled = true
+                return PushResult.Success
+            }
+            override suspend fun pull(since: Instant?): PullResult = PullResult.Success(null, 0)
+        })
+
+        assertFalse(syncEngine.isBackoffElapsed(OutboxItem.fromEntity(item), now = now))
+
+        val summary = syncEngine.processOutbox(currentTime = now)
+        assertEquals(0, summary.successCount)
+        assertFalse("Item com tentativa recente não deve ser reenviado mesmo se criado há 1h", handlerCalled)
     }
 
     @Test
@@ -232,6 +389,7 @@ class SyncEngineTest {
         assertNotNull(record)
         assertEquals(8, record!!.attempts)
         assertTrue(record.lastError?.startsWith("PERMANENT_FAILURE:") == true)
+        assertEquals(1_000_000L, record.lastAttemptAt)
 
         // Deve constar na lista de falhas permanentes e sumir da fila pendente normal
         val permanentFailures = outboxDao.getPermanentFailures()

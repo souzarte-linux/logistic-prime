@@ -21,5 +21,7 @@ data class OutboxEntity(
     @ColumnInfo(name = "last_error")
     val lastError: String? = null,
     @ColumnInfo(name = "created_at")
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "last_attempt_at")
+    val lastAttemptAt: Long? = null
 )
