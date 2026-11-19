@@ -10,7 +10,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fernando.centraldomotorista.navigation.CentralDoMotoristaApp
 import com.fernando.centraldomotorista.ui.theme.CentralDoMotoristaTheme
 import com.fernando.centraldomotorista.ui.theme.ThemeViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private val themeViewModel: ThemeViewModel by viewModels()
 
