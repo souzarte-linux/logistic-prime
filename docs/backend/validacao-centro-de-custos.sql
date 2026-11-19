@@ -1,8 +1,8 @@
 -- =============================================================================
--- SUÍTE DE TESTES E VALIDAÇÃO AUTOMATIZADA: CENTRO DE CUSTOS (FASE 1)
+-- SUÍTE DE TESTES E VALIDAÇÃO AUTOMATIZADA: CENTRO DE CUSTOS (FASE 1 e 1.1)
 -- =============================================================================
 -- Arquivo: docs/backend/validacao-centro-de-custos.sql
--- Objetivo: Provar e validar rigorosamente os itens 11 (c) a (l) da Fase 1:
+-- Objetivo: Provar e validar rigorosamente os itens 11 (c) a (s) da Fase 1 e Fase 1.1:
 --   c) Cálculo de saldo de cofre e transferências entre caixinhas;
 --   d) Imutabilidade de vault_ledger (UPDATE/DELETE devem falhar);
 --   e) Idempotência de inserção com (operation_id, leg) duplicado;
@@ -12,7 +12,14 @@
 --   i) Idempotência de reexecução do DDL;
 --   j) Validação de pagamentos divididos (soma das partes e conta obrigatória);
 --   k) Unicidade de operation_id e alocações de reserva ativas por ciclo/caixinha;
---   l) Unicidade de vínculo ativo por card_id em card_account_links.
+--   l) Unicidade de vínculo ativo por card_id em card_account_links;
+--   m) ON DELETE SET NULL em fk_vaults_account_user preserva user_id;
+--   n) ON DELETE SET NULL em fk_cost_center_settings_vault_user;
+--   o) DELETE em cascata de auth.users com todas as 12 tabelas populadas;
+--   p) Bloqueio de UPDATE/DELETE em vault_ledger para usuário ativo;
+--   q) FK composta em vault_ledger impede reverses_entry_id e contra_vault_id cruzados;
+--   r) Privilégios estritos de authenticated e anon em vault_ledger;
+--   s) Isolamento RLS com role authenticated e claim JWT sub.
 -- Todas as operações são executadas com ROLLBACK garantindo estado limpo.
 -- =============================================================================
 
@@ -263,8 +270,278 @@ BEGIN
     END IF;
     RAISE NOTICE 'TESTE 11.l: PASSOU (Unicidade de vínculo ativo por card_id confirmada).';
 
+    -- -------------------------------------------------------------------------
+    -- TESTE 11.m: DELETE de bank_accounts referenciada por vaults DEVE suceder
+    -- e vaults.account_id fica NULL com user_id intacto
+    -- -------------------------------------------------------------------------
+    DECLARE
+        v_user_m UUID := gen_random_uuid();
+        v_acc_m UUID := gen_random_uuid();
+        v_vault_m UUID := gen_random_uuid();
+        v_res_acc UUID;
+        v_res_user UUID;
+    BEGIN
+        INSERT INTO auth.users (id, email) VALUES (v_user_m, 'user_m@test.com') ON CONFLICT DO NOTHING;
+        INSERT INTO public.bank_accounts (id, user_id, name) VALUES (v_acc_m, v_user_m, 'Conta Teste M');
+        INSERT INTO public.vaults (id, user_id, account_id, name) VALUES (v_vault_m, v_user_m, v_acc_m, 'Cofre Teste M');
+
+        DELETE FROM public.bank_accounts WHERE id = v_acc_m;
+
+        SELECT account_id, user_id INTO v_res_acc, v_res_user FROM public.vaults WHERE id = v_vault_m;
+        IF v_res_acc IS NOT NULL OR v_res_user <> v_user_m THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.m: account_id não ficou NULL ou user_id foi modificado (account_id=%, user_id=%)', v_res_acc, v_res_user;
+        END IF;
+        RAISE NOTICE 'TESTE 11.m: PASSOU';
+    END;
+
+
+    -- -------------------------------------------------------------------------
+    -- TESTE 11.n: DELETE de vaults referenciada por cost_center_settings.maintenance_vault_id
+    -- DEVE suceder e a coluna fica NULL
+    -- -------------------------------------------------------------------------
+    DECLARE
+        v_user_n UUID := gen_random_uuid();
+        v_vault_n UUID := gen_random_uuid();
+        v_res_vault UUID;
+    BEGIN
+        INSERT INTO auth.users (id, email) VALUES (v_user_n, 'user_n@test.com') ON CONFLICT DO NOTHING;
+        INSERT INTO public.vaults (id, user_id, name) VALUES (v_vault_n, v_user_n, 'Cofre Manutencao N');
+        INSERT INTO public.cost_center_settings (user_id, maintenance_vault_id) VALUES (v_user_n, v_vault_n);
+
+        DELETE FROM public.vaults WHERE id = v_vault_n;
+
+        SELECT maintenance_vault_id INTO v_res_vault FROM public.cost_center_settings WHERE user_id = v_user_n;
+        IF v_res_vault IS NOT NULL THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.n: maintenance_vault_id não ficou NULL após DELETE da caixinha (encontrado %)', v_res_vault;
+        END IF;
+        RAISE NOTICE 'TESTE 11.n: PASSOU';
+    END;
+
+
+    -- -------------------------------------------------------------------------
+    -- TESTE 11.o: DELETE do usuário em auth.users com TODAS as tabelas novas
+    -- populadas (inclusive razão com estorno) DEVE suceder e não restar nenhuma linha
+    -- -------------------------------------------------------------------------
+    DECLARE
+        v_user_o UUID := gen_random_uuid();
+        v_acc_o UUID := gen_random_uuid();
+        v_vault_o UUID := gen_random_uuid();
+        v_entry_o UUID := gen_random_uuid();
+        v_estorno_o UUID := gen_random_uuid();
+        v_cost_o UUID := gen_random_uuid();
+        v_alloc_o UUID := gen_random_uuid();
+        v_card_o UUID := gen_random_uuid();
+        v_count_tables INT := 0;
+        v_tcount INT;
+    BEGIN
+        INSERT INTO auth.users (id, email) VALUES (v_user_o, 'user_o@test.com') ON CONFLICT DO NOTHING;
+        
+        -- 1. bank_accounts
+        INSERT INTO public.bank_accounts (id, user_id, name) VALUES (v_acc_o, v_user_o, 'Conta O');
+        -- 2. vaults
+        INSERT INTO public.vaults (id, user_id, account_id, name) VALUES (v_vault_o, v_user_o, v_acc_o, 'Cofre O');
+        -- 3. vault_ledger (entrada original e estorno)
+        INSERT INTO public.vault_ledger (id, user_id, vault_id, operation_id, leg, entry_type, amount, occurred_at)
+        VALUES (v_entry_o, v_user_o, v_vault_o, gen_random_uuid(), 0, 'aporte', 100.00, now());
+        INSERT INTO public.vault_ledger (id, user_id, vault_id, operation_id, leg, entry_type, amount, occurred_at, reverses_entry_id)
+        VALUES (v_estorno_o, v_user_o, v_vault_o, gen_random_uuid(), 0, 'estorno', -100.00, now(), v_entry_o);
+        -- 4. expense_settlements
+        INSERT INTO public.expense_settlements (user_id, expense_id, account_id, amount, account_amount, operation_id)
+        VALUES (v_user_o, gen_random_uuid(), v_acc_o, 50.00, 50.00, gen_random_uuid());
+        -- 5. fixed_costs
+        INSERT INTO public.fixed_costs (id, user_id, name, category, periodicity, vault_id)
+        VALUES (v_cost_o, v_user_o, 'Custo O', 'outro', 'mensal', v_vault_o);
+        -- 6. fixed_cost_versions
+        INSERT INTO public.fixed_cost_versions (user_id, fixed_cost_id, amount, effective_from)
+        VALUES (v_user_o, v_cost_o, 100.00, CURRENT_DATE);
+        -- 7. fixed_cost_payments
+        INSERT INTO public.fixed_cost_payments (user_id, fixed_cost_id, competence_date, paid_at, amount, account_amount, source_account_id, operation_id)
+        VALUES (v_user_o, v_cost_o, CURRENT_DATE, now(), 100.00, 100.00, v_acc_o, gen_random_uuid());
+        -- 8. card_invoice_payments
+        INSERT INTO public.card_invoice_payments (user_id, card_id, reference_month, amount, paid_at, account_amount, source_account_id, operation_id)
+        VALUES (v_user_o, v_card_o, DATE_TRUNC('month', CURRENT_DATE)::DATE, 150.00, now(), 150.00, v_acc_o, gen_random_uuid());
+        -- 9. cost_center_settings
+        INSERT INTO public.cost_center_settings (user_id, maintenance_vault_id)
+        VALUES (v_user_o, v_vault_o);
+        -- 10. reserve_allocations
+        INSERT INTO public.reserve_allocations (id, user_id, billing_cycle_id, vault_id, suggested_amount, amount, status, operation_id)
+        VALUES (v_alloc_o, v_user_o, gen_random_uuid(), v_vault_o, 40.00, 40.00, 'ATIVA', gen_random_uuid());
+        -- 11. reserve_allocation_days
+        INSERT INTO public.reserve_allocation_days (user_id, allocation_id, day, suggested_amount)
+        VALUES (v_user_o, v_alloc_o, CURRENT_DATE, 40.00);
+        -- 12. card_account_links
+        INSERT INTO public.card_account_links (user_id, card_id, account_id)
+        VALUES (v_user_o, v_card_o, v_acc_o);
+
+        -- Excluir o usuário de auth.users (disparando cascata completa)
+        DELETE FROM auth.users WHERE id = v_user_o;
+
+        -- Verificar que não resta nenhuma linha em nenhuma das 12 tabelas
+        SELECT count(*) INTO v_tcount FROM public.bank_accounts WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.vaults WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.vault_ledger WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.expense_settlements WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.fixed_costs WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.fixed_cost_versions WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.fixed_cost_payments WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.card_invoice_payments WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.cost_center_settings WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.reserve_allocations WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.reserve_allocation_days WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+        SELECT count(*) INTO v_tcount FROM public.card_account_links WHERE user_id = v_user_o; v_count_tables := v_count_tables + v_tcount;
+
+        IF v_count_tables > 0 THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.o: Restaram % linhas do usuário nas tabelas após DELETE de auth.users', v_count_tables;
+        END IF;
+        RAISE NOTICE 'TESTE 11.o: PASSOU';
+    END;
+
+
+    -- -------------------------------------------------------------------------
+    -- TESTE 11.p: UPDATE e DELETE em vault_ledger com usuário em auth.users
+    -- DEVEM continuar falhando (trigger), executados como superusuário
+    -- -------------------------------------------------------------------------
+    DECLARE
+        v_user_p UUID := gen_random_uuid();
+        v_vault_p UUID := gen_random_uuid();
+        v_entry_p UUID := gen_random_uuid();
+        v_failed_upd BOOLEAN := FALSE;
+        v_failed_del BOOLEAN := FALSE;
+    BEGIN
+        INSERT INTO auth.users (id, email) VALUES (v_user_p, 'user_p@test.com') ON CONFLICT DO NOTHING;
+        INSERT INTO public.vaults (id, user_id, name) VALUES (v_vault_p, v_user_p, 'Cofre P');
+        INSERT INTO public.vault_ledger (id, user_id, vault_id, operation_id, leg, entry_type, amount, occurred_at)
+        VALUES (v_entry_p, v_user_p, v_vault_p, gen_random_uuid(), 0, 'aporte', 75.00, now());
+
+        BEGIN
+            UPDATE public.vault_ledger SET amount = 999.00 WHERE id = v_entry_p;
+        EXCEPTION WHEN OTHERS THEN
+            v_failed_upd := TRUE;
+        END;
+
+        BEGIN
+            DELETE FROM public.vault_ledger WHERE id = v_entry_p;
+        EXCEPTION WHEN OTHERS THEN
+            v_failed_del := TRUE;
+        END;
+
+        IF NOT v_failed_upd OR NOT v_failed_del THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.p: Mutação em vault_ledger não foi barrada pelo trigger (UPD=%, DEL=%)', v_failed_upd, v_failed_del;
+        END IF;
+        RAISE NOTICE 'TESTE 11.p: PASSOU';
+    END;
+
+
+    -- -------------------------------------------------------------------------
+    -- TESTE 11.q: Usuário B inserindo vault_ledger com reverses_entry_id de A
+    -- DEVE falhar com foreign_key_violation; idem com contra_vault_id de A
+    -- -------------------------------------------------------------------------
+    DECLARE
+        v_user_qa UUID := gen_random_uuid();
+        v_user_qb UUID := gen_random_uuid();
+        v_vault_qa UUID := gen_random_uuid();
+        v_vault_qb UUID := gen_random_uuid();
+        v_entry_qa UUID := gen_random_uuid();
+        v_failed_rev BOOLEAN := FALSE;
+        v_failed_contra BOOLEAN := FALSE;
+    BEGIN
+        INSERT INTO auth.users (id, email) VALUES (v_user_qa, 'user_qa@test.com') ON CONFLICT DO NOTHING;
+        INSERT INTO auth.users (id, email) VALUES (v_user_qb, 'user_qb@test.com') ON CONFLICT DO NOTHING;
+
+        INSERT INTO public.vaults (id, user_id, name) VALUES (v_vault_qa, v_user_qa, 'Cofre QA');
+        INSERT INTO public.vaults (id, user_id, name) VALUES (v_vault_qb, v_user_qb, 'Cofre QB');
+
+        INSERT INTO public.vault_ledger (id, user_id, vault_id, operation_id, leg, entry_type, amount, occurred_at)
+        VALUES (v_entry_qa, v_user_qa, v_vault_qa, gen_random_uuid(), 0, 'aporte', 100.00, now());
+
+        -- B tenta estornar a entrada de A
+        BEGIN
+            INSERT INTO public.vault_ledger (user_id, vault_id, operation_id, leg, entry_type, amount, occurred_at, reverses_entry_id)
+            VALUES (v_user_qb, v_vault_qb, gen_random_uuid(), 0, 'estorno', -100.00, now(), v_entry_qa);
+        EXCEPTION WHEN foreign_key_violation THEN
+            v_failed_rev := TRUE;
+        END;
+
+        -- B tenta transferência com contra_vault_id apontando para cofre de A
+        BEGIN
+            INSERT INTO public.vault_ledger (user_id, vault_id, operation_id, leg, entry_type, amount, occurred_at, contra_vault_id)
+            VALUES (v_user_qb, v_vault_qb, gen_random_uuid(), 0, 'transferencia', -50.00, now(), v_vault_qa);
+        EXCEPTION WHEN foreign_key_violation THEN
+            v_failed_contra := TRUE;
+        END;
+
+        IF NOT v_failed_rev OR NOT v_failed_contra THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.q: FK composta falhou em bloquear referência cruzada (reverses_entry=%, contra_vault=%)', v_failed_rev, v_failed_contra;
+        END IF;
+        RAISE NOTICE 'TESTE 11.q: PASSOU';
+    END;
+
+
+    -- -------------------------------------------------------------------------
+    -- TESTE 11.r: Privilégios de authenticated e anon em public.vault_ledger
+    -- -------------------------------------------------------------------------
+    BEGIN
+        IF has_table_privilege('authenticated', 'public.vault_ledger', 'UPDATE') THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.r: authenticated possui privilégio indevido de UPDATE em vault_ledger';
+        END IF;
+        IF has_table_privilege('authenticated', 'public.vault_ledger', 'DELETE') THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.r: authenticated possui privilégio indevido de DELETE em vault_ledger';
+        END IF;
+        IF has_table_privilege('authenticated', 'public.vault_ledger', 'TRUNCATE') THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.r: authenticated possui privilégio indevido de TRUNCATE em vault_ledger';
+        END IF;
+        IF NOT has_table_privilege('authenticated', 'public.vault_ledger', 'SELECT') THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.r: authenticated não possui privilégio de SELECT em vault_ledger';
+        END IF;
+        IF NOT has_table_privilege('authenticated', 'public.vault_ledger', 'INSERT') THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.r: authenticated não possui privilégio de INSERT em vault_ledger';
+        END IF;
+        IF has_table_privilege('anon', 'public.vault_ledger', 'SELECT') THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.r: anon possui privilégio indevido de SELECT em vault_ledger';
+        END IF;
+        RAISE NOTICE 'TESTE 11.r: PASSOU';
+    END;
+
+
+    -- -------------------------------------------------------------------------
+    -- TESTE 11.s: Isolamento RLS com SET LOCAL ROLE authenticated e claim sub
+    -- -------------------------------------------------------------------------
+    DECLARE
+        v_user_sa UUID := gen_random_uuid();
+        v_user_sb UUID := gen_random_uuid();
+        v_acc_sa UUID := gen_random_uuid();
+        v_vault_sa UUID := gen_random_uuid();
+        v_cnt_vaults INT;
+        v_cnt_ledger INT;
+        v_cnt_accounts INT;
+    BEGIN
+        INSERT INTO auth.users (id, email) VALUES (v_user_sa, 'user_sa@test.com') ON CONFLICT DO NOTHING;
+        INSERT INTO auth.users (id, email) VALUES (v_user_sb, 'user_sb@test.com') ON CONFLICT DO NOTHING;
+
+        INSERT INTO public.bank_accounts (id, user_id, name) VALUES (v_acc_sa, v_user_sa, 'Conta SA');
+        INSERT INTO public.vaults (id, user_id, account_id, name) VALUES (v_vault_sa, v_user_sa, v_acc_sa, 'Cofre SA');
+        INSERT INTO public.vault_ledger (user_id, vault_id, operation_id, leg, entry_type, amount, occurred_at)
+        VALUES (v_user_sa, v_vault_sa, gen_random_uuid(), 0, 'aporte', 200.00, now());
+
+        -- Simular requisição do usuário SB
+        EXECUTE 'SET LOCAL ROLE authenticated';
+        PERFORM set_config('request.jwt.claim.sub', v_user_sb::text, true);
+
+        SELECT count(*) INTO v_cnt_vaults FROM public.vaults WHERE user_id = v_user_sa;
+        SELECT count(*) INTO v_cnt_ledger FROM public.vault_ledger WHERE user_id = v_user_sa;
+        SELECT count(*) INTO v_cnt_accounts FROM public.bank_accounts WHERE user_id = v_user_sa;
+
+        -- Restaurar role
+        EXECUTE 'RESET ROLE';
+
+        IF v_cnt_vaults <> 0 OR v_cnt_ledger <> 0 OR v_cnt_accounts <> 0 THEN
+            RAISE EXCEPTION 'FALHA TESTE 11.s: Usuário SB conseguiu enxergar registros de SA (vaults=%, ledger=%, accounts=%)', v_cnt_vaults, v_cnt_ledger, v_cnt_accounts;
+        END IF;
+        RAISE NOTICE 'TESTE 11.s: PASSOU';
+    END;
+
     RAISE NOTICE '=====================================================';
-    RAISE NOTICE 'TODOS OS TESTES (c) A (l) FORAM EXECUTADOS COM SUCESSO';
+    RAISE NOTICE 'TODOS OS TESTES (c) A (s) FORAM EXECUTADOS COM SUCESSO';
     RAISE NOTICE '=====================================================';
 END;
 $$;

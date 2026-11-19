@@ -7,10 +7,13 @@
 --            (vault_ledger), view de conciliação de saldos, índices de performance,
 --            triggers de updated_at, proteções de imutabilidade, restrições de integridade
 --            e políticas de RLS estritas com isolamento por usuário e FKs compostas.
+-- Requer PostgreSQL >= 15
 -- Diretriz: Script 100% IDEMPOTENTE executado em transação única (BEGIN ... COMMIT).
 -- =============================================================================
 
 BEGIN;
+
+DO $$ BEGIN IF current_setting('server_version_num')::int < 150000 THEN RAISE EXCEPTION 'Requer PostgreSQL >= 15'; END IF; END $$;
 
 -- -----------------------------------------------------------------------------
 -- 0. FUNÇÕES AUXILIARES DE SISTEMA E TRIGGERS
@@ -29,6 +32,10 @@ $$ LANGUAGE plpgsql SET search_path = public;
 CREATE OR REPLACE FUNCTION public.prevent_vault_ledger_mutation()
 RETURNS TRIGGER AS $$
 BEGIN
+    -- Única exceção: DELETE em cascata quando o usuário dono já foi removido de auth.users
+    IF TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = OLD.user_id) THEN
+        RETURN OLD;
+    END IF;
     RAISE EXCEPTION 'vault_ledger é imutável: atualizações e exclusões são proibidas';
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
@@ -90,7 +97,7 @@ CREATE TABLE IF NOT EXISTS public.vaults (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     deleted_at TIMESTAMPTZ,
     CONSTRAINT uq_vaults_id_user UNIQUE (id, user_id),
-    CONSTRAINT fk_vaults_account_user FOREIGN KEY (account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE SET NULL
+    CONSTRAINT fk_vaults_account_user FOREIGN KEY (account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE SET NULL (account_id)
 );
 
 DROP TRIGGER IF EXISTS trg_vaults_updated_at ON public.vaults;
@@ -132,13 +139,16 @@ CREATE TABLE IF NOT EXISTS public.vault_ledger (
     ref_type TEXT CHECK (ref_type IS NULL OR ref_type IN ('despesa', 'custo_fixo', 'fatura', 'manual', 'baixa_fatura')),
     ref_id TEXT,
     contra_vault_id UUID,
-    reverses_entry_id UUID REFERENCES public.vault_ledger(id),
+    reverses_entry_id UUID,
     note TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     CONSTRAINT uq_vault_ledger_operation_leg UNIQUE (operation_id, leg),
+    CONSTRAINT uq_vault_ledger_id_user UNIQUE (id, user_id),
     CONSTRAINT chk_vault_ledger_estorno CHECK (entry_type <> 'estorno' OR reverses_entry_id IS NOT NULL),
     CONSTRAINT chk_vault_ledger_transferencia CHECK (entry_type <> 'transferencia' OR contra_vault_id IS NOT NULL),
-    CONSTRAINT fk_vault_ledger_vault_user FOREIGN KEY (vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE RESTRICT
+    CONSTRAINT fk_vault_ledger_vault_user FOREIGN KEY (vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE NO ACTION,
+    CONSTRAINT fk_vault_ledger_reverses_user FOREIGN KEY (reverses_entry_id, user_id) REFERENCES public.vault_ledger(id, user_id) ON DELETE NO ACTION,
+    CONSTRAINT fk_vault_ledger_contra_user FOREIGN KEY (contra_vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE NO ACTION
 );
 
 -- Bloqueio estrito de UPDATE e DELETE via trigger
@@ -196,8 +206,8 @@ CREATE TABLE IF NOT EXISTS public.expense_settlements (
     CONSTRAINT chk_expense_settlements_sum CHECK (vault_amount + account_amount = amount),
     CONSTRAINT chk_expense_settlements_account CHECK (account_amount = 0 OR account_id IS NOT NULL),
     CONSTRAINT chk_expense_settlements_vault CHECK (vault_amount = 0 OR vault_id IS NOT NULL),
-    CONSTRAINT fk_expense_settlements_account_user FOREIGN KEY (account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_expense_settlements_vault_user FOREIGN KEY (vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE RESTRICT
+    CONSTRAINT fk_expense_settlements_account_user FOREIGN KEY (account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE NO ACTION,
+    CONSTRAINT fk_expense_settlements_vault_user FOREIGN KEY (vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE NO ACTION
 );
 
 DROP TRIGGER IF EXISTS trg_expense_settlements_updated_at ON public.expense_settlements;
@@ -245,7 +255,7 @@ CREATE TABLE IF NOT EXISTS public.fixed_costs (
     deleted_at TIMESTAMPTZ,
     CONSTRAINT chk_fixed_costs_dates CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date),
     CONSTRAINT uq_fixed_costs_id_user UNIQUE (id, user_id),
-    CONSTRAINT fk_fixed_costs_vault_user FOREIGN KEY (vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE SET NULL
+    CONSTRAINT fk_fixed_costs_vault_user FOREIGN KEY (vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE SET NULL (vault_id)
 );
 
 DROP TRIGGER IF EXISTS trg_fixed_costs_updated_at ON public.fixed_costs;
@@ -329,9 +339,9 @@ CREATE TABLE IF NOT EXISTS public.fixed_cost_payments (
     CONSTRAINT chk_fixed_cost_payments_sum CHECK (vault_amount + account_amount = amount),
     CONSTRAINT chk_fixed_cost_payments_account CHECK (account_amount = 0 OR source_account_id IS NOT NULL),
     CONSTRAINT chk_fixed_cost_payments_vault CHECK (vault_amount = 0 OR source_vault_id IS NOT NULL),
-    CONSTRAINT fk_fixed_cost_payments_cost_user FOREIGN KEY (fixed_cost_id, user_id) REFERENCES public.fixed_costs(id, user_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_fixed_cost_payments_account_user FOREIGN KEY (source_account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_fixed_cost_payments_vault_user FOREIGN KEY (source_vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE RESTRICT
+    CONSTRAINT fk_fixed_cost_payments_cost_user FOREIGN KEY (fixed_cost_id, user_id) REFERENCES public.fixed_costs(id, user_id) ON DELETE NO ACTION,
+    CONSTRAINT fk_fixed_cost_payments_account_user FOREIGN KEY (source_account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE NO ACTION,
+    CONSTRAINT fk_fixed_cost_payments_vault_user FOREIGN KEY (source_vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE NO ACTION
 );
 
 DROP TRIGGER IF EXISTS trg_fixed_cost_payments_updated_at ON public.fixed_cost_payments;
@@ -380,8 +390,8 @@ CREATE TABLE IF NOT EXISTS public.card_invoice_payments (
     CONSTRAINT chk_card_invoice_payments_sum CHECK (vault_amount + account_amount = amount),
     CONSTRAINT chk_card_invoice_payments_account CHECK (account_amount = 0 OR source_account_id IS NOT NULL),
     CONSTRAINT chk_card_invoice_payments_vault CHECK (vault_amount = 0 OR source_vault_id IS NOT NULL),
-    CONSTRAINT fk_card_invoice_payments_account_user FOREIGN KEY (source_account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_card_invoice_payments_vault_user FOREIGN KEY (source_vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE RESTRICT
+    CONSTRAINT fk_card_invoice_payments_account_user FOREIGN KEY (source_account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE NO ACTION,
+    CONSTRAINT fk_card_invoice_payments_vault_user FOREIGN KEY (source_vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE NO ACTION
 );
 
 DROP TRIGGER IF EXISTS trg_card_invoice_payments_updated_at ON public.card_invoice_payments;
@@ -422,7 +432,7 @@ CREATE TABLE IF NOT EXISTS public.cost_center_settings (
     cost_center_started_on DATE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
-    CONSTRAINT fk_cost_center_settings_vault_user FOREIGN KEY (maintenance_vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE SET NULL
+    CONSTRAINT fk_cost_center_settings_vault_user FOREIGN KEY (maintenance_vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE SET NULL (maintenance_vault_id)
 );
 
 DROP TRIGGER IF EXISTS trg_cost_center_settings_updated_at ON public.cost_center_settings;
@@ -460,7 +470,7 @@ CREATE TABLE IF NOT EXISTS public.reserve_allocations (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     deleted_at TIMESTAMPTZ,
     CONSTRAINT uq_reserve_allocations_id_user UNIQUE (id, user_id),
-    CONSTRAINT fk_reserve_allocations_vault_user FOREIGN KEY (vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE RESTRICT
+    CONSTRAINT fk_reserve_allocations_vault_user FOREIGN KEY (vault_id, user_id) REFERENCES public.vaults(id, user_id) ON DELETE NO ACTION
 );
 
 DROP TRIGGER IF EXISTS trg_reserve_allocations_updated_at ON public.reserve_allocations;
@@ -536,7 +546,7 @@ CREATE TABLE IF NOT EXISTS public.card_account_links (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     deleted_at TIMESTAMPTZ,
-    CONSTRAINT fk_card_account_links_account_user FOREIGN KEY (account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE RESTRICT
+    CONSTRAINT fk_card_account_links_account_user FOREIGN KEY (account_id, user_id) REFERENCES public.bank_accounts(id, user_id) ON DELETE NO ACTION
 );
 
 DROP TRIGGER IF EXISTS trg_card_account_links_updated_at ON public.card_account_links;
@@ -618,6 +628,11 @@ REVOKE ALL ON TABLE public.reserve_allocation_days FROM anon;
 REVOKE ALL ON TABLE public.card_account_links FROM anon;
 REVOKE ALL ON TABLE public.vault_balances FROM anon;
 REVOKE ALL ON FUNCTION public.get_vault_balances() FROM anon;
+
+REVOKE ALL ON TABLE public.bank_accounts, public.vaults, public.vault_ledger, public.expense_settlements,
+    public.fixed_costs, public.fixed_cost_versions, public.fixed_cost_payments, public.card_invoice_payments,
+    public.cost_center_settings, public.reserve_allocations, public.reserve_allocation_days,
+    public.card_account_links, public.vault_balances FROM authenticated;
 
 -- Conceder permissões para o papel authenticated nas tabelas mutáveis
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.bank_accounts TO authenticated;
