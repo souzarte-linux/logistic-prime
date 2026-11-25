@@ -6,6 +6,8 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.fernando.centraldomotorista.auth.UserSession
 import com.fernando.centraldomotorista.data.local.UserDatabaseGuard
+import com.fernando.centraldomotorista.data.repository.ExpenseDeletionHooks
+import com.fernando.centraldomotorista.data.repository.costcenter.SettlementReverter
 import com.fernando.centraldomotorista.sync.SyncScheduler
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +31,9 @@ class LogisticPrimeApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var syncScheduler: SyncScheduler
 
+    @Inject
+    lateinit var settlementReverter: SettlementReverter
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val workManagerConfiguration: Configuration
@@ -38,6 +43,14 @@ class LogisticPrimeApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+
+        try {
+            if (::settlementReverter.isInitialized) {
+                ExpenseDeletionHooks.register(settlementReverter)
+            }
+        } catch (e: Exception) {
+            Log.w("LogisticPrimeApp", "Falha ao registrar SettlementReverter: ${e.message}")
+        }
 
         try {
             if (::syncScheduler.isInitialized) {

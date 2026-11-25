@@ -75,6 +75,20 @@ object RetrofitClient {
     val financialAdjustmentApi: FinancialAdjustmentApi by lazy { retrofit.create(FinancialAdjustmentApi::class.java) }
     val oilChangeApi: OilChangeApi by lazy { retrofit.create(OilChangeApi::class.java) }
     val masterRouteApi: MasterRouteApi by lazy { retrofit.create(MasterRouteApi::class.java) }
+
+    // Centro de Custos (12 tabelas)
+    val bankAccountApi: BankAccountApi by lazy { retrofit.create(BankAccountApi::class.java) }
+    val vaultApi: VaultApi by lazy { retrofit.create(VaultApi::class.java) }
+    val vaultLedgerApi: VaultLedgerApi by lazy { retrofit.create(VaultLedgerApi::class.java) }
+    val expenseSettlementApi: ExpenseSettlementApi by lazy { retrofit.create(ExpenseSettlementApi::class.java) }
+    val fixedCostApi: FixedCostApi by lazy { retrofit.create(FixedCostApi::class.java) }
+    val fixedCostVersionApi: FixedCostVersionApi by lazy { retrofit.create(FixedCostVersionApi::class.java) }
+    val fixedCostPaymentApi: FixedCostPaymentApi by lazy { retrofit.create(FixedCostPaymentApi::class.java) }
+    val cardInvoicePaymentApi: CardInvoicePaymentApi by lazy { retrofit.create(CardInvoicePaymentApi::class.java) }
+    val costCenterSettingsApi: CostCenterSettingsApi by lazy { retrofit.create(CostCenterSettingsApi::class.java) }
+    val reserveAllocationApi: ReserveAllocationApi by lazy { retrofit.create(ReserveAllocationApi::class.java) }
+    val reserveAllocationDayApi: ReserveAllocationDayApi by lazy { retrofit.create(ReserveAllocationDayApi::class.java) }
+    val cardAccountLinkApi: CardAccountLinkApi by lazy { retrofit.create(CardAccountLinkApi::class.java) }
 }
 
 

@@ -1,27 +1,33 @@
 package com.fernando.centraldomotorista.sync
 
-import java.util.concurrent.ConcurrentHashMap
-import javax.inject.Inject
-import javax.inject.Singleton
+class SyncHandlerRegistry {
 
-@Singleton
-class SyncHandlerRegistry @Inject constructor() {
-
-    private val handlers = ConcurrentHashMap<String, TableSyncHandler>()
+    private val lock = Any()
+    private val handlers = LinkedHashMap<String, TableSyncHandler>()
 
     fun register(handler: TableSyncHandler) {
-        handlers[handler.table] = handler
+        synchronized(lock) {
+            handlers[handler.table] = handler
+        }
     }
 
     fun unregister(table: String) {
-        handlers.remove(table)
+        synchronized(lock) {
+            handlers.remove(table)
+        }
     }
 
-    fun getHandler(table: String): TableSyncHandler? = handlers[table]
+    fun getHandler(table: String): TableSyncHandler? = synchronized(lock) {
+        handlers[table]
+    }
 
-    fun getAllHandlers(): List<TableSyncHandler> = handlers.values.toList()
+    fun getAllHandlers(): List<TableSyncHandler> = synchronized(lock) {
+        handlers.values.toList()
+    }
 
     fun clear() {
-        handlers.clear()
+        synchronized(lock) {
+            handlers.clear()
+        }
     }
 }

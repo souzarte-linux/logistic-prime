@@ -31,6 +31,11 @@ open class ExpenseRepository(
     open suspend fun deleteExpense(expenseId: String): Boolean = withContext(Dispatchers.IO) {
         try {
             expenseApi.deleteExpense("eq.$expenseId")
+            try {
+                ExpenseDeletionHooks.notifyExpenseDeleted(expenseId)
+            } catch (e: Exception) {
+                Log.w("ExpenseRepo", "Falha nos listeners pós-exclusão de $expenseId: ${e.message}")
+            }
             com.fernando.centraldomotorista.util.AppDataSync.notifyDataChanged()
             true
         } catch (e: Exception) {

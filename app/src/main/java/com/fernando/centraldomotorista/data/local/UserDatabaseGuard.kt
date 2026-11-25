@@ -53,7 +53,10 @@ class UserDatabaseGuard @Inject constructor(
                 CostCenterDatabase::class.java,
                 dbName
             )
-                .addMigrations(CostCenterDatabase.MIGRATION_1_2)
+                .addMigrations(
+                    CostCenterDatabase.MIGRATION_1_2,
+                    CostCenterDatabase.MIGRATION_2_3
+                )
                 .build()
 
             activeDatabase = db
