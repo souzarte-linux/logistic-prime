@@ -1,7 +1,6 @@
 package com.fernando.centraldomotorista.sync
 
-import com.fernando.centraldomotorista.data.local.dao.OutboxDao
-import com.fernando.centraldomotorista.data.local.dao.SyncCursorDao
+import com.fernando.centraldomotorista.data.local.LocalDatabaseProvider
 import com.fernando.centraldomotorista.data.local.entity.SyncCursorEntity
 import java.time.Instant
 import javax.inject.Inject
@@ -9,8 +8,7 @@ import javax.inject.Singleton
 
 @Singleton
 class SyncEngine @Inject constructor(
-    private val outboxDao: OutboxDao,
-    private val syncCursorDao: SyncCursorDao,
+    private val provider: LocalDatabaseProvider,
     private val registry: SyncHandlerRegistry
 ) {
     companion object {
@@ -49,12 +47,8 @@ class SyncEngine @Inject constructor(
     fun isBackoffElapsed(item: OutboxItem, now: Long = System.currentTimeMillis()): Boolean {
         if (item.attempts <= 0) return true
         val requiredDelay = calculateBackoffMs(item.attempts)
-        return (now - item.createdAt) >= requiredDelay
-    }
-
-    fun isConflictException(throwable: Throwable): Boolean {
-        val msg = throwable.message?.lowercase() ?: ""
-        return msg.contains("409") || msg.contains("conflict") || msg.contains("duplicate") || msg.contains("already exists")
+        val baseTime = item.lastAttemptAt ?: item.createdAt
+        return (now - baseTime) >= requiredDelay
     }
 
     fun resolveMutableConflict(localUpdatedAt: Instant, remoteUpdatedAt: Instant): ConflictResolution {
@@ -71,6 +65,8 @@ class SyncEngine @Inject constructor(
     }
 
     suspend fun processOutbox(currentTime: Long = System.currentTimeMillis()): SyncPushSummary {
+        val db = provider.current()
+        val outboxDao = db.outboxDao()
         val pendingEntities = outboxDao.getPendingItems()
         var successCount = 0
         var errorCount = 0
@@ -81,28 +77,23 @@ class SyncEngine @Inject constructor(
 
             // Verifica se o tempo de backoff exponencial já passou
             if (!isBackoffElapsed(item, currentTime)) {
-                continue
+                break
             }
 
             val handler = registry.getHandler(item.tableName)
             if (handler == null) {
-                // Sem handler registrado, mantém na fila até o registro
-                continue
+                // Sem handler registrado, interrompe a fila (FIFO estrito)
+                break
             }
 
             val pushResult = try {
                 handler.push(item)
             } catch (t: Throwable) {
-                if (isConflictException(t)) {
-                    PushResult.Conflict409(t.message ?: "409 Conflict")
-                } else {
-                    PushResult.Failure(t)
-                }
+                PushResult.Failure(t)
             }
 
             when (pushResult) {
-                is PushResult.Success, is PushResult.Conflict409 -> {
-                    // Resposta 409 / duplicado tratada como SUCESSO idempotente
+                is PushResult.Success, is PushResult.AlreadyApplied -> {
                     outboxDao.delete(item.id)
                     successCount++
                 }
@@ -113,11 +104,14 @@ class SyncEngine @Inject constructor(
                         // Descartando para "falha permanente" após 8 tentativas
                         // Registrando o erro, nunca apagando em silêncio
                         val permanentError = "PERMANENT_FAILURE: $errorMsg"
-                        outboxDao.updateAttempts(item.id, newAttempts, permanentError)
+                        outboxDao.updateAttempts(item.id, newAttempts, permanentError, currentTime)
                         permanentFailureCount++
+                        // Item vira falha permanente (sai de getPendingItems) e o laço continua
                     } else {
-                        outboxDao.updateAttempts(item.id, newAttempts, errorMsg)
+                        outboxDao.updateAttempts(item.id, newAttempts, errorMsg, currentTime)
                         errorCount++
+                        // FIFO estrito: falha abaixo de 8 tentativas interrompe a fila nesta execução
+                        break
                     }
                 }
             }
@@ -127,6 +121,8 @@ class SyncEngine @Inject constructor(
     }
 
     suspend fun pullChanges(): SyncPullSummary {
+        val db = provider.current()
+        val syncCursorDao = db.syncCursorDao()
         var pulledCount = 0
         var failedCount = 0
 

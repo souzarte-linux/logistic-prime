@@ -10,7 +10,8 @@ data class OutboxItem(
     val payloadJson: String,
     val attempts: Int = 0,
     val lastError: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val lastAttemptAt: Long? = null
 ) {
     fun toEntity(): OutboxEntity = OutboxEntity(
         id = id,
@@ -20,7 +21,8 @@ data class OutboxItem(
         payloadJson = payloadJson,
         attempts = attempts,
         lastError = lastError,
-        createdAt = createdAt
+        createdAt = createdAt,
+        lastAttemptAt = lastAttemptAt
     )
 
     companion object {
@@ -32,7 +34,8 @@ data class OutboxItem(
             payloadJson = entity.payloadJson,
             attempts = entity.attempts,
             lastError = entity.lastError,
-            createdAt = entity.createdAt
+            createdAt = entity.createdAt,
+            lastAttemptAt = entity.lastAttemptAt
         )
     }
 }

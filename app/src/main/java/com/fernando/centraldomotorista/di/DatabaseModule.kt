@@ -2,10 +2,9 @@ package com.fernando.centraldomotorista.di
 
 import android.content.Context
 import com.fernando.centraldomotorista.auth.UserSession
-import com.fernando.centraldomotorista.data.local.CostCenterDatabase
+import com.fernando.centraldomotorista.data.local.GuardedDatabaseProvider
+import com.fernando.centraldomotorista.data.local.LocalDatabaseProvider
 import com.fernando.centraldomotorista.data.local.UserDatabaseGuard
-import com.fernando.centraldomotorista.data.local.dao.OutboxDao
-import com.fernando.centraldomotorista.data.local.dao.SyncCursorDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -26,12 +25,6 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideCostCenterDatabase(guard: UserDatabaseGuard): CostCenterDatabase =
-        guard.getOrCreateDatabase()
-
-    @Provides
-    fun provideOutboxDao(database: CostCenterDatabase): OutboxDao = database.outboxDao()
-
-    @Provides
-    fun provideSyncCursorDao(database: CostCenterDatabase): SyncCursorDao = database.syncCursorDao()
+    fun provideLocalDatabaseProvider(guard: UserDatabaseGuard): LocalDatabaseProvider =
+        GuardedDatabaseProvider(guard)
 }
