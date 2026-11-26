@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.fernando.centraldomotorista.data.local.entity.OutboxEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OutboxDao {
@@ -24,11 +25,17 @@ interface OutboxDao {
     @Query("SELECT * FROM outbox ORDER BY created_at ASC")
     suspend fun getAll(): List<OutboxEntity>
 
+    @Query("SELECT * FROM outbox ORDER BY created_at ASC")
+    fun observeAll(): Flow<List<OutboxEntity>>
+
     @Query("SELECT * FROM outbox WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): OutboxEntity?
 
     @Query("UPDATE outbox SET attempts = :attempts, last_error = :lastError, last_attempt_at = :lastAttemptAt WHERE id = :id")
     suspend fun updateAttempts(id: String, attempts: Int, lastError: String?, lastAttemptAt: Long)
+
+    @Query("UPDATE outbox SET attempts = 0, last_error = NULL, last_attempt_at = NULL WHERE attempts >= :maxAttempts")
+    suspend fun resetFailedAttempts(maxAttempts: Int)
 
     @Query("DELETE FROM outbox WHERE id = :id")
     suspend fun delete(id: String)
