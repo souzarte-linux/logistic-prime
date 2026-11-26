@@ -30,3 +30,7 @@ google-services.json
 
 .kotlin/
 
+
+# Supabase local CLI temp
+supabase/.temp/
+supabase/.branches/
