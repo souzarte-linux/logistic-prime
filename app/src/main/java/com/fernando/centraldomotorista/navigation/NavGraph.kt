@@ -78,6 +78,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object CreditCards : Screen("credit_cards", "Gerenciamento de Cartões", Icons.Default.CreditCard)
     object PartProducts : Screen("part_products", "Produtos & Marcas", Icons.Default.Category)
     object Faturas : Screen("faturas", "Contas a Receber", Icons.AutoMirrored.Filled.ReceiptLong)
+    object CentroCustos : Screen("centro_custos", "Centro de Custos", Icons.Default.AccountBalance)
 }
 
 val bottomNavItems = listOf(
@@ -1171,6 +1172,41 @@ fun CentralDoMotoristaApp(
                     onNavigateToEdit = { editRoute ->
                         navController.navigate(editRoute)
                     }
+                )
+            }
+
+            composable(
+                route = "${Screen.CentroCustos.route}?tab={tab}&aporteVaultId={aporteVaultId}&aporteAmount={aporteAmount}",
+                arguments = listOf(
+                    navArgument("tab") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("aporteVaultId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("aporteAmount") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val tab = backStackEntry.arguments?.getString("tab")
+                val aporteVaultId = backStackEntry.arguments?.getString("aporteVaultId")
+                val aporteAmount = backStackEntry.arguments?.getString("aporteAmount")
+                val centroCustosViewModel: com.fernando.centraldomotorista.ui.screens.costcenter.AccountsVaultsViewModel =
+                    androidx.hilt.navigation.compose.hiltViewModel()
+
+                com.fernando.centraldomotorista.ui.screens.costcenter.CentroCustosScreen(
+                    initialTab = tab,
+                    aporteVaultId = aporteVaultId,
+                    aporteAmount = aporteAmount,
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = centroCustosViewModel
                 )
             }
         }

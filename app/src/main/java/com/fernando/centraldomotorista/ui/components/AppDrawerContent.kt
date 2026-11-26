@@ -373,6 +373,14 @@ fun AppDrawerContent(
                         subtitle = "Controle de trocas e manutenção",
                         onClick = { onNavigateToRoute("monitoramento-pecas") }
                     )
+
+                    // 🏦 Centro de Custos
+                    DrawerCadastroItem(
+                        icon = Icons.Default.AccountBalance,
+                        title = "Centro de Custos",
+                        subtitle = "Contas, caixinhas, custos fixos e cartões",
+                        onClick = { onNavigateToRoute("centro_custos") }
+                    )
                 }
             }
 
