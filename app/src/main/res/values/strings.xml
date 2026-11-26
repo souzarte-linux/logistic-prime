@@ -1,3 +1,149 @@
 <resources>
     <string name="app_name">Central do Motorista</string>
+
+    <!-- Centro de Custos: Tela principal e abas -->
+    <string name="cost_center_title">CENTRO DE CUSTOS</string>
+    <string name="cost_center_back_cd">Voltar</string>
+    <string name="cost_center_tab_accounts_vaults">Contas &amp; Caixinhas</string>
+    <string name="cost_center_loading">Carregando contas e caixinhas…</string>
+    <string name="cost_center_error_cd">Erro</string>
+    <string name="cost_center_retry">Tentar novamente</string>
+    <string name="cost_center_total_in_vaults">TOTAL NAS CAIXINHAS</string>
+    <string name="cost_center_new_account">Nova conta</string>
+    <string name="cost_center_new_vault">Nova caixinha</string>
+    <string name="cost_center_empty_title">Nenhuma conta cadastrada</string>
+    <string name="cost_center_empty_subtitle">Cadastre sua conta bancária e organize suas caixinhas de reserva para manutenção, impostos e imprevistos.</string>
+    <string name="cost_center_empty_cta">Cadastrar primeira conta</string>
+    <string name="cost_center_informed_balance_with_date">Saldo informado: %1$s em %2$s (não gerenciado pelo app)</string>
+    <string name="cost_center_informed_balance">Saldo informado: %1$s (não gerenciado pelo app)</string>
+    <string name="cost_center_action_vault">Caixinha</string>
+    <string name="cost_center_action_edit">Editar</string>
+    <string name="cost_center_action_archive">Arquivar</string>
+    <string name="cost_center_action_cancel">Cancelar</string>
+    <string name="cost_center_action_close">Fechar</string>
+    <string name="cost_center_no_vaults_in_account">Nenhuma caixinha vinculada a esta conta.</string>
+    <string name="cost_center_orphan_vaults_title">Caixinhas sem conta vinculada</string>
+    <string name="cost_center_archived_account_vaults_title">Caixinhas de contas arquivadas</string>
+    <string name="cost_center_archived_account_vaults_hint">Edite a caixinha para escolher uma conta ativa</string>
+    <string name="cost_center_maintenance_badge">Desgaste de peças</string>
+    <string name="cost_center_vault_goal">Meta: %1$s</string>
+    <string name="cost_center_vault_action_deposit">Aportar</string>
+    <string name="cost_center_vault_action_withdraw">Retirar</string>
+    <string name="cost_center_vault_action_transfer">Transferir</string>
+    <string name="cost_center_vault_action_adjust">Ajustar saldo</string>
+    <string name="cost_center_vault_action_statement">Extrato</string>
+    <string name="cost_center_archive_account_title">Arquivar conta?</string>
+    <string name="cost_center_archive_account_message">A conta \"%1$s\" será arquivada (ou removida se não possuir movimentações vinculadas).</string>
+    <string name="cost_center_archive_account_active_vaults_warning">Esta conta tem %1$d caixinha(s) ativa(s). Elas continuarão ativas e aparecerão em \'Caixinhas de contas arquivadas\'.</string>
+    <string name="cost_center_archive_vault_title">Arquivar caixinha?</string>
+    <string name="cost_center_archive_vault_message">A caixinha \"%1$s\" será arquivada (ou removida se não possuir movimentações vinculadas).</string>
+
+    <!-- Chip de sincronização -->
+    <string name="sync_status_synced">Sincronizado</string>
+    <string name="sync_status_pending_one">1 alteração pendente</string>
+    <string name="sync_status_pending_many">%1$d alterações pendentes</string>
+    <string name="sync_status_failed">Falha ao sincronizar — tentar de novo</string>
+    <string name="sync_status_unknown">Status de sincronização indisponível</string>
+
+    <!-- Formulário de conta -->
+    <string name="account_form_title_new">NOVA CONTA BANCÁRIA</string>
+    <string name="account_form_title_edit">EDITAR CONTA</string>
+    <string name="account_form_name_label">Apelido da conta *</string>
+    <string name="account_form_name_placeholder">Ex.: Nubank Principal</string>
+    <string name="account_form_institution_label">Instituição (opcional)</string>
+    <string name="account_form_institution_placeholder">Ex.: Nubank, Inter, Itaú</string>
+    <string name="account_form_agency_label">Agência (opcional)</string>
+    <string name="account_form_digits_label">Últimos dígitos</string>
+    <string name="account_form_digits_placeholder">Até 6 dígitos</string>
+    <string name="account_form_digits_supporting">Informe apenas os últimos dígitos</string>
+    <string name="account_form_type_label">Tipo de conta (opcional)</string>
+    <string name="account_form_type_none">Não informado</string>
+    <string name="account_form_balance_label">Saldo informado (opcional)</string>
+    <string name="cost_center_currency_placeholder">0,00</string>
+    <string name="account_form_balance_supporting">Apenas informativo — não gerenciado pelo app</string>
+    <string name="account_form_save">Salvar conta</string>
+    <string name="cost_center_saving">Salvando…</string>
+
+    <!-- Formulário de caixinha -->
+    <string name="vault_form_title_new">NOVA CAIXINHA</string>
+    <string name="vault_form_title_edit">EDITAR CAIXINHA</string>
+    <string name="vault_form_name_label">Nome da caixinha *</string>
+    <string name="vault_form_name_placeholder">Ex.: Troca de óleo e pneus</string>
+    <string name="vault_form_account_label">Conta bancária</string>
+    <string name="vault_form_account_none">Sem conta vinculada</string>
+    <string name="vault_form_purpose_label">Propósito</string>
+    <string name="vault_form_initial_balance_label">Saldo inicial</string>
+    <string name="vault_form_goal_label">Meta (opcional)</string>
+    <string name="vault_form_goal_placeholder">Ex.: 1500,00</string>
+    <string name="vault_form_tracking_start">Início do acompanhamento: %1$s</string>
+    <string name="vault_form_maintenance_title">Usar como caixinha de desgaste de peças</string>
+    <string name="vault_form_maintenance_subtitle">Recebe a reserva sugerida de manutenção. Apenas uma caixinha por vez.</string>
+    <string name="vault_form_save">Salvar caixinha</string>
+
+    <!-- Movimentação de caixinha -->
+    <string name="vault_movement_title_deposit">APORTAR NA CAIXINHA</string>
+    <string name="vault_movement_action_deposit">Confirmar aporte</string>
+    <string name="vault_movement_title_withdraw">RETIRAR DA CAIXINHA</string>
+    <string name="vault_movement_action_withdraw">Confirmar retirada</string>
+    <string name="vault_movement_title_transfer">TRANSFERIR ENTRE CAIXINHAS</string>
+    <string name="vault_movement_action_transfer">Confirmar transferência</string>
+    <string name="vault_movement_title_adjust">AJUSTAR SALDO</string>
+    <string name="vault_movement_action_adjust">Confirmar ajuste</string>
+    <string name="vault_movement_current_balance">%1$s • Saldo atual: %2$s</string>
+    <string name="vault_movement_no_other_vaults">Cadastre outra caixinha ativa para realizar transferências.</string>
+    <string name="vault_movement_select_target">Selecione o destino</string>
+    <string name="vault_movement_target_label">Caixinha de destino *</string>
+    <string name="vault_movement_amount_adjust_label">Saldo correto (R$) *</string>
+    <string name="vault_movement_amount_label">Valor (R$) *</string>
+    <string name="vault_movement_max_available">Máximo disponível: %1$s</string>
+    <string name="vault_movement_note_label">Observação (opcional)</string>
+    <string name="vault_movement_processing">Processando…</string>
+
+    <!-- Extrato da caixinha -->
+    <string name="vault_statement_title">EXTRATO • %1$s</string>
+    <string name="vault_statement_current_balance">Saldo atual: %1$s</string>
+    <string name="vault_statement_empty">Nenhuma movimentação registrada nesta caixinha.</string>
+    <string name="vault_statement_reversal_with_original">estorno de %1$s (%2$s)</string>
+    <string name="vault_statement_reversal_fallback">estorno de lançamento %1$s</string>
+    <string name="vault_statement_transfer_from">De: %1$s</string>
+    <string name="vault_statement_transfer_to">Para: %1$s</string>
+
+    <!-- Mensagens do ViewModel -->
+    <string name="vm_error_load_accounts_vaults">Não foi possível carregar contas e caixinhas.</string>
+    <string name="vm_sync_scheduled">Sincronização agendada</string>
+    <string name="vm_sync_reschedule_failed">Falha ao reagendar sincronização</string>
+    <string name="vm_error_account_name_required">Informe o apelido da conta</string>
+    <string name="vm_error_account_digits_max">Informe apenas até 6 dígitos da conta</string>
+    <string name="vm_error_account_balance_negative">O saldo informado não pode ser negativo</string>
+    <string name="vm_error_session_expired">Sessão expirada. Faça login novamente.</string>
+    <string name="vm_account_updated">Conta atualizada</string>
+    <string name="vm_account_created">Conta cadastrada</string>
+    <string name="vm_error_save_account">Erro ao salvar conta</string>
+    <string name="vm_account_deleted">Conta excluída</string>
+    <string name="vm_account_archived">Conta arquivada</string>
+    <string name="vm_error_archive_account">Erro ao arquivar conta</string>
+    <string name="vm_error_vault_name_required">Informe o nome da caixinha</string>
+    <string name="vm_error_vault_initial_negative">O saldo inicial não pode ser negativo</string>
+    <string name="vm_error_vault_goal_positive">A meta deve ser maior que zero</string>
+    <string name="vm_vault_updated">Caixinha atualizada</string>
+    <string name="vm_vault_created">Caixinha cadastrada</string>
+    <string name="vm_error_save_vault">Erro ao salvar caixinha</string>
+    <string name="vm_vault_deleted">Caixinha excluída</string>
+    <string name="vm_vault_archived">Caixinha arquivada</string>
+    <string name="vm_error_archive_vault">Erro ao arquivar caixinha</string>
+    <string name="vm_error_amount_positive">Informe um valor maior que zero</string>
+    <string name="vm_deposit_recorded">Aporte registrado</string>
+    <string name="vm_operation_already_recorded">Operação já registrada</string>
+    <string name="vm_error_deposit">Erro ao registrar aporte</string>
+    <string name="vm_error_withdraw_max_balance">O valor máximo para retirada é o saldo existente (%1$s)</string>
+    <string name="vm_withdraw_recorded">Retirada registrada</string>
+    <string name="vm_error_withdraw">Erro ao registrar retirada</string>
+    <string name="vm_error_transfer_same_vault">Selecione uma caixinha de destino diferente</string>
+    <string name="vm_error_transfer_target_required">Selecione a caixinha de destino</string>
+    <string name="vm_transfer_recorded">Transferência registrada</string>
+    <string name="vm_error_transfer">Erro ao transferir</string>
+    <string name="vm_error_adjust_negative">O saldo ajustado não pode ser negativo</string>
+    <string name="vm_adjust_no_change">Saldo já está correto</string>
+    <string name="vm_adjust_recorded">Saldo ajustado</string>
+    <string name="vm_error_adjust">Erro ao ajustar saldo</string>
 </resources>

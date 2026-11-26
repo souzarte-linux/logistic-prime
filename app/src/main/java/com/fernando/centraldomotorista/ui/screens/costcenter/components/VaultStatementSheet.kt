@@ -31,9 +31,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fernando.centraldomotorista.R
 import com.fernando.centraldomotorista.data.model.LedgerEntry
 import com.fernando.centraldomotorista.data.model.LedgerEntryType
 import com.fernando.centraldomotorista.data.model.Vault
@@ -86,21 +88,24 @@ fun VaultStatementSheet(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "EXTRATO • ${vault.name.uppercase()}",
+                            text = stringResource(R.string.vault_statement_title, vault.name.uppercase()),
                             fontWeight = FontWeight.Black,
                             fontSize = 16.sp,
                             color = OrangeNeon,
                             letterSpacing = 0.8.sp
                         )
                         Text(
-                            text = "Saldo atual: ${currentBalance.formatCurrency()}",
+                            text = stringResource(R.string.vault_statement_current_balance, currentBalance.formatCurrency()),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (currentBalance < BigDecimal.ZERO) RedAlert else GreenNeon
                         )
                     }
                     TextButton(onClick = onDismiss) {
-                        Text("Fechar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.cost_center_action_close),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -115,7 +120,7 @@ fun VaultStatementSheet(
                         )
                     ) {
                         Text(
-                            text = "Nenhuma movimentação registrada nesta caixinha.",
+                            text = stringResource(R.string.vault_statement_empty),
                             modifier = Modifier.padding(16.dp),
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -194,9 +199,16 @@ private fun LedgerEntryRow(
 
             if (entry.entryType == LedgerEntryType.ESTORNO || entry.reversesEntryId != null) {
                 val originalSummary = if (originalEntry != null) {
-                    "estorno de ${originalEntry.entryType.label.lowercase()} (${originalEntry.amount.formatCurrency()})"
+                    stringResource(
+                        R.string.vault_statement_reversal_with_original,
+                        originalEntry.entryType.label.lowercase(),
+                        originalEntry.amount.formatCurrency()
+                    )
                 } else {
-                    "estorno de lançamento ${entry.reversesEntryId?.take(8).orEmpty()}"
+                    stringResource(
+                        R.string.vault_statement_reversal_fallback,
+                        entry.reversesEntryId?.take(8).orEmpty()
+                    )
                 }
                 Text(
                     text = originalSummary,
@@ -207,7 +219,11 @@ private fun LedgerEntryRow(
             }
 
             if (!contraVaultName.isNullOrBlank()) {
-                val direction = if (isPositive) "De: $contraVaultName" else "Para: $contraVaultName"
+                val direction = if (isPositive) {
+                    stringResource(R.string.vault_statement_transfer_from, contraVaultName)
+                } else {
+                    stringResource(R.string.vault_statement_transfer_to, contraVaultName)
+                }
                 Text(
                     text = direction,
                     fontSize = 12.sp,

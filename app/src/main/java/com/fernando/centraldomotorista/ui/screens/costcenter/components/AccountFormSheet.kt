@@ -34,14 +34,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fernando.centraldomotorista.R
 import com.fernando.centraldomotorista.data.model.AccountType
 import com.fernando.centraldomotorista.data.model.BankAccount
 import com.fernando.centraldomotorista.ui.screens.costcenter.ActionOutcome
+import com.fernando.centraldomotorista.ui.screens.costcenter.UiText
+import com.fernando.centraldomotorista.ui.screens.costcenter.asString
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
 import com.fernando.centraldomotorista.ui.utils.cleanCurrencyInput
@@ -75,7 +79,7 @@ fun AccountFormSheet(
         )
     }
     var typeExpanded by remember { mutableStateOf(false) }
-    var errorText by remember { mutableStateOf<String?>(null) }
+    var errorText by remember { mutableStateOf<UiText?>(null) }
     val scope = rememberCoroutineScope()
 
     ModalBottomSheet(
@@ -98,14 +102,19 @@ fun AccountFormSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (existing == null) "NOVA CONTA BANCÁRIA" else "EDITAR CONTA",
+                        text = stringResource(
+                            if (existing == null) R.string.account_form_title_new else R.string.account_form_title_edit
+                        ),
                         fontWeight = FontWeight.Black,
                         fontSize = 18.sp,
                         color = OrangeNeon,
                         letterSpacing = 1.sp
                     )
                     TextButton(onClick = onDismiss) {
-                        Text("Fechar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.cost_center_action_close),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -117,8 +126,8 @@ fun AccountFormSheet(
                         name = it
                         errorText = null
                     },
-                    label = { Text("Apelido da conta *") },
-                    placeholder = { Text("Ex.: Nubank Principal") },
+                    label = { Text(stringResource(R.string.account_form_name_label)) },
+                    placeholder = { Text(stringResource(R.string.account_form_name_placeholder)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth(),
@@ -130,8 +139,8 @@ fun AccountFormSheet(
                 OutlinedTextField(
                     value = institution,
                     onValueChange = { institution = it },
-                    label = { Text("Instituição (opcional)") },
-                    placeholder = { Text("Ex.: Nubank, Inter, Itaú") },
+                    label = { Text(stringResource(R.string.account_form_institution_label)) },
+                    placeholder = { Text(stringResource(R.string.account_form_institution_placeholder)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth(),
@@ -147,7 +156,7 @@ fun AccountFormSheet(
                     OutlinedTextField(
                         value = agency,
                         onValueChange = { agency = it.filter { ch -> ch.isDigit() || ch == '-' }.take(10) },
-                        label = { Text("Agência (opcional)") },
+                        label = { Text(stringResource(R.string.account_form_agency_label)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
@@ -160,9 +169,9 @@ fun AccountFormSheet(
                             lastDigits = input.filter { it.isDigit() }.take(6)
                             errorText = null
                         },
-                        label = { Text("Últimos dígitos") },
-                        placeholder = { Text("Até 6 dígitos") },
-                        supportingText = { Text("Informe apenas os últimos dígitos") },
+                        label = { Text(stringResource(R.string.account_form_digits_label)) },
+                        placeholder = { Text(stringResource(R.string.account_form_digits_placeholder)) },
+                        supportingText = { Text(stringResource(R.string.account_form_digits_supporting)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1.3f),
@@ -177,10 +186,10 @@ fun AccountFormSheet(
                     onExpandedChange = { typeExpanded = !typeExpanded }
                 ) {
                     OutlinedTextField(
-                        value = selectedType?.label ?: "Não informado",
+                        value = selectedType?.label ?: stringResource(R.string.account_form_type_none),
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Tipo de conta (opcional)") },
+                        label = { Text(stringResource(R.string.account_form_type_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -192,7 +201,7 @@ fun AccountFormSheet(
                         onDismissRequest = { typeExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Não informado") },
+                            text = { Text(stringResource(R.string.account_form_type_none)) },
                             onClick = {
                                 selectedType = null
                                 typeExpanded = false
@@ -218,9 +227,9 @@ fun AccountFormSheet(
                         informedBalanceText = cleanCurrencyInput(input)
                         errorText = null
                     },
-                    label = { Text("Saldo informado (opcional)") },
-                    placeholder = { Text("0,00") },
-                    supportingText = { Text("Apenas informativo — não gerenciado pelo app") },
+                    label = { Text(stringResource(R.string.account_form_balance_label)) },
+                    placeholder = { Text(stringResource(R.string.cost_center_currency_placeholder)) },
+                    supportingText = { Text(stringResource(R.string.account_form_balance_supporting)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
@@ -228,10 +237,10 @@ fun AccountFormSheet(
                 )
             }
 
-            if (errorText != null) {
+            errorText?.let { err ->
                 item {
                     Text(
-                        text = errorText.orEmpty(),
+                        text = err.asString(),
                         color = RedAlert,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
@@ -274,7 +283,9 @@ fun AccountFormSheet(
                         .height(50.dp)
                 ) {
                     Text(
-                        text = if (isSubmitting) "Salvando..." else "Salvar conta",
+                        text = stringResource(
+                            if (isSubmitting) R.string.cost_center_saving else R.string.account_form_save
+                        ),
                         fontWeight = FontWeight.Bold
                     )
                 }

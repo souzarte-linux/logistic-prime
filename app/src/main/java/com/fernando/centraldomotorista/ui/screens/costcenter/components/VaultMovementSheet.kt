@@ -1,5 +1,6 @@
 package com.fernando.centraldomotorista.ui.screens.costcenter.components
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -33,13 +34,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fernando.centraldomotorista.R
 import com.fernando.centraldomotorista.data.model.Vault
 import com.fernando.centraldomotorista.ui.screens.costcenter.ActionOutcome
+import com.fernando.centraldomotorista.ui.screens.costcenter.UiText
+import com.fernando.centraldomotorista.ui.screens.costcenter.asString
 import com.fernando.centraldomotorista.ui.screens.relatorios.formatCurrency
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
@@ -49,11 +54,14 @@ import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.util.UUID
 
-enum class VaultMovementMode(val title: String, val actionLabel: String) {
-    APORTE("APORTAR NA CAIXINHA", "Confirmar aporte"),
-    RETIRADA("RETIRAR DA CAIXINHA", "Confirmar retirada"),
-    TRANSFERENCIA("TRANSFERIR ENTRE CAIXINHAS", "Confirmar transferência"),
-    AJUSTE("AJUSTAR SALDO", "Confirmar ajuste")
+enum class VaultMovementMode(
+    @StringRes val titleRes: Int,
+    @StringRes val actionLabelRes: Int
+) {
+    APORTE(R.string.vault_movement_title_deposit, R.string.vault_movement_action_deposit),
+    RETIRADA(R.string.vault_movement_title_withdraw, R.string.vault_movement_action_withdraw),
+    TRANSFERENCIA(R.string.vault_movement_title_transfer, R.string.vault_movement_action_transfer),
+    AJUSTE(R.string.vault_movement_title_adjust, R.string.vault_movement_action_adjust)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,8 +98,8 @@ fun VaultMovementSheet(
     }
     var note by rememberSaveable(mode, vault.id) { mutableStateOf("") }
     var targetExpanded by remember { mutableStateOf(false) }
-    var feedbackError by remember { mutableStateOf<String?>(null) }
-    var infoMessage by remember { mutableStateOf<String?>(null) }
+    var feedbackError by remember { mutableStateOf<UiText?>(null) }
+    var infoMessage by remember { mutableStateOf<UiText?>(null) }
     val scope = rememberCoroutineScope()
 
     val isWithdrawalLike = mode == VaultMovementMode.RETIRADA || mode == VaultMovementMode.TRANSFERENCIA
@@ -117,21 +125,28 @@ fun VaultMovementSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = mode.title,
+                        text = stringResource(mode.titleRes),
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         color = OrangeNeon,
                         letterSpacing = 0.8.sp
                     )
                     TextButton(onClick = onDismiss) {
-                        Text("Fechar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.cost_center_action_close),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
 
             item {
                 Text(
-                    text = "${vault.name} • Saldo atual: ${currentBalance.formatCurrency()}",
+                    text = stringResource(
+                        R.string.vault_movement_current_balance,
+                        vault.name,
+                        currentBalance.formatCurrency()
+                    ),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
@@ -142,7 +157,7 @@ fun VaultMovementSheet(
                 item {
                     if (otherVaults.isEmpty()) {
                         Text(
-                            text = "Cadastre outra caixinha ativa para realizar transferências.",
+                            text = stringResource(R.string.vault_movement_no_other_vaults),
                             color = RedAlert,
                             fontSize = 13.sp
                         )
@@ -152,10 +167,11 @@ fun VaultMovementSheet(
                             onExpandedChange = { targetExpanded = !targetExpanded }
                         ) {
                             OutlinedTextField(
-                                value = selectedTargetVault?.name ?: "Selecione o destino",
+                                value = selectedTargetVault?.name
+                                    ?: stringResource(R.string.vault_movement_select_target),
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Caixinha de destino *") },
+                                label = { Text(stringResource(R.string.vault_movement_target_label)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = targetExpanded) },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -187,13 +203,16 @@ fun VaultMovementSheet(
                     value = amountText,
                     onValueChange = { raw ->
                         if (mode == VaultMovementMode.AJUSTE && raw.contains('-')) {
-                            feedbackError = "O saldo ajustado não pode ser negativo"
+                            feedbackError = UiText.Res(R.string.vm_error_adjust_negative)
                             return@OutlinedTextField
                         }
                         val cleaned = cleanCurrencyInput(raw)
                         val parsed = if (cleaned.isBlank()) BigDecimal.ZERO else parseCurrency(cleaned)
                         if (isWithdrawalLike && parsed > currentBalance) {
-                            feedbackError = "O valor máximo para retirada é o saldo existente (${currentBalance.formatCurrency()})"
+                            feedbackError = UiText.Res(
+                                R.string.vm_error_withdraw_max_balance,
+                                currentBalance.formatCurrency()
+                            )
                             return@OutlinedTextField
                         }
                         amountText = cleaned
@@ -202,13 +221,25 @@ fun VaultMovementSheet(
                     },
                     label = {
                         Text(
-                            if (mode == VaultMovementMode.AJUSTE) "Saldo correto (R$) *"
-                            else "Valor (R$) *"
+                            stringResource(
+                                if (mode == VaultMovementMode.AJUSTE) {
+                                    R.string.vault_movement_amount_adjust_label
+                                } else {
+                                    R.string.vault_movement_amount_label
+                                }
+                            )
                         )
                     },
-                    placeholder = { Text("0,00") },
+                    placeholder = { Text(stringResource(R.string.cost_center_currency_placeholder)) },
                     supportingText = if (isWithdrawalLike) {
-                        { Text("Máximo disponível: ${currentBalance.formatCurrency()}") }
+                        {
+                            Text(
+                                stringResource(
+                                    R.string.vault_movement_max_available,
+                                    currentBalance.formatCurrency()
+                                )
+                            )
+                        }
                     } else null,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -221,7 +252,7 @@ fun VaultMovementSheet(
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Observação (opcional)") },
+                    label = { Text(stringResource(R.string.vault_movement_note_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth(),
@@ -229,10 +260,10 @@ fun VaultMovementSheet(
                 )
             }
 
-            if (feedbackError != null) {
+            feedbackError?.let { err ->
                 item {
                     Text(
-                        text = feedbackError.orEmpty(),
+                        text = err.asString(),
                         color = RedAlert,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
@@ -240,10 +271,10 @@ fun VaultMovementSheet(
                 }
             }
 
-            if (infoMessage != null) {
+            infoMessage?.let { info ->
                 item {
                     Text(
-                        text = infoMessage.orEmpty(),
+                        text = info.asString(),
                         color = OrangeNeon,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
@@ -257,12 +288,15 @@ fun VaultMovementSheet(
                     onClick = {
                         val trimmed = amountText.trim()
                         if (trimmed.startsWith("-")) {
-                            feedbackError = "O saldo ajustado não pode ser negativo"
+                            feedbackError = UiText.Res(R.string.vm_error_adjust_negative)
                             return@Button
                         }
                         val parsed = parseCurrency(trimmed)
                         if (isWithdrawalLike && parsed > currentBalance) {
-                            feedbackError = "O valor máximo para retirada é o saldo existente (${currentBalance.formatCurrency()})"
+                            feedbackError = UiText.Res(
+                                R.string.vm_error_withdraw_max_balance,
+                                currentBalance.formatCurrency()
+                            )
                             return@Button
                         }
                         scope.launch {
@@ -289,7 +323,9 @@ fun VaultMovementSheet(
                         .height(50.dp)
                 ) {
                     Text(
-                        text = if (isSubmitting) "Processando..." else mode.actionLabel,
+                        text = stringResource(
+                            if (isSubmitting) R.string.vault_movement_processing else mode.actionLabelRes
+                        ),
                         fontWeight = FontWeight.Bold
                     )
                 }

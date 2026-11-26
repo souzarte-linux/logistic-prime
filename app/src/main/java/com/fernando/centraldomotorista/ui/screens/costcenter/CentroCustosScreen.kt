@@ -1,5 +1,6 @@
 package com.fernando.centraldomotorista.ui.screens.costcenter
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -30,10 +31,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fernando.centraldomotorista.R
 import com.fernando.centraldomotorista.data.model.BankAccount
 import com.fernando.centraldomotorista.data.model.Vault
 import com.fernando.centraldomotorista.ui.screens.costcenter.components.AccountFormSheet
@@ -44,12 +48,20 @@ import com.fernando.centraldomotorista.ui.screens.costcenter.components.VaultSta
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
 import kotlinx.coroutines.launch
-import java.math.BigDecimal
 
-enum class CentroCustosTab(val label: String) {
-    CONTAS("Contas & Caixinhas")
+enum class CentroCustosTab(@StringRes val labelRes: Int) {
+    CONTAS(R.string.cost_center_tab_accounts_vaults)
 }
 
+/**
+ * Hub principal do Centro de Custos.
+ *
+ * @param initialTab Nome da aba inicial ([CentroCustosTab]).
+ * @param aporteVaultId ID da caixinha para abrir automaticamente o fluxo de aporte via rota.
+ * @param aporteAmount Valor sugerido de aporte recebido pela rota de navegação no formato
+ *   `BigDecimal.toPlainString()` (ponto decimal, ex.: `"4.20"`).
+ * @param onNavigateBack Callback para voltar à tela anterior.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CentroCustosScreen(
@@ -62,6 +74,7 @@ fun CentroCustosScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var selectedTab by rememberSaveable(initialTab) {
         mutableStateOf(
@@ -86,7 +99,7 @@ fun CentroCustosScreen(
 
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let { msg ->
-            snackbarHostState.showSnackbar(msg)
+            snackbarHostState.showSnackbar(msg.resolve(context))
             viewModel.clearSnackbarMessage()
         }
     }
@@ -108,7 +121,7 @@ fun CentroCustosScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "CENTRO DE CUSTOS",
+                        text = stringResource(R.string.cost_center_title),
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
                         letterSpacing = 1.sp,
@@ -119,7 +132,7 @@ fun CentroCustosScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Voltar",
+                            contentDescription = stringResource(R.string.cost_center_back_cd),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -155,7 +168,7 @@ fun CentroCustosScreen(
                         onClick = { selectedTab = tab },
                         text = {
                             Text(
-                                text = tab.label,
+                                text = stringResource(tab.labelRes),
                                 fontWeight = if (tab == selectedTab) FontWeight.Bold else FontWeight.Medium
                             )
                         },
@@ -300,12 +313,20 @@ fun CentroCustosScreen(
     }
 
     pendingArchiveAccount?.let { account ->
+        val activeVaultCount = uiState.vaults.count { it.accountId == account.id }
+        val baseMessage = stringResource(R.string.cost_center_archive_account_message, account.name)
+        val fullMessage = if (activeVaultCount > 0) {
+            "$baseMessage\n\n" + stringResource(
+                R.string.cost_center_archive_account_active_vaults_warning,
+                activeVaultCount
+            )
+        } else {
+            baseMessage
+        }
         AlertDialog(
             onDismissRequest = { pendingArchiveAccount = null },
-            title = { Text("Arquivar conta?") },
-            text = {
-                Text("A conta \"${account.name}\" será arquivada (ou removida se não possuir movimentações vinculadas).")
-            },
+            title = { Text(stringResource(R.string.cost_center_archive_account_title)) },
+            text = { Text(fullMessage) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -313,12 +334,16 @@ fun CentroCustosScreen(
                         scope.launch { viewModel.archiveAccount(account.id) }
                     }
                 ) {
-                    Text("Arquivar", color = RedAlert, fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.cost_center_action_archive),
+                        color = RedAlert,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingArchiveAccount = null }) {
-                    Text("Cancelar")
+                    Text(stringResource(R.string.cost_center_action_cancel))
                 }
             }
         )
@@ -327,9 +352,9 @@ fun CentroCustosScreen(
     pendingArchiveVault?.let { vault ->
         AlertDialog(
             onDismissRequest = { pendingArchiveVault = null },
-            title = { Text("Arquivar caixinha?") },
+            title = { Text(stringResource(R.string.cost_center_archive_vault_title)) },
             text = {
-                Text("A caixinha \"${vault.name}\" será arquivada (ou removida se não possuir movimentações vinculadas).")
+                Text(stringResource(R.string.cost_center_archive_vault_message, vault.name))
             },
             confirmButton = {
                 TextButton(
@@ -338,12 +363,16 @@ fun CentroCustosScreen(
                         scope.launch { viewModel.archiveVault(vault.id) }
                     }
                 ) {
-                    Text("Arquivar", color = RedAlert, fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.cost_center_action_archive),
+                        color = RedAlert,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingArchiveVault = null }) {
-                    Text("Cancelar")
+                    Text(stringResource(R.string.cost_center_action_cancel))
                 }
             }
         )

@@ -50,21 +50,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fernando.centraldomotorista.R
+import com.fernando.centraldomotorista.data.model.AccountType
 import com.fernando.centraldomotorista.data.model.BankAccount
 import com.fernando.centraldomotorista.data.model.Vault
+import com.fernando.centraldomotorista.data.model.VaultPurpose
 import com.fernando.centraldomotorista.ui.common.cards.CollapsibleSectionCard
 import com.fernando.centraldomotorista.ui.screens.costcenter.components.SyncStatusChip
 import com.fernando.centraldomotorista.ui.screens.costcenter.components.VaultMovementMode
 import com.fernando.centraldomotorista.ui.screens.relatorios.formatCurrency
+import com.fernando.centraldomotorista.ui.theme.CentralDoMotoristaTheme
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -97,7 +105,7 @@ fun AccountsVaultsTab(
                 ) {
                     CircularProgressIndicator(color = OrangeNeon)
                     Text(
-                        text = "Carregando contas e caixinhas...",
+                        text = stringResource(R.string.cost_center_loading),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
@@ -124,12 +132,12 @@ fun AccountsVaultsTab(
                     ) {
                         Icon(
                             imageVector = Icons.Default.ErrorOutline,
-                            contentDescription = "Erro",
+                            contentDescription = stringResource(R.string.cost_center_error_cd),
                             tint = RedAlert,
                             modifier = Modifier.size(44.dp)
                         )
                         Text(
-                            text = uiState.errorMessage,
+                            text = uiState.errorMessage.asString(),
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp
@@ -141,7 +149,10 @@ fun AccountsVaultsTab(
                                 contentColor = Color.Black
                             )
                         ) {
-                            Text("Tentar novamente", fontWeight = FontWeight.Bold)
+                            Text(
+                                stringResource(R.string.cost_center_retry),
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -150,8 +161,11 @@ fun AccountsVaultsTab(
 
         else -> {
             val accountIds = remember(uiState.accounts) { uiState.accounts.map { it.id }.toSet() }
-            val orphanVaults = remember(uiState.vaults, accountIds) {
-                uiState.vaults.filter { it.accountId == null || it.accountId !in accountIds }
+            val unlinkedVaults = remember(uiState.vaults) {
+                uiState.vaults.filter { it.accountId == null }
+            }
+            val archivedAccountVaults = remember(uiState.vaults, accountIds) {
+                uiState.vaults.filter { it.accountId != null && it.accountId !in accountIds }
             }
 
             LazyColumn(
@@ -187,7 +201,11 @@ fun AccountsVaultsTab(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.size(6.dp))
-                            Text("Nova conta", color = OrangeNeon, fontWeight = FontWeight.Bold)
+                            Text(
+                                stringResource(R.string.cost_center_new_account),
+                                color = OrangeNeon,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
                         Button(
@@ -205,7 +223,10 @@ fun AccountsVaultsTab(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.size(6.dp))
-                            Text("Nova caixinha", fontWeight = FontWeight.Bold)
+                            Text(
+                                stringResource(R.string.cost_center_new_vault),
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -232,14 +253,44 @@ fun AccountsVaultsTab(
                         )
                     }
 
-                    if (orphanVaults.isNotEmpty()) {
-                        item(key = "orphan_vaults") {
+                    if (unlinkedVaults.isNotEmpty()) {
+                        item(key = "unlinked_vaults") {
                             CollapsibleSectionCard(
-                                title = "Caixinhas sem conta vinculada",
+                                title = stringResource(R.string.cost_center_orphan_vaults_title),
                                 icon = Icons.Default.Savings,
                                 initiallyExpanded = true
                             ) {
-                                orphanVaults.forEach { vault ->
+                                unlinkedVaults.forEach { vault ->
+                                    VaultItemCard(
+                                        vault = vault,
+                                        balance = uiState.balancesByVaultId[vault.id] ?: vault.initialBalance,
+                                        isMaintenanceVault = vault.id == uiState.maintenanceVaultId,
+                                        onAportar = { onVaultMovement(vault, VaultMovementMode.APORTE) },
+                                        onRetirar = { onVaultMovement(vault, VaultMovementMode.RETIRADA) },
+                                        onTransferir = { onVaultMovement(vault, VaultMovementMode.TRANSFERENCIA) },
+                                        onAjustar = { onVaultMovement(vault, VaultMovementMode.AJUSTE) },
+                                        onExtrato = { onOpenStatement(vault) },
+                                        onEditar = { onEditVault(vault) },
+                                        onArquivar = { onArchiveVault(vault) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (archivedAccountVaults.isNotEmpty()) {
+                        item(key = "archived_account_vaults") {
+                            CollapsibleSectionCard(
+                                title = stringResource(R.string.cost_center_archived_account_vaults_title),
+                                icon = Icons.Default.Archive,
+                                initiallyExpanded = true
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.cost_center_archived_account_vaults_hint),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                archivedAccountVaults.forEach { vault ->
                                     VaultItemCard(
                                         vault = vault,
                                         balance = uiState.balancesByVaultId[vault.id] ?: vault.initialBalance,
@@ -283,7 +334,7 @@ private fun TotalInVaultsCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "TOTAL NAS CAIXINHAS",
+                text = stringResource(R.string.cost_center_total_in_vaults),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 1.sp,
@@ -326,13 +377,13 @@ private fun EmptyAccountsState(onAddAccount: () -> Unit) {
                 modifier = Modifier.size(48.dp)
             )
             Text(
-                text = "Nenhuma conta cadastrada",
+                text = stringResource(R.string.cost_center_empty_title),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Cadastre sua conta bancária e organize suas caixinhas de reserva para manutenção, impostos e imprevistos.",
+                text = stringResource(R.string.cost_center_empty_subtitle),
                 textAlign = TextAlign.Center,
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -345,7 +396,10 @@ private fun EmptyAccountsState(onAddAccount: () -> Unit) {
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Cadastrar primeira conta", fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.cost_center_empty_cta),
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -383,9 +437,14 @@ private fun AccountSectionCard(
         initiallyExpanded = true
     ) {
         if (account.informedBalance != null) {
-            val datePart = if (informedDateText != null) " em $informedDateText" else ""
+            val formattedBalance = account.informedBalance.formatCurrency()
+            val informedText = if (informedDateText != null) {
+                stringResource(R.string.cost_center_informed_balance_with_date, formattedBalance, informedDateText)
+            } else {
+                stringResource(R.string.cost_center_informed_balance, formattedBalance)
+            }
             Text(
-                text = "Saldo informado: ${account.informedBalance.formatCurrency()}$datePart (não gerenciado pelo app)",
+                text = informedText,
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -398,17 +457,26 @@ private fun AccountSectionCard(
             TextButton(onClick = onAddVault) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = OrangeNeon)
                 Spacer(modifier = Modifier.size(4.dp))
-                Text("Caixinha", color = OrangeNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.cost_center_action_vault),
+                    color = OrangeNeon,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
             TextButton(onClick = onEditAccount) {
                 Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(4.dp))
-                Text("Editar", fontSize = 12.sp)
+                Text(stringResource(R.string.cost_center_action_edit), fontSize = 12.sp)
             }
             TextButton(onClick = onArchiveAccount) {
                 Icon(Icons.Default.Archive, contentDescription = null, modifier = Modifier.size(16.dp), tint = RedAlert)
                 Spacer(modifier = Modifier.size(4.dp))
-                Text("Arquivar", color = RedAlert, fontSize = 12.sp)
+                Text(
+                    stringResource(R.string.cost_center_action_archive),
+                    color = RedAlert,
+                    fontSize = 12.sp
+                )
             }
         }
 
@@ -416,7 +484,7 @@ private fun AccountSectionCard(
 
         if (vaults.isEmpty()) {
             Text(
-                text = "Nenhuma caixinha vinculada a esta conta.",
+                text = stringResource(R.string.cost_center_no_vaults_in_account),
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -501,7 +569,13 @@ private fun VaultItemCard(
             if (isMaintenanceVault) {
                 AssistChip(
                     onClick = onEditar,
-                    label = { Text("Desgaste de peças", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                    label = {
+                        Text(
+                            stringResource(R.string.cost_center_maintenance_badge),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Build,
@@ -533,7 +607,7 @@ private fun VaultItemCard(
                         trackColor = MaterialTheme.colorScheme.outlineVariant
                     )
                     Text(
-                        text = "Meta: ${goal.formatCurrency()}",
+                        text = stringResource(R.string.cost_center_vault_goal, goal.formatCurrency()),
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -544,13 +618,41 @@ private fun VaultItemCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                VaultActionChip(label = "Aportar", onClick = onAportar, highlight = true)
-                VaultActionChip(label = "Retirar", onClick = onRetirar)
-                VaultActionChip(label = "Transferir", icon = Icons.Default.SwapHoriz, onClick = onTransferir)
-                VaultActionChip(label = "Ajustar saldo", icon = Icons.Default.Tune, onClick = onAjustar)
-                VaultActionChip(label = "Extrato", icon = Icons.AutoMirrored.Filled.ReceiptLong, onClick = onExtrato)
-                VaultActionChip(label = "Editar", icon = Icons.Default.Edit, onClick = onEditar)
-                VaultActionChip(label = "Arquivar", icon = Icons.Default.Archive, onClick = onArquivar, isDanger = true)
+                VaultActionChip(
+                    label = stringResource(R.string.cost_center_vault_action_deposit),
+                    onClick = onAportar,
+                    highlight = true
+                )
+                VaultActionChip(
+                    label = stringResource(R.string.cost_center_vault_action_withdraw),
+                    onClick = onRetirar
+                )
+                VaultActionChip(
+                    label = stringResource(R.string.cost_center_vault_action_transfer),
+                    icon = Icons.Default.SwapHoriz,
+                    onClick = onTransferir
+                )
+                VaultActionChip(
+                    label = stringResource(R.string.cost_center_vault_action_adjust),
+                    icon = Icons.Default.Tune,
+                    onClick = onAjustar
+                )
+                VaultActionChip(
+                    label = stringResource(R.string.cost_center_vault_action_statement),
+                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                    onClick = onExtrato
+                )
+                VaultActionChip(
+                    label = stringResource(R.string.cost_center_action_edit),
+                    icon = Icons.Default.Edit,
+                    onClick = onEditar
+                )
+                VaultActionChip(
+                    label = stringResource(R.string.cost_center_action_archive),
+                    icon = Icons.Default.Archive,
+                    onClick = onArquivar,
+                    isDanger = true
+                )
             }
         }
     }
@@ -590,5 +692,126 @@ private fun VaultActionChip(
                 )
             }
         } else null
+    )
+}
+
+@Preview(showBackground = true, name = "AccountsVaultsTab - Vazio (Claro)")
+@Composable
+private fun AccountsVaultsTabEmptyLightPreview() {
+    CentralDoMotoristaTheme(darkTheme = false) {
+        AccountsVaultsTabPreviewWrapper(
+            AccountsVaultsUiState(isLoading = false)
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "AccountsVaultsTab - Vazio (Escuro)")
+@Composable
+private fun AccountsVaultsTabEmptyDarkPreview() {
+    CentralDoMotoristaTheme(darkTheme = true) {
+        AccountsVaultsTabPreviewWrapper(
+            AccountsVaultsUiState(isLoading = false)
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "AccountsVaultsTab - Com dados (Claro)")
+@Composable
+private fun AccountsVaultsTabDataLightPreview() {
+    CentralDoMotoristaTheme(darkTheme = false) {
+        AccountsVaultsTabPreviewWrapper(previewDataState())
+    }
+}
+
+@Preview(showBackground = true, name = "AccountsVaultsTab - Com dados (Escuro)")
+@Composable
+private fun AccountsVaultsTabDataDarkPreview() {
+    CentralDoMotoristaTheme(darkTheme = true) {
+        AccountsVaultsTabPreviewWrapper(previewDataState())
+    }
+}
+
+@Preview(showBackground = true, name = "AccountsVaultsTab - Erro (Claro)")
+@Composable
+private fun AccountsVaultsTabErrorLightPreview() {
+    CentralDoMotoristaTheme(darkTheme = false) {
+        AccountsVaultsTabPreviewWrapper(
+            AccountsVaultsUiState(
+                isLoading = false,
+                errorMessage = UiText.Res(R.string.vm_error_load_accounts_vaults)
+            )
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "AccountsVaultsTab - Erro (Escuro)")
+@Composable
+private fun AccountsVaultsTabErrorDarkPreview() {
+    CentralDoMotoristaTheme(darkTheme = true) {
+        AccountsVaultsTabPreviewWrapper(
+            AccountsVaultsUiState(
+                isLoading = false,
+                errorMessage = UiText.Res(R.string.vm_error_load_accounts_vaults)
+            )
+        )
+    }
+}
+
+@Composable
+private fun AccountsVaultsTabPreviewWrapper(state: AccountsVaultsUiState) {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        AccountsVaultsTab(
+            uiState = state,
+            onRetryLoad = {},
+            onRetrySync = {},
+            onAddAccount = {},
+            onEditAccount = {},
+            onArchiveAccount = {},
+            onAddVault = {},
+            onEditVault = {},
+            onArchiveVault = {},
+            onVaultMovement = { _, _ -> },
+            onOpenStatement = {}
+        )
+    }
+}
+
+private fun previewDataState(): AccountsVaultsUiState {
+    val now = Instant.parse("2026-11-26T10:00:00Z")
+    val account = BankAccount(
+        id = "acc-1",
+        userId = "usr-1",
+        name = "Nubank Principal",
+        institution = "Nubank",
+        agency = "0001",
+        accountLastDigits = "1234",
+        accountType = AccountType.CORRENTE,
+        informedBalance = BigDecimal("1250.00"),
+        informedBalanceAt = now,
+        active = true,
+        createdAt = now,
+        updatedAt = now
+    )
+    val vault = Vault(
+        id = "v-1",
+        userId = "usr-1",
+        accountId = "acc-1",
+        name = "Manutenção da Moto",
+        purpose = VaultPurpose.MANUTENCAO,
+        goalAmount = BigDecimal("1500.00"),
+        initialBalance = BigDecimal("420.50"),
+        trackingStartDate = LocalDate.of(2026, 11, 1),
+        active = true,
+        createdAt = now,
+        updatedAt = now
+    )
+    return AccountsVaultsUiState(
+        isLoading = false,
+        accounts = listOf(account),
+        vaults = listOf(vault),
+        balancesByVaultId = mapOf(vault.id to BigDecimal("420.50")),
+        totalInVaults = BigDecimal("420.50"),
+        maintenanceVaultId = vault.id,
+        syncStatus = SyncChipStatus.Pending(1)
     )
 }

@@ -4,7 +4,10 @@ import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
+import com.fernando.centraldomotorista.R
+import com.fernando.centraldomotorista.auth.UserSession
 import com.fernando.centraldomotorista.data.local.CostCenterDatabase
+import com.fernando.centraldomotorista.data.local.entity.OutboxEntity
 import com.fernando.centraldomotorista.data.model.AccountType
 import com.fernando.centraldomotorista.data.model.LedgerEntryType
 import com.fernando.centraldomotorista.data.model.VaultPurpose
@@ -12,14 +15,24 @@ import com.fernando.centraldomotorista.data.repository.costcenter.BankAccountRep
 import com.fernando.centraldomotorista.data.repository.costcenter.CostCenterSettingsRepository
 import com.fernando.centraldomotorista.data.repository.costcenter.LedgerRepository
 import com.fernando.centraldomotorista.data.repository.costcenter.VaultRepository
+import com.fernando.centraldomotorista.sync.SyncEngine
 import com.fernando.centraldomotorista.ui.screens.costcenter.AccountsVaultsViewModel
 import com.fernando.centraldomotorista.ui.screens.costcenter.ActionOutcome
 import com.fernando.centraldomotorista.ui.screens.costcenter.SyncChipStatus
+import com.fernando.centraldomotorista.ui.screens.costcenter.UiText
 import com.fernando.centraldomotorista.ui.screens.relatorios.formatCurrency
+import com.fernando.centraldomotorista.ui.utils.parseCurrency
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -96,7 +109,10 @@ class AccountsVaultsViewModelTest {
         )
 
         assertTrue(outcome is ActionOutcome.Error)
-        assertEquals("Informe o apelido da conta", (outcome as ActionOutcome.Error).message)
+        assertEquals(
+            UiText.Res(R.string.vm_error_account_name_required),
+            (outcome as ActionOutcome.Error).message
+        )
         assertEquals(0, viewModel.uiState.value.accounts.size)
     }
 
@@ -113,7 +129,10 @@ class AccountsVaultsViewModelTest {
         )
 
         assertTrue(outcome is ActionOutcome.Error)
-        assertEquals("Informe apenas até 6 dígitos da conta", (outcome as ActionOutcome.Error).message)
+        assertEquals(
+            UiText.Res(R.string.vm_error_account_digits_max),
+            (outcome as ActionOutcome.Error).message
+        )
         assertEquals(0, viewModel.uiState.value.accounts.size)
     }
 
@@ -177,7 +196,10 @@ class AccountsVaultsViewModelTest {
         )
 
         assertTrue(outcome is ActionOutcome.Error)
-        assertEquals("Selecione uma caixinha de destino diferente", (outcome as ActionOutcome.Error).message)
+        assertEquals(
+            UiText.Res(R.string.vm_error_transfer_same_vault),
+            (outcome as ActionOutcome.Error).message
+        )
     }
 
     @Test
@@ -201,7 +223,10 @@ class AccountsVaultsViewModelTest {
             operationId = "op-adj-noop"
         )
         assertTrue(noOp is ActionOutcome.NoChange)
-        assertEquals("Saldo já está correto", (noOp as ActionOutcome.NoChange).message)
+        assertEquals(
+            UiText.Res(R.string.vm_adjust_no_change),
+            (noOp as ActionOutcome.NoChange).message
+        )
         assertEquals(0, db.vaultLedgerDao().getEntriesForVault(vault.id).size)
 
         // Ajuste 105,00 -> 100,00 grava -5,00
@@ -245,7 +270,7 @@ class AccountsVaultsViewModelTest {
 
         assertTrue(outcome is ActionOutcome.Error)
         assertEquals(
-            "O valor máximo para retirada é o saldo existente (${balance.formatCurrency()})",
+            UiText.Res(R.string.vm_error_withdraw_max_balance, balance.formatCurrency()),
             (outcome as ActionOutcome.Error).message
         )
         assertEquals(0, db.vaultLedgerDao().getEntriesForVault(vault.id).size)
@@ -272,7 +297,7 @@ class AccountsVaultsViewModelTest {
 
         assertTrue(outcome is ActionOutcome.Error)
         assertEquals(
-            "O valor máximo para retirada é o saldo existente (${balance.formatCurrency()})",
+            UiText.Res(R.string.vm_error_withdraw_max_balance, balance.formatCurrency()),
             (outcome as ActionOutcome.Error).message
         )
     }
@@ -290,7 +315,10 @@ class AccountsVaultsViewModelTest {
         )
 
         assertTrue(outcome is ActionOutcome.Error)
-        assertEquals("O saldo ajustado não pode ser negativo", (outcome as ActionOutcome.Error).message)
+        assertEquals(
+            UiText.Res(R.string.vm_error_adjust_negative),
+            (outcome as ActionOutcome.Error).message
+        )
     }
 
     @Test
@@ -360,5 +388,145 @@ class AccountsVaultsViewModelTest {
             val syncedState = awaitItem()
             assertEquals(SyncChipStatus.Synced, syncedState.syncStatus)
         }
+    }
+
+    @Test
+    fun `emissao concorrente do banco nao sobrescreve snackbarMessage nem syncStatus`() = runTest {
+        val standardDispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(standardDispatcher)
+        val dbProvider = FakeLocalDatabaseProvider(db)
+        val syncScheduler = createTestSyncScheduler(context)
+        val localVm = AccountsVaultsViewModel(
+            bankAccountRepository = bankAccountRepository,
+            vaultRepository = vaultRepository,
+            ledgerRepository = ledgerRepository,
+            settingsRepository = settingsRepository,
+            localDatabaseProvider = dbProvider,
+            userSession = userSession,
+            syncScheduler = syncScheduler
+        )
+        advanceUntilIdle()
+
+        // Dispara uma gravação via ViewModel (que atualiza snackbarMessage e enfileira no outbox -> Pending(1))
+        localVm.saveVault(
+            existing = null,
+            accountId = null,
+            name = "Caixinha Concorrente",
+            purpose = VaultPurpose.OUTRO,
+            initialBalance = BigDecimal("10.00"),
+            goalAmount = null,
+            isMaintenanceVault = false
+        )
+        // Neste ponto, saveVault já atualizou snackbarMessage, mas as corrotinas de observeMainData e observeSyncStatus ainda podem estar na fila
+        // Forçamos também uma nova emissão do banco enquanto há snackbar/sync pendente
+        advanceUntilIdle()
+
+        assertNotNull(localVm.uiState.value.snackbarMessage)
+        assertTrue(localVm.uiState.value.syncStatus is SyncChipStatus.Pending)
+        assertEquals(1, (localVm.uiState.value.syncStatus as SyncChipStatus.Pending).count)
+    }
+
+    @Test
+    fun `falha transitoria no outbox conta como Pending e so MAX_ATTEMPTS vira Failed`() = runTest {
+        viewModel.uiState.map { it.syncStatus }.distinctUntilChanged().test {
+            assertEquals(SyncChipStatus.Synced, awaitItem())
+
+            val transientItem = OutboxEntity(
+                id = "out-transient-1",
+                tableName = "bank_accounts",
+                rowId = "acc-1",
+                operation = "UPSERT",
+                payloadJson = "{}",
+                attempts = 1,
+                lastError = "Timeout temporário",
+                lastAttemptAt = 1000L,
+                createdAt = 1000L
+            )
+            db.outboxDao().insert(transientItem)
+
+            assertEquals(SyncChipStatus.Pending(1), awaitItem())
+
+            // Atualiza para MAX_ATTEMPTS -> vira Failed
+            db.outboxDao().updateAttempts(
+                id = transientItem.id,
+                attempts = SyncEngine.MAX_ATTEMPTS,
+                lastError = "Erro permanente",
+                lastAttemptAt = 2000L
+            )
+            assertEquals(SyncChipStatus.Failed(1), awaitItem())
+        }
+    }
+
+    @Test
+    fun `retrySync zera apenas item permanente e mantem item transitorio intacto`() = runTest {
+        val transientItem = OutboxEntity(
+            id = "out-transient-keep",
+            tableName = "bank_accounts",
+            rowId = "acc-t",
+            operation = "UPSERT",
+            payloadJson = "{}",
+            attempts = 1,
+            lastError = "Erro transitório",
+            lastAttemptAt = 1000L,
+            createdAt = 1000L
+        )
+        val permanentItem = OutboxEntity(
+            id = "out-permanent-reset",
+            tableName = "vaults",
+            rowId = "v-p",
+            operation = "UPSERT",
+            payloadJson = "{}",
+            attempts = SyncEngine.MAX_ATTEMPTS,
+            lastError = "Erro permanente",
+            lastAttemptAt = 2000L,
+            createdAt = 2000L
+        )
+        db.outboxDao().insertAll(listOf(transientItem, permanentItem))
+
+        viewModel.retrySync()
+
+        val afterTransient = db.outboxDao().getById(transientItem.id)
+        val afterPermanent = db.outboxDao().getById(permanentItem.id)
+
+        assertNotNull(afterTransient)
+        assertEquals(1, afterTransient!!.attempts)
+        assertEquals("Erro transitório", afterTransient.lastError)
+        assertEquals(1000L, afterTransient.lastAttemptAt)
+
+        assertNotNull(afterPermanent)
+        assertEquals(0, afterPermanent!!.attempts)
+        assertNull(afterPermanent.lastError)
+        assertNull(afterPermanent.lastAttemptAt)
+    }
+
+    @Test
+    fun `erro no fluxo de sync emite Unknown`() = runTest {
+        val throwingSession = object : UserSession {
+            override val userIdFlow: Flow<String?> = flow {
+                throw IllegalStateException("Falha ao ler sessão")
+            }
+
+            override fun currentUserId(): String? = null
+        }
+        val dbProvider = FakeLocalDatabaseProvider(db)
+        val syncScheduler = createTestSyncScheduler(context)
+        val vm = AccountsVaultsViewModel(
+            bankAccountRepository = bankAccountRepository,
+            vaultRepository = vaultRepository,
+            ledgerRepository = ledgerRepository,
+            settingsRepository = settingsRepository,
+            localDatabaseProvider = dbProvider,
+            userSession = throwingSession,
+            syncScheduler = syncScheduler
+        )
+
+        assertEquals(SyncChipStatus.Unknown, vm.uiState.value.syncStatus)
+    }
+
+    @Test
+    fun `contrato da rota de aporte parseCurrency aceita ponto e virgula`() {
+        assertEquals(0, BigDecimal("4.20").compareTo(parseCurrency("4.20")))
+        assertEquals(0, BigDecimal("4.20").compareTo(parseCurrency("4,20")))
+        assertEquals(0, BigDecimal("1234.56").compareTo(parseCurrency("1.234,56")))
     }
 }

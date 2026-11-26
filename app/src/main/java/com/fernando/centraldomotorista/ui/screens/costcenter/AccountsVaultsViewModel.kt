@@ -2,6 +2,7 @@ package com.fernando.centraldomotorista.ui.screens.costcenter
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fernando.centraldomotorista.R
 import com.fernando.centraldomotorista.auth.UserSession
 import com.fernando.centraldomotorista.data.local.LocalDatabaseProvider
 import com.fernando.centraldomotorista.data.model.AccountType
@@ -41,17 +42,18 @@ sealed interface SyncChipStatus {
     data object Synced : SyncChipStatus
     data class Pending(val count: Int) : SyncChipStatus
     data class Failed(val count: Int) : SyncChipStatus
+    data object Unknown : SyncChipStatus
 }
 
 sealed interface ActionOutcome {
-    data class Success(val message: String) : ActionOutcome
-    data class NoChange(val message: String) : ActionOutcome
-    data class Error(val message: String) : ActionOutcome
+    data class Success(val message: UiText) : ActionOutcome
+    data class NoChange(val message: UiText) : ActionOutcome
+    data class Error(val message: UiText) : ActionOutcome
 }
 
 data class AccountsVaultsUiState(
     val isLoading: Boolean = true,
-    val errorMessage: String? = null,
+    val errorMessage: UiText? = null,
     val accounts: List<BankAccount> = emptyList(),
     val vaults: List<Vault> = emptyList(),
     val balancesByVaultId: Map<String, BigDecimal> = emptyMap(),
@@ -61,7 +63,15 @@ data class AccountsVaultsUiState(
     val statementVault: Vault? = null,
     val statementEntries: List<LedgerEntry> = emptyList(),
     val isSubmitting: Boolean = false,
-    val snackbarMessage: String? = null
+    val snackbarMessage: UiText? = null
+)
+
+private data class MainData(
+    val accounts: List<BankAccount>,
+    val vaults: List<Vault>,
+    val balancesByVaultId: Map<String, BigDecimal>,
+    val totalInVaults: BigDecimal,
+    val maintenanceVaultId: String?
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -100,31 +110,33 @@ class AccountsVaultsViewModel @Inject constructor(
                     val balancesMap = balances.associate { it.vaultId to it.balance }
                     val total = balances.fold(BigDecimal.ZERO) { acc, item -> acc + item.balance }
                         .setScale(2, RoundingMode.HALF_UP)
-                    AccountsVaultsUiState(
-                        isLoading = false,
-                        errorMessage = null,
+                    MainData(
                         accounts = accounts,
                         vaults = vaults,
                         balancesByVaultId = balancesMap,
                         totalInVaults = total,
-                        maintenanceVaultId = settings?.maintenanceVaultId,
-                        syncStatus = _uiState.value.syncStatus,
-                        statementVault = vaults.find { it.id == selectedStatementVaultId.value }
-                            ?: _uiState.value.statementVault,
-                        statementEntries = _uiState.value.statementEntries,
-                        isSubmitting = _uiState.value.isSubmitting,
-                        snackbarMessage = _uiState.value.snackbarMessage
+                        maintenanceVaultId = settings?.maintenanceVaultId
                     )
                 }.catch { throwable ->
-                    emit(
-                        _uiState.value.copy(
-                            isLoading = false,
-                            errorMessage = throwable.message ?: "Não foi possível carregar contas e caixinhas."
-                        )
+                    val msg = throwable.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                        ?: UiText.Res(R.string.vm_error_load_accounts_vaults)
+                    _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
+                }
+            }.collect { data ->
+                _uiState.update { current ->
+                    current.copy(
+                        isLoading = false,
+                        errorMessage = null,
+                        accounts = data.accounts,
+                        vaults = data.vaults,
+                        balancesByVaultId = data.balancesByVaultId,
+                        totalInVaults = data.totalInVaults,
+                        maintenanceVaultId = data.maintenanceVaultId,
+                        statementVault = current.statementVault?.let { sv ->
+                            data.vaults.find { v -> v.id == sv.id } ?: sv
+                        }
                     )
                 }
-            }.collect { nextState ->
-                _uiState.value = nextState
             }
         }
     }
@@ -139,10 +151,7 @@ class AccountsVaultsViewModel @Inject constructor(
                         if (items.isEmpty()) {
                             SyncChipStatus.Synced
                         } else {
-                            val failedCount = items.count {
-                                it.attempts >= SyncEngine.MAX_ATTEMPTS ||
-                                    (it.attempts > 0 && !it.lastError.isNullOrBlank())
-                            }
+                            val failedCount = items.count { it.attempts >= SyncEngine.MAX_ATTEMPTS }
                             if (failedCount > 0) {
                                 SyncChipStatus.Failed(failedCount)
                             } else {
@@ -152,7 +161,7 @@ class AccountsVaultsViewModel @Inject constructor(
                     }
                 }
             }.catch {
-                emit(SyncChipStatus.Synced)
+                emit(SyncChipStatus.Unknown)
             }.collect { status ->
                 _uiState.update { it.copy(syncStatus = status) }
             }
@@ -184,11 +193,13 @@ class AccountsVaultsViewModel @Inject constructor(
     fun retrySync() {
         viewModelScope.launch {
             try {
-                localDatabaseProvider.current().outboxDao().resetFailedAttempts()
+                localDatabaseProvider.current().outboxDao().resetFailedAttempts(SyncEngine.MAX_ATTEMPTS)
                 syncScheduler.scheduleOneTimeSync()
-                _uiState.update { it.copy(snackbarMessage = "Sincronização agendada") }
+                _uiState.update { it.copy(snackbarMessage = UiText.Res(R.string.vm_sync_scheduled)) }
             } catch (t: Throwable) {
-                _uiState.update { it.copy(snackbarMessage = t.message ?: "Falha ao reagendar sincronização") }
+                val msg = t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_sync_reschedule_failed)
+                _uiState.update { it.copy(snackbarMessage = msg) }
             }
         }
     }
@@ -218,20 +229,20 @@ class AccountsVaultsViewModel @Inject constructor(
     ): ActionOutcome {
         val trimmedName = name.trim()
         if (trimmedName.isEmpty()) {
-            return ActionOutcome.Error("Informe o apelido da conta")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_account_name_required))
         }
 
         val cleanDigits = lastDigits?.trim()?.takeIf { it.isNotEmpty() }
         if (cleanDigits != null && (!cleanDigits.all { it.isDigit() } || cleanDigits.length > 6)) {
-            return ActionOutcome.Error("Informe apenas até 6 dígitos da conta")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_account_digits_max))
         }
 
         if (informedBalance != null && informedBalance < BigDecimal.ZERO) {
-            return ActionOutcome.Error("O saldo informado não pode ser negativo")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_account_balance_negative))
         }
 
         val userId = userSession.currentUserId()
-            ?: return ActionOutcome.Error("Sessão expirada. Faça login novamente.")
+            ?: return ActionOutcome.Error(UiText.Res(R.string.vm_error_session_expired))
 
         _uiState.update { it.copy(isSubmitting = true) }
         return try {
@@ -273,12 +284,17 @@ class AccountsVaultsViewModel @Inject constructor(
                 )
             }
             bankAccountRepository.save(account)
-            val msg = if (existing != null) "Conta atualizada" else "Conta cadastrada"
+            val msg = UiText.Res(
+                if (existing != null) R.string.vm_account_updated else R.string.vm_account_created
+            )
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(t.message ?: "Erro ao salvar conta")
+            ActionOutcome.Error(
+                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_error_save_account)
+            )
         }
     }
 
@@ -286,12 +302,17 @@ class AccountsVaultsViewModel @Inject constructor(
         _uiState.update { it.copy(isSubmitting = true) }
         return try {
             val result = bankAccountRepository.archiveOrDelete(accountId)
-            val msg = if (result?.deletedAt != null) "Conta excluída" else "Conta arquivada"
+            val msg = UiText.Res(
+                if (result?.deletedAt != null) R.string.vm_account_deleted else R.string.vm_account_archived
+            )
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(t.message ?: "Erro ao arquivar conta")
+            ActionOutcome.Error(
+                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_error_archive_account)
+            )
         }
     }
 
@@ -306,17 +327,17 @@ class AccountsVaultsViewModel @Inject constructor(
     ): ActionOutcome {
         val trimmedName = name.trim()
         if (trimmedName.isEmpty()) {
-            return ActionOutcome.Error("Informe o nome da caixinha")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_vault_name_required))
         }
         if (initialBalance < BigDecimal.ZERO) {
-            return ActionOutcome.Error("O saldo inicial não pode ser negativo")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_vault_initial_negative))
         }
         if (goalAmount != null && goalAmount <= BigDecimal.ZERO) {
-            return ActionOutcome.Error("A meta deve ser maior que zero")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_vault_goal_positive))
         }
 
         val userId = userSession.currentUserId()
-            ?: return ActionOutcome.Error("Sessão expirada. Faça login novamente.")
+            ?: return ActionOutcome.Error(UiText.Res(R.string.vm_error_session_expired))
 
         _uiState.update { it.copy(isSubmitting = true) }
         return try {
@@ -357,12 +378,17 @@ class AccountsVaultsViewModel @Inject constructor(
                 settingsRepository.save(currentSettings.copy(maintenanceVaultId = null))
             }
 
-            val msg = if (existing != null) "Caixinha atualizada" else "Caixinha cadastrada"
+            val msg = UiText.Res(
+                if (existing != null) R.string.vm_vault_updated else R.string.vm_vault_created
+            )
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(t.message ?: "Erro ao salvar caixinha")
+            ActionOutcome.Error(
+                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_error_save_vault)
+            )
         }
     }
 
@@ -374,12 +400,17 @@ class AccountsVaultsViewModel @Inject constructor(
             if (currentSettings?.maintenanceVaultId == vaultId) {
                 settingsRepository.save(currentSettings.copy(maintenanceVaultId = null))
             }
-            val msg = if (result?.deletedAt != null) "Caixinha excluída" else "Caixinha arquivada"
+            val msg = UiText.Res(
+                if (result?.deletedAt != null) R.string.vm_vault_deleted else R.string.vm_vault_archived
+            )
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(t.message ?: "Erro ao arquivar caixinha")
+            ActionOutcome.Error(
+                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_error_archive_vault)
+            )
         }
     }
 
@@ -390,7 +421,7 @@ class AccountsVaultsViewModel @Inject constructor(
         operationId: String
     ): ActionOutcome {
         if (amount <= BigDecimal.ZERO) {
-            return ActionOutcome.Error("Informe um valor maior que zero")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_amount_positive))
         }
         _uiState.update { it.copy(isSubmitting = true) }
         return try {
@@ -400,12 +431,17 @@ class AccountsVaultsViewModel @Inject constructor(
                 note = note?.trim()?.takeIf { it.isNotEmpty() },
                 operationId = operationId
             )
-            val msg = if (entry != null) "Aporte registrado" else "Operação já registrada"
+            val msg = UiText.Res(
+                if (entry != null) R.string.vm_deposit_recorded else R.string.vm_operation_already_recorded
+            )
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(t.message ?: "Erro ao registrar aporte")
+            ActionOutcome.Error(
+                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_error_deposit)
+            )
         }
     }
 
@@ -416,7 +452,7 @@ class AccountsVaultsViewModel @Inject constructor(
         operationId: String
     ): ActionOutcome {
         if (amount <= BigDecimal.ZERO) {
-            return ActionOutcome.Error("Informe um valor maior que zero")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_amount_positive))
         }
         _uiState.update { it.copy(isSubmitting = true) }
         return try {
@@ -424,7 +460,7 @@ class AccountsVaultsViewModel @Inject constructor(
             if (amount.setScale(2, RoundingMode.HALF_UP) > available) {
                 _uiState.update { it.copy(isSubmitting = false) }
                 return ActionOutcome.Error(
-                    "O valor máximo para retirada é o saldo existente (${available.formatCurrency()})"
+                    UiText.Res(R.string.vm_error_withdraw_max_balance, available.formatCurrency())
                 )
             }
             val entry = ledgerRepository.retirar(
@@ -433,17 +469,22 @@ class AccountsVaultsViewModel @Inject constructor(
                 note = note?.trim()?.takeIf { it.isNotEmpty() },
                 operationId = operationId
             )
-            val msg = if (entry != null) "Retirada registrada" else "Operação já registrada"
+            val msg = UiText.Res(
+                if (entry != null) R.string.vm_withdraw_recorded else R.string.vm_operation_already_recorded
+            )
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (e: InsufficientVaultBalance) {
             _uiState.update { it.copy(isSubmitting = false) }
             ActionOutcome.Error(
-                "O valor máximo para retirada é o saldo existente (${e.available.formatCurrency()})"
+                UiText.Res(R.string.vm_error_withdraw_max_balance, e.available.formatCurrency())
             )
         } catch (t: Throwable) {
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(t.message ?: "Erro ao registrar retirada")
+            ActionOutcome.Error(
+                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_error_withdraw)
+            )
         }
     }
 
@@ -455,13 +496,13 @@ class AccountsVaultsViewModel @Inject constructor(
         operationId: String
     ): ActionOutcome {
         if (fromVaultId == toVaultId) {
-            return ActionOutcome.Error("Selecione uma caixinha de destino diferente")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_transfer_same_vault))
         }
         if (toVaultId.isBlank()) {
-            return ActionOutcome.Error("Selecione a caixinha de destino")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_transfer_target_required))
         }
         if (amount <= BigDecimal.ZERO) {
-            return ActionOutcome.Error("Informe um valor maior que zero")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_amount_positive))
         }
         _uiState.update { it.copy(isSubmitting = true) }
         return try {
@@ -469,7 +510,7 @@ class AccountsVaultsViewModel @Inject constructor(
             if (amount.setScale(2, RoundingMode.HALF_UP) > available) {
                 _uiState.update { it.copy(isSubmitting = false) }
                 return ActionOutcome.Error(
-                    "O valor máximo para retirada é o saldo existente (${available.formatCurrency()})"
+                    UiText.Res(R.string.vm_error_withdraw_max_balance, available.formatCurrency())
                 )
             }
             val entries = ledgerRepository.transferir(
@@ -479,17 +520,22 @@ class AccountsVaultsViewModel @Inject constructor(
                 note = note?.trim()?.takeIf { it.isNotEmpty() },
                 operationId = operationId
             )
-            val msg = if (entries.isNotEmpty()) "Transferência registrada" else "Operação já registrada"
+            val msg = UiText.Res(
+                if (entries.isNotEmpty()) R.string.vm_transfer_recorded else R.string.vm_operation_already_recorded
+            )
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (e: InsufficientVaultBalance) {
             _uiState.update { it.copy(isSubmitting = false) }
             ActionOutcome.Error(
-                "O valor máximo para retirada é o saldo existente (${e.available.formatCurrency()})"
+                UiText.Res(R.string.vm_error_withdraw_max_balance, e.available.formatCurrency())
             )
         } catch (t: Throwable) {
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(t.message ?: "Erro ao transferir")
+            ActionOutcome.Error(
+                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_error_transfer)
+            )
         }
     }
 
@@ -500,7 +546,7 @@ class AccountsVaultsViewModel @Inject constructor(
         operationId: String
     ): ActionOutcome {
         if (targetBalance < BigDecimal.ZERO) {
-            return ActionOutcome.Error("O saldo ajustado não pode ser negativo")
+            return ActionOutcome.Error(UiText.Res(R.string.vm_error_adjust_negative))
         }
         _uiState.update { it.copy(isSubmitting = true) }
         return try {
@@ -508,7 +554,7 @@ class AccountsVaultsViewModel @Inject constructor(
             val normalizedTarget = targetBalance.setScale(2, RoundingMode.HALF_UP)
             if (normalizedTarget.compareTo(currentBalance) == 0) {
                 _uiState.update { it.copy(isSubmitting = false) }
-                return ActionOutcome.NoChange("Saldo já está correto")
+                return ActionOutcome.NoChange(UiText.Res(R.string.vm_adjust_no_change))
             }
             val entry = ledgerRepository.ajustarSaldo(
                 vaultId = vaultId,
@@ -516,12 +562,17 @@ class AccountsVaultsViewModel @Inject constructor(
                 note = note?.trim()?.takeIf { it.isNotEmpty() },
                 operationId = operationId
             )
-            val msg = if (entry != null) "Saldo ajustado" else "Operação já registrada"
+            val msg = UiText.Res(
+                if (entry != null) R.string.vm_adjust_recorded else R.string.vm_operation_already_recorded
+            )
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(t.message ?: "Erro ao ajustar saldo")
+            ActionOutcome.Error(
+                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+                    ?: UiText.Res(R.string.vm_error_adjust)
+            )
         }
     }
 }

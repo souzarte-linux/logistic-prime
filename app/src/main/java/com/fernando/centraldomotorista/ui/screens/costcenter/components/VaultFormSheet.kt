@@ -36,15 +36,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fernando.centraldomotorista.R
 import com.fernando.centraldomotorista.data.model.BankAccount
 import com.fernando.centraldomotorista.data.model.Vault
 import com.fernando.centraldomotorista.data.model.VaultPurpose
 import com.fernando.centraldomotorista.ui.screens.costcenter.ActionOutcome
+import com.fernando.centraldomotorista.ui.screens.costcenter.UiText
+import com.fernando.centraldomotorista.ui.screens.costcenter.asString
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
 import com.fernando.centraldomotorista.ui.utils.cleanCurrencyInput
@@ -94,7 +98,7 @@ fun VaultFormSheet(
     }
     var accountExpanded by remember { mutableStateOf(false) }
     var purposeExpanded by remember { mutableStateOf(false) }
-    var errorText by remember { mutableStateOf<String?>(null) }
+    var errorText by remember { mutableStateOf<UiText?>(null) }
     val scope = rememberCoroutineScope()
 
     val trackingDate = existing?.trackingStartDate ?: LocalDate.now()
@@ -123,14 +127,19 @@ fun VaultFormSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (existing == null) "NOVA CAIXINHA" else "EDITAR CAIXINHA",
+                        text = stringResource(
+                            if (existing == null) R.string.vault_form_title_new else R.string.vault_form_title_edit
+                        ),
                         fontWeight = FontWeight.Black,
                         fontSize = 18.sp,
                         color = OrangeNeon,
                         letterSpacing = 1.sp
                     )
                     TextButton(onClick = onDismiss) {
-                        Text("Fechar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.cost_center_action_close),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -142,8 +151,8 @@ fun VaultFormSheet(
                         name = it
                         errorText = null
                     },
-                    label = { Text("Nome da caixinha *") },
-                    placeholder = { Text("Ex.: Troca de óleo e pneus") },
+                    label = { Text(stringResource(R.string.vault_form_name_label)) },
+                    placeholder = { Text(stringResource(R.string.vault_form_name_placeholder)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth(),
@@ -157,10 +166,10 @@ fun VaultFormSheet(
                     onExpandedChange = { accountExpanded = !accountExpanded }
                 ) {
                     OutlinedTextField(
-                        value = selectedAccount?.name ?: "Sem conta vinculada",
+                        value = selectedAccount?.name ?: stringResource(R.string.vault_form_account_none),
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Conta bancária") },
+                        label = { Text(stringResource(R.string.vault_form_account_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -172,7 +181,7 @@ fun VaultFormSheet(
                         onDismissRequest = { accountExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Sem conta vinculada") },
+                            text = { Text(stringResource(R.string.vault_form_account_none)) },
                             onClick = {
                                 selectedAccountId = null
                                 accountExpanded = false
@@ -200,7 +209,7 @@ fun VaultFormSheet(
                         value = selectedPurpose.label,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Propósito") },
+                        label = { Text(stringResource(R.string.vault_form_purpose_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = purposeExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -232,8 +241,8 @@ fun VaultFormSheet(
                             initialBalanceText = cleanCurrencyInput(it)
                             errorText = null
                         },
-                        label = { Text("Saldo inicial") },
-                        placeholder = { Text("0,00") },
+                        label = { Text(stringResource(R.string.vault_form_initial_balance_label)) },
+                        placeholder = { Text(stringResource(R.string.cost_center_currency_placeholder)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth(),
@@ -249,8 +258,8 @@ fun VaultFormSheet(
                         goalAmountText = cleanCurrencyInput(it)
                         errorText = null
                     },
-                    label = { Text("Meta (opcional)") },
-                    placeholder = { Text("Ex.: 1500,00") },
+                    label = { Text(stringResource(R.string.vault_form_goal_label)) },
+                    placeholder = { Text(stringResource(R.string.vault_form_goal_placeholder)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
@@ -260,7 +269,7 @@ fun VaultFormSheet(
 
             item {
                 Text(
-                    text = "Início do acompanhamento: $trackingDateText",
+                    text = stringResource(R.string.vault_form_tracking_start, trackingDateText),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -276,12 +285,12 @@ fun VaultFormSheet(
                 ) {
                     Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                         Text(
-                            text = "Usar como caixinha de desgaste de peças",
+                            text = stringResource(R.string.vault_form_maintenance_title),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Recebe a reserva sugerida de manutenção. Apenas uma caixinha por vez.",
+                            text = stringResource(R.string.vault_form_maintenance_subtitle),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -297,10 +306,10 @@ fun VaultFormSheet(
                 }
             }
 
-            if (errorText != null) {
+            errorText?.let { err ->
                 item {
                     Text(
-                        text = errorText.orEmpty(),
+                        text = err.asString(),
                         color = RedAlert,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
@@ -347,7 +356,9 @@ fun VaultFormSheet(
                         .height(50.dp)
                 ) {
                     Text(
-                        text = if (isSubmitting) "Salvando..." else "Salvar caixinha",
+                        text = stringResource(
+                            if (isSubmitting) R.string.cost_center_saving else R.string.vault_form_save
+                        ),
                         fontWeight = FontWeight.Bold
                     )
                 }
