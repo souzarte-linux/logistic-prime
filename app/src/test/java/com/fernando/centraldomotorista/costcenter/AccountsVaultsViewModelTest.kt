@@ -391,7 +391,7 @@ class AccountsVaultsViewModelTest {
     }
 
     @Test
-    fun `emissao concorrente do banco nao sobrescreve snackbarMessage nem syncStatus`() = runTest {
+    fun `atualizacao do banco preserva snackbarMessage e syncStatus`() = runTest {
         val standardDispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(standardDispatcher)
         val dbProvider = FakeLocalDatabaseProvider(db)
@@ -417,8 +417,6 @@ class AccountsVaultsViewModelTest {
             goalAmount = null,
             isMaintenanceVault = false
         )
-        // Neste ponto, saveVault já atualizou snackbarMessage, mas as corrotinas de observeMainData e observeSyncStatus ainda podem estar na fila
-        // Forçamos também uma nova emissão do banco enquanto há snackbar/sync pendente
         advanceUntilIdle()
 
         assertNotNull(localVm.uiState.value.snackbarMessage)

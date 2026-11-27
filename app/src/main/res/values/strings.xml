@@ -34,16 +34,24 @@
     <string name="cost_center_vault_action_statement">Extrato</string>
     <string name="cost_center_archive_account_title">Arquivar conta?</string>
     <string name="cost_center_archive_account_message">A conta \"%1$s\" será arquivada (ou removida se não possuir movimentações vinculadas).</string>
-    <string name="cost_center_archive_account_active_vaults_warning">Esta conta tem %1$d caixinha(s) ativa(s). Elas continuarão ativas e aparecerão em \'Caixinhas de contas arquivadas\'.</string>
     <string name="cost_center_archive_vault_title">Arquivar caixinha?</string>
     <string name="cost_center_archive_vault_message">A caixinha \"%1$s\" será arquivada (ou removida se não possuir movimentações vinculadas).</string>
 
     <!-- Chip de sincronização -->
     <string name="sync_status_synced">Sincronizado</string>
-    <string name="sync_status_pending_one">1 alteração pendente</string>
-    <string name="sync_status_pending_many">%1$d alterações pendentes</string>
     <string name="sync_status_failed">Falha ao sincronizar — tentar de novo</string>
     <string name="sync_status_unknown">Status de sincronização indisponível</string>
+
+    <plurals name="sync_status_pending">
+        <item quantity="one">%d alteração pendente</item>
+        <item quantity="many">%d alterações pendentes</item>
+        <item quantity="other">%d alterações pendentes</item>
+    </plurals>
+    <plurals name="cost_center_archive_account_active_vaults_warning">
+        <item quantity="one">Esta conta tem %d caixinha ativa. Ela continuará ativa e aparecerá em \'Caixinhas de contas arquivadas\'.</item>
+        <item quantity="many">Esta conta tem %d caixinhas ativas. Elas continuarão ativas e aparecerão em \'Caixinhas de contas arquivadas\'.</item>
+        <item quantity="other">Esta conta tem %d caixinhas ativas. Elas continuarão ativas e aparecerão em \'Caixinhas de contas arquivadas\'.</item>
+    </plurals>
 
     <!-- Formulário de conta -->
     <string name="account_form_title_new">NOVA CONTA BANCÁRIA</string>
@@ -146,4 +154,26 @@
     <string name="vm_adjust_no_change">Saldo já está correto</string>
     <string name="vm_adjust_recorded">Saldo ajustado</string>
     <string name="vm_error_adjust">Erro ao ajustar saldo</string>
+
+    <!-- Rótulos de enums do Centro de Custos -->
+    <string name="account_type_corrente">Conta corrente</string>
+    <string name="account_type_poupanca">Poupança</string>
+    <string name="account_type_pagamento">Conta de pagamento</string>
+    <string name="account_type_outra">Outra</string>
+    <string name="vault_purpose_manutencao">Manutenção</string>
+    <string name="vault_purpose_impostos">Impostos</string>
+    <string name="vault_purpose_garagem">Garagem</string>
+    <string name="vault_purpose_seguro">Seguro</string>
+    <string name="vault_purpose_custos_fixos">Custos fixos</string>
+    <string name="vault_purpose_viagem">Viagem</string>
+    <string name="vault_purpose_emergencia">Emergência</string>
+    <string name="vault_purpose_outro">Outro</string>
+    <string name="ledger_entry_aporte">Aporte</string>
+    <string name="ledger_entry_retirada">Retirada</string>
+    <string name="ledger_entry_transferencia">Transferência</string>
+    <string name="ledger_entry_ajuste">Ajuste</string>
+    <string name="ledger_entry_pagamento_despesa">Pagamento de despesa</string>
+    <string name="ledger_entry_pagamento_custo_fixo">Pagamento de custo fixo</string>
+    <string name="ledger_entry_pagamento_fatura">Pagamento de fatura</string>
+    <string name="ledger_entry_estorno">Estorno</string>
 </resources>

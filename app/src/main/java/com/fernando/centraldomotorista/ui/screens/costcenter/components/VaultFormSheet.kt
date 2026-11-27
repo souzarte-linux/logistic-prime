@@ -49,6 +49,7 @@ import com.fernando.centraldomotorista.data.model.VaultPurpose
 import com.fernando.centraldomotorista.ui.screens.costcenter.ActionOutcome
 import com.fernando.centraldomotorista.ui.screens.costcenter.UiText
 import com.fernando.centraldomotorista.ui.screens.costcenter.asString
+import com.fernando.centraldomotorista.ui.screens.costcenter.labelRes
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
 import com.fernando.centraldomotorista.ui.utils.cleanCurrencyInput
@@ -206,7 +207,7 @@ fun VaultFormSheet(
                     onExpandedChange = { purposeExpanded = !purposeExpanded }
                 ) {
                     OutlinedTextField(
-                        value = selectedPurpose.label,
+                        value = stringResource(selectedPurpose.labelRes()),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text(stringResource(R.string.vault_form_purpose_label)) },
@@ -222,7 +223,7 @@ fun VaultFormSheet(
                     ) {
                         VaultPurpose.entries.forEach { purpose ->
                             DropdownMenuItem(
-                                text = { Text(purpose.label) },
+                                text = { Text(stringResource(purpose.labelRes())) },
                                 onClick = {
                                     selectedPurpose = purpose
                                     purposeExpanded = false

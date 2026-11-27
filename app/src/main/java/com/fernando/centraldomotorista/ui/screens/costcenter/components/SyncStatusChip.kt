@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -47,11 +48,7 @@ fun SyncStatusChip(
             Icons.Default.CloudDone
         )
         is SyncChipStatus.Pending -> Triple(
-            if (status.count == 1) {
-                stringResource(R.string.sync_status_pending_one)
-            } else {
-                stringResource(R.string.sync_status_pending_many, status.count)
-            },
+            pluralStringResource(R.plurals.sync_status_pending, status.count, status.count),
             OrangeNeon,
             Icons.Default.Sync
         )
