@@ -20,11 +20,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Injeção de variáveis de ambiente com fallback para desenvolvimento local
-        val supabaseUrl = project.findProperty("SUPABASE_URL")?.toString()
-            ?: System.getenv("SUPABASE_URL")
+        val supabaseUrl = project.findProperty("SUPABASE_URL")?.toString()?.takeIf { it.isNotBlank() }
+            ?: System.getenv("SUPABASE_URL")?.takeIf { it.isNotBlank() }
             ?: "https://koocvhlprwtdympjwbco.supabase.co"
-        val supabaseAnonKey = project.findProperty("SUPABASE_ANON_KEY")?.toString()
-            ?: System.getenv("SUPABASE_ANON_KEY")
+        val supabaseAnonKey = project.findProperty("SUPABASE_ANON_KEY")?.toString()?.takeIf { it.isNotBlank() }
+            ?: System.getenv("SUPABASE_ANON_KEY")?.takeIf { it.isNotBlank() }
             ?: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtvb2N2aGxwcnd0ZHltcGp3YmNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3MDA1OTYsImV4cCI6MjEwMzI3NjU5Nn0.celeh6fUU4jgEC7C1FDm4z2nqnsgagblg9VwcStaQE0"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
@@ -33,16 +33,16 @@ android {
 
     signingConfigs {
         create("release") {
-            val storeFilePath = project.findProperty("RELEASE_STORE_FILE")?.toString()
-                ?: System.getenv("RELEASE_STORE_FILE")
+            val storeFilePath = project.findProperty("RELEASE_STORE_FILE")?.toString()?.takeIf { it.isNotBlank() }
+                ?: System.getenv("RELEASE_STORE_FILE")?.takeIf { it.isNotBlank() }
             if (!storeFilePath.isNullOrBlank() && file(storeFilePath).exists()) {
                 storeFile = file(storeFilePath)
-                storePassword = project.findProperty("RELEASE_STORE_PASSWORD")?.toString()
-                    ?: System.getenv("RELEASE_STORE_PASSWORD")
-                keyAlias = project.findProperty("RELEASE_KEY_ALIAS")?.toString()
-                    ?: System.getenv("RELEASE_KEY_ALIAS")
-                keyPassword = project.findProperty("RELEASE_KEY_PASSWORD")?.toString()
-                    ?: System.getenv("RELEASE_KEY_PASSWORD")
+                storePassword = project.findProperty("RELEASE_STORE_PASSWORD")?.toString()?.takeIf { it.isNotBlank() }
+                    ?: System.getenv("RELEASE_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+                keyAlias = project.findProperty("RELEASE_KEY_ALIAS")?.toString()?.takeIf { it.isNotBlank() }
+                    ?: System.getenv("RELEASE_KEY_ALIAS")?.takeIf { it.isNotBlank() }
+                keyPassword = project.findProperty("RELEASE_KEY_PASSWORD")?.toString()?.takeIf { it.isNotBlank() }
+                    ?: System.getenv("RELEASE_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
             }
         }
     }
@@ -91,6 +91,11 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.systemProperty("user.timezone", "America/Bahia")
+            it.systemProperty("user.language", "pt")
+            it.systemProperty("user.country", "BR")
+        }
     }
 }
 
