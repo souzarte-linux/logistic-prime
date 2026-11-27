@@ -423,7 +423,9 @@ private fun AccountSectionCard(
         account.institution?.takeIf { it.isNotBlank() }?.let { add(it) }
         account.accountLastDigits?.takeIf { it.isNotBlank() }?.let { add("•••• $it") }
     }
-    val subtitle = subtitleParts.joinToString(" • ").ifBlank { account.accountType?.label }
+    val subtitle = subtitleParts.joinToString(" • ").ifBlank {
+        account.accountType?.let { stringResource(it.labelRes()) }
+    }
 
     val informedDateText = remember(account.informedBalanceAt) {
         account.informedBalanceAt?.atZone(ZoneId.systemDefault())?.toLocalDate()
@@ -552,7 +554,7 @@ private fun VaultItemCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = vault.purpose.label,
+                        text = stringResource(vault.purpose.labelRes()),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

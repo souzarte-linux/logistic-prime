@@ -39,6 +39,7 @@ import com.fernando.centraldomotorista.R
 import com.fernando.centraldomotorista.data.model.LedgerEntry
 import com.fernando.centraldomotorista.data.model.LedgerEntryType
 import com.fernando.centraldomotorista.data.model.Vault
+import com.fernando.centraldomotorista.ui.screens.costcenter.labelRes
 import com.fernando.centraldomotorista.ui.screens.relatorios.formatCurrency
 import com.fernando.centraldomotorista.ui.theme.BlueInfo
 import com.fernando.centraldomotorista.ui.theme.GreenNeon
@@ -184,14 +185,14 @@ private fun LedgerEntryRow(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = entry.entryType.label,
+            contentDescription = stringResource(entry.entryType.labelRes()),
             tint = iconTint,
             modifier = Modifier.size(22.dp)
         )
 
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = entry.entryType.label,
+                text = stringResource(entry.entryType.labelRes()),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface
@@ -201,7 +202,7 @@ private fun LedgerEntryRow(
                 val originalSummary = if (originalEntry != null) {
                     stringResource(
                         R.string.vault_statement_reversal_with_original,
-                        originalEntry.entryType.label.lowercase(),
+                        stringResource(originalEntry.entryType.labelRes()).lowercase(),
                         originalEntry.amount.formatCurrency()
                     )
                 } else {

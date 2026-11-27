@@ -1,5 +1,6 @@
 package com.fernando.centraldomotorista.ui.screens.costcenter
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fernando.centraldomotorista.R
@@ -37,6 +38,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 sealed interface SyncChipStatus {
     data object Synced : SyncChipStatus
@@ -86,6 +88,10 @@ class AccountsVaultsViewModel @Inject constructor(
     private val syncScheduler: SyncScheduler
 ) : ViewModel() {
 
+    private companion object {
+        const val TAG = "AccountsVaultsVM"
+    }
+
     private val _uiState = MutableStateFlow(AccountsVaultsUiState())
     val uiState: StateFlow<AccountsVaultsUiState> = _uiState.asStateFlow()
 
@@ -118,8 +124,8 @@ class AccountsVaultsViewModel @Inject constructor(
                         maintenanceVaultId = settings?.maintenanceVaultId
                     )
                 }.catch { throwable ->
-                    val msg = throwable.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                        ?: UiText.Res(R.string.vm_error_load_accounts_vaults)
+                    Log.w(TAG, "observeMainData falhou: ${throwable::class.java.simpleName}")
+                    val msg = UiText.Res(R.string.vm_error_load_accounts_vaults)
                     _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
                 }
             }.collect { data ->
@@ -197,9 +203,9 @@ class AccountsVaultsViewModel @Inject constructor(
                 syncScheduler.scheduleOneTimeSync()
                 _uiState.update { it.copy(snackbarMessage = UiText.Res(R.string.vm_sync_scheduled)) }
             } catch (t: Throwable) {
-                val msg = t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_sync_reschedule_failed)
-                _uiState.update { it.copy(snackbarMessage = msg) }
+                if (t is CancellationException) throw t
+                Log.w(TAG, "retrySync falhou: ${t::class.java.simpleName}")
+                _uiState.update { it.copy(snackbarMessage = UiText.Res(R.string.vm_sync_reschedule_failed)) }
             }
         }
     }
@@ -290,11 +296,10 @@ class AccountsVaultsViewModel @Inject constructor(
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            Log.w(TAG, "saveAccount falhou: ${t::class.java.simpleName}")
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(
-                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_error_save_account)
-            )
+            ActionOutcome.Error(UiText.Res(R.string.vm_error_save_account))
         }
     }
 
@@ -308,11 +313,10 @@ class AccountsVaultsViewModel @Inject constructor(
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            Log.w(TAG, "archiveAccount falhou: ${t::class.java.simpleName}")
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(
-                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_error_archive_account)
-            )
+            ActionOutcome.Error(UiText.Res(R.string.vm_error_archive_account))
         }
     }
 
@@ -384,11 +388,10 @@ class AccountsVaultsViewModel @Inject constructor(
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            Log.w(TAG, "saveVault falhou: ${t::class.java.simpleName}")
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(
-                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_error_save_vault)
-            )
+            ActionOutcome.Error(UiText.Res(R.string.vm_error_save_vault))
         }
     }
 
@@ -406,11 +409,10 @@ class AccountsVaultsViewModel @Inject constructor(
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            Log.w(TAG, "archiveVault falhou: ${t::class.java.simpleName}")
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(
-                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_error_archive_vault)
-            )
+            ActionOutcome.Error(UiText.Res(R.string.vm_error_archive_vault))
         }
     }
 
@@ -437,11 +439,10 @@ class AccountsVaultsViewModel @Inject constructor(
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            Log.w(TAG, "deposit falhou: ${t::class.java.simpleName}")
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(
-                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_error_deposit)
-            )
+            ActionOutcome.Error(UiText.Res(R.string.vm_error_deposit))
         }
     }
 
@@ -480,11 +481,10 @@ class AccountsVaultsViewModel @Inject constructor(
                 UiText.Res(R.string.vm_error_withdraw_max_balance, e.available.formatCurrency())
             )
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            Log.w(TAG, "withdraw falhou: ${t::class.java.simpleName}")
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(
-                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_error_withdraw)
-            )
+            ActionOutcome.Error(UiText.Res(R.string.vm_error_withdraw))
         }
     }
 
@@ -531,11 +531,10 @@ class AccountsVaultsViewModel @Inject constructor(
                 UiText.Res(R.string.vm_error_withdraw_max_balance, e.available.formatCurrency())
             )
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            Log.w(TAG, "transfer falhou: ${t::class.java.simpleName}")
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(
-                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_error_transfer)
-            )
+            ActionOutcome.Error(UiText.Res(R.string.vm_error_transfer))
         }
     }
 
@@ -568,11 +567,10 @@ class AccountsVaultsViewModel @Inject constructor(
             _uiState.update { it.copy(isSubmitting = false, snackbarMessage = msg) }
             ActionOutcome.Success(msg)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            Log.w(TAG, "adjust falhou: ${t::class.java.simpleName}")
             _uiState.update { it.copy(isSubmitting = false) }
-            ActionOutcome.Error(
-                t.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
-                    ?: UiText.Res(R.string.vm_error_adjust)
-            )
+            ActionOutcome.Error(UiText.Res(R.string.vm_error_adjust))
         }
     }
 }

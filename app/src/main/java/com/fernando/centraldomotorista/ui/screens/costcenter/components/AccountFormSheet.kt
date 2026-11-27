@@ -46,6 +46,7 @@ import com.fernando.centraldomotorista.data.model.BankAccount
 import com.fernando.centraldomotorista.ui.screens.costcenter.ActionOutcome
 import com.fernando.centraldomotorista.ui.screens.costcenter.UiText
 import com.fernando.centraldomotorista.ui.screens.costcenter.asString
+import com.fernando.centraldomotorista.ui.screens.costcenter.labelRes
 import com.fernando.centraldomotorista.ui.theme.OrangeNeon
 import com.fernando.centraldomotorista.ui.theme.RedAlert
 import com.fernando.centraldomotorista.ui.utils.cleanCurrencyInput
@@ -186,7 +187,8 @@ fun AccountFormSheet(
                     onExpandedChange = { typeExpanded = !typeExpanded }
                 ) {
                     OutlinedTextField(
-                        value = selectedType?.label ?: stringResource(R.string.account_form_type_none),
+                        value = selectedType?.let { stringResource(it.labelRes()) }
+                            ?: stringResource(R.string.account_form_type_none),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text(stringResource(R.string.account_form_type_label)) },
@@ -209,7 +211,7 @@ fun AccountFormSheet(
                         )
                         AccountType.entries.forEach { type ->
                             DropdownMenuItem(
-                                text = { Text(type.label) },
+                                text = { Text(stringResource(type.labelRes())) },
                                 onClick = {
                                     selectedType = type
                                     typeExpanded = false

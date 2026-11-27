@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -316,8 +317,9 @@ fun CentroCustosScreen(
         val activeVaultCount = uiState.vaults.count { it.accountId == account.id }
         val baseMessage = stringResource(R.string.cost_center_archive_account_message, account.name)
         val fullMessage = if (activeVaultCount > 0) {
-            "$baseMessage\n\n" + stringResource(
-                R.string.cost_center_archive_account_active_vaults_warning,
+            "$baseMessage\n\n" + pluralStringResource(
+                R.plurals.cost_center_archive_account_active_vaults_warning,
+                activeVaultCount,
                 activeVaultCount
             )
         } else {
